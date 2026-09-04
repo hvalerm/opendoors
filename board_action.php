@@ -118,23 +118,61 @@ try {
     <title>Gestionar <?php echo htmlspecialchars($nombre_board); ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Script de escucha (Polling): Revisa el estado cada 3 segundos si la puerta está abierta -->
-    <?php if ($estado_actual == 1): ?>
+    <!-- Script de escucha (Polling pasivo): Actualiza la interfaz dinámicamente sin recargar la página -->
     <script>
         setInterval(function() {
-            // Hacemos una petición invisible al servidor para consultar el estado actual
             fetch('check_status.php?id_boa=<?php echo $id_boa; ?>&id_loc=<?php echo $id_loc; ?>')
                 .then(response => response.json())
                 .then(data => {
-                    // Si el estado en la BD cambió a 0, recargamos la página para mostrar el nuevo estado
+                    const statusText = document.getElementById('estado-texto');
+                    const statusContainer = document.getElementById('estado-contenedor');
+                    const formContainer = document.getElementById('formulario-accion');
+
                     if (data.activate == 0) {
-                        location.reload();
+                        // Cambiar visualmente a cerrado
+                        if (statusText) {
+                            statusText.className = "text-2xl font-bold mt-1 text-gray-700";
+                            statusText.innerText = "🔒 Puerta Cerrada";
+                        }
+                        if (statusContainer) {
+                            statusContainer.className = "w-12 h-12 rounded-full flex items-center justify-center bg-gray-200 text-gray-500";
+                        }
+                        if (formContainer) {
+                            formContainer.innerHTML = `
+                                <form method="POST" class="space-y-4">
+                                    <input type="hidden" name="activate" value="1">
+                                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center text-lg">
+                                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+                                        <?php echo $es_puerta ? 'Abrir Puerta Principal' : 'Activar Dispositivo'; ?>
+                                    </button>
+                                </form>
+                            `;
+                        }
+                    } else if (data.activate == 1) {
+                        // Cambiar visualmente a abierto
+                        if (statusText) {
+                            statusText.className = "text-2xl font-bold mt-1 text-green-600";
+                            statusText.innerText = "🔓 Puerta Abierta";
+                        }
+                        if (statusContainer) {
+                            statusContainer.className = "w-12 h-12 rounded-full flex items-center justify-center bg-green-100 text-green-600 animate-pulse";
+                        }
+                        if (formContainer) {
+                            formContainer.innerHTML = `
+                                <form method="POST" class="space-y-4">
+                                    <input type="hidden" name="activate" value="0">
+                                    <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center text-lg">
+                                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                        <?php echo $es_puerta ? 'Cerrar Puerta Principal' : 'Desactivar Dispositivo'; ?>
+                                    </button>
+                                </form>
+                            `;
+                        }
                     }
                 })
                 .catch(error => console.error('Error al comprobar el estado:', error));
-        }, 3000); // Revisa cada 3000 milisegundos (3 segundos)
+        }, 3000); // Consulta cada 3 segundos en segundo plano
     </script>
-    <?php endif; ?>
 </head>
 <body class="bg-gray-50 min-h-screen">
 
@@ -169,11 +207,6 @@ try {
                     <span class="text-xs uppercase tracking-wider font-semibold opacity-80"><?php echo htmlspecialchars($nombre_ubicacion); ?></span>
                     <h1 class="text-3xl font-extrabold mt-1"><?php echo htmlspecialchars($nombre_board); ?></h1>
                 </div>
-                <?php if ($estado_actual == 1): ?>
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white animate-pulse">
-                        <span class="w-2 h-2 mr-1.5 bg-green-300 rounded-full"></span> Escuchando cambios...
-                    </span>
-                <?php endif; ?>
             </div>
 
             <?php if (!empty($mensaje)): ?>
@@ -187,7 +220,7 @@ try {
                 <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl p-6 mb-8">
                     <div>
                         <p class="text-sm font-medium text-gray-500">Estado actual del dispositivo en esta localidad</p>
-                        <p class="text-2xl font-bold mt-1 <?php echo $estado_actual == 1 ? 'text-green-600' : 'text-gray-700'; ?>">
+                        <p id="estado-texto" class="text-2xl font-bold mt-1 <?php echo $estado_actual == 1 ? 'text-green-600' : 'text-gray-700'; ?>">
                             <?php if ($es_puerta): ?>
                                 <?php echo $estado_actual == 1 ? '🔓 Puerta Abierta' : '🔒 Puerta Cerrada'; ?>
                             <?php else: ?>
@@ -196,26 +229,28 @@ try {
                         </p>
                     </div>
                     
-                    <div class="w-12 h-12 rounded-full flex items-center justify-center <?php echo $estado_actual == 1 ? 'bg-green-100 text-green-600 animate-pulse' : 'bg-gray-200 text-gray-500'; ?>">
+                    <div id="estado-contenedor" class="w-12 h-12 rounded-full flex items-center justify-center <?php echo $estado_actual == 1 ? 'bg-green-100 text-green-600 animate-pulse' : 'bg-gray-200 text-gray-500'; ?>">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                     </div>
                 </div>
 
-                <form method="POST" class="space-y-4">
-                    <?php if ($estado_actual == 0): ?>
-                        <input type="hidden" name="activate" value="1">
-                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center text-lg">
-                            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
-                            <?php echo $es_puerta ? 'Abrir Puerta Principal' : 'Activar Dispositivo'; ?>
-                        </button>
-                    <?php else: ?>
-                        <input type="hidden" name="activate" value="0">
-                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center text-lg">
-                            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                            <?php echo $es_puerta ? 'Cerrar Puerta Principal' : 'Desactivar Dispositivo'; ?>
-                        </button>
-                    <?php endif; ?>
-                </form>
+                <div id="formulario-accion">
+                    <form method="POST" class="space-y-4">
+                        <?php if ($estado_actual == 0): ?>
+                            <input type="hidden" name="activate" value="1">
+                            <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center text-lg">
+                                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+                                <?php echo $es_puerta ? 'Abrir Puerta Principal' : 'Activar Dispositivo'; ?>
+                            </button>
+                        <?php else: ?>
+                            <input type="hidden" name="activate" value="0">
+                            <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center text-lg">
+                                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                <?php echo $es_puerta ? 'Cerrar Puerta Principal' : 'Desactivar Dispositivo'; ?>
+                            </button>
+                        <?php endif; ?>
+                    </form>
+                </div>
 
             </div>
         </div>
