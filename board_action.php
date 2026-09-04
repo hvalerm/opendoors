@@ -38,7 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $nuevo_estado = isset($_POST['activate']) ? intval($_POST['activate']) : 0;
     
     try {
-        // Verificar si existe el registro en BoardAction para esta clave compuesta
         $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM BoardAction WHERE id_boa = :id_boa AND id_loc = :id_loc");
         $stmtCheck->execute(['id_boa' => $id_boa, 'id_loc' => $id_loc]);
         $existe = $stmtCheck->fetchColumn();
@@ -118,7 +117,6 @@ try {
     <title>Gestionar <?php echo htmlspecialchars($nombre_board); ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Script de escucha (Polling pasivo): Actualiza la interfaz dinámicamente sin recargar la página -->
     <script>
         setInterval(function() {
             fetch('check_status.php?id_boa=<?php echo $id_boa; ?>&id_loc=<?php echo $id_loc; ?>')
@@ -129,7 +127,6 @@ try {
                     const formContainer = document.getElementById('formulario-accion');
 
                     if (data.activate == 0) {
-                        // Cambiar visualmente a cerrado
                         if (statusText) {
                             statusText.className = "text-2xl font-bold mt-1 text-gray-700";
                             statusText.innerText = "🔒 Puerta Cerrada";
@@ -142,14 +139,12 @@ try {
                                 <form method="POST" class="space-y-4">
                                     <input type="hidden" name="activate" value="1">
                                     <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center text-lg">
-                                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
-                                        <?php echo $es_puerta ? 'Abrir Puerta Principal' : 'Activar Dispositivo'; ?>
+                                        Abrir Puerta Principal
                                     </button>
                                 </form>
                             `;
                         }
                     } else if (data.activate == 1) {
-                        // Cambiar visualmente a abierto
                         if (statusText) {
                             statusText.className = "text-2xl font-bold mt-1 text-green-600";
                             statusText.innerText = "🔓 Puerta Abierta";
@@ -162,8 +157,7 @@ try {
                                 <form method="POST" class="space-y-4">
                                     <input type="hidden" name="activate" value="0">
                                     <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center text-lg">
-                                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                                        <?php echo $es_puerta ? 'Cerrar Puerta Principal' : 'Desactivar Dispositivo'; ?>
+                                        Cerrar Puerta Principal
                                     </button>
                                 </form>
                             `;
@@ -171,18 +165,16 @@ try {
                     }
                 })
                 .catch(error => console.error('Error al comprobar el estado:', error));
-        }, 3000); // Consulta cada 3 segundos en segundo plano
+        }, 3000);
     </script>
 </head>
 <body class="bg-gray-50 min-h-screen">
 
-    <!-- Barra de Navegación -->
     <nav class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
                 <div class="flex items-center space-x-4">
                     <a href="location_details.php?id_loc=<?php echo $id_loc; ?>" class="text-gray-500 hover:text-blue-600 transition-colors flex items-center group">
-                        <svg class="w-5 h-5 mr-1 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                         Volver a Sensores
                     </a>
                     <span class="h-6 w-px bg-gray-300"></span>
@@ -197,9 +189,7 @@ try {
         </div>
     </nav>
 
-    <!-- Contenido Principal -->
     <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             
             <div class="bg-gradient-to-r <?php echo $es_puerta ? 'from-amber-500 to-amber-600' : 'from-emerald-500 to-emerald-600'; ?> px-8 py-6 text-white flex justify-between items-center">
@@ -216,16 +206,11 @@ try {
             <?php endif; ?>
 
             <div class="p-8">
-                
                 <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl p-6 mb-8">
                     <div>
                         <p class="text-sm font-medium text-gray-500">Estado actual del dispositivo en esta localidad</p>
                         <p id="estado-texto" class="text-2xl font-bold mt-1 <?php echo $estado_actual == 1 ? 'text-green-600' : 'text-gray-700'; ?>">
-                            <?php if ($es_puerta): ?>
-                                <?php echo $estado_actual == 1 ? '🔓 Puerta Abierta' : '🔒 Puerta Cerrada'; ?>
-                            <?php else: ?>
-                                <?php echo $estado_actual == 1 ? '🟢 Activado' : '⚪ Desactivado'; ?>
-                            <?php endif; ?>
+                            <?php echo $estado_actual == 1 ? '🔓 Puerta Abierta' : '🔒 Puerta Cerrada'; ?>
                         </p>
                     </div>
                     
@@ -239,19 +224,16 @@ try {
                         <?php if ($estado_actual == 0): ?>
                             <input type="hidden" name="activate" value="1">
                             <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center text-lg">
-                                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
-                                <?php echo $es_puerta ? 'Abrir Puerta Principal' : 'Activar Dispositivo'; ?>
+                                Abrir Puerta Principal
                             </button>
                         <?php else: ?>
                             <input type="hidden" name="activate" value="0">
                             <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center text-lg">
-                                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                                <?php echo $es_puerta ? 'Cerrar Puerta Principal' : 'Desactivar Dispositivo'; ?>
+                                Cerrar Puerta Principal
                             </button>
                         <?php endif; ?>
                     </form>
                 </div>
-
             </div>
         </div>
     </main>
