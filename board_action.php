@@ -1,6 +1,4 @@
 <?php
-ini_set('session.cookie_secure', '1');
-ini_set('session.cookie_samesite', 'Lax');
 session_start();
 
 // 1. Validar Sesión y Rol
@@ -57,21 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 'id_boa' => $id_boa, 
                 'id_loc' => $id_loc, 
                 'activate' => $nuevo_estado
-            ]);
-        }
-
-        // Registrar en el Log de auditoría
-        $stmtLb = $pdo->prepare("SELECT id_loc_boa FROM Location_Board WHERE id_loc = :id_loc AND id_boa = :id_boa");
-        $stmtLb->execute(['id_loc' => $id_loc, 'id_boa' => $id_boa]);
-        $id_loc_boa = $stmtLb->fetchColumn();
-
-        if ($id_loc_boa) {
-            $id_act = 1; 
-            $stmtLog = $pdo->prepare("INSERT INTO Log (Id_act, Id_acc, Id_loc_boa) VALUES (:id_act, :id_acc, :id_loc_boa)");
-            $stmtLog->execute([
-                'id_act' => $id_act,
-                'id_acc' => $_SESSION['user_acc'],
-                'id_loc_boa' => $id_loc_boa
             ]);
         }
 
