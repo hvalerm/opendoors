@@ -8,14 +8,16 @@ header('Content-Type: application/json');
 
 if ($id_loc > 0 && $id_boa > 0) {
     try {
+        // 1. Consultar el estado actual
         $stmt = $pdo->prepare("SELECT activate FROM BoardAction WHERE id_boa = :id_boa AND id_loc = :id_loc");
         $stmt->execute(['id_boa' => $id_boa, 'id_loc' => $id_loc]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row && intval($row['activate']) == 1) {
-            // Si está en 1, respondemos JSON y lo actualizamos a 0 de inmediato
+            // 2. Responder al ESP32 que debe abrir la puerta
             echo json_encode(["activate" => 1]);
             
+            // 3. Forzar de inmediato el reseteo a 0 para que no se quede encendido
             $update = $pdo->prepare("UPDATE BoardAction SET activate = 0 WHERE id_boa = :id_boa AND id_loc = :id_loc");
             $update->execute(['id_boa' => $id_boa, 'id_loc' => $id_loc]);
             exit;
@@ -25,5 +27,6 @@ if ($id_loc > 0 && $id_boa > 0) {
     }
 }
 
+// Si no está en 1 o hubo algún detalle, responde 0 por defecto
 echo json_encode(["activate" => 0]);
 ?>
