@@ -1,7 +1,7 @@
 <?php
 require 'db.php';
 
-$id_loc = isset($_GET['id_loc']) ? intval($_GET['id_loc']) : 0;
+$id_loc = isset($_GET['id_loc']) ? intval($_GET['id_loc']) : 3;
 $id_boa = isset($_GET['id_boa']) ? intval($_GET['id_boa']) : 1;
 
 header('Content-Type: application/json');
