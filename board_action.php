@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $mensaje = $nuevo_estado == 1 ? "Puerta abierta correctamente. Monitoreando estado..." : "Puerta cerrada correctamente.";
         $tipo_alerta = "success";
     } catch (PDOException $e) {
-       $mensaje = "Error en BD: " . $e->getMessage();
+        $mensaje = "Error en BD: " . $e->getMessage();
         $tipo_alerta = "error";
     }
 }
