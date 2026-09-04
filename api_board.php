@@ -21,7 +21,7 @@ if ($id_loc > 0 && $id_boa > 0) {
             exit;
         }
     } catch (PDOException $e) {
-        // Error silencioso
+        // Error silencioso para no romper la respuesta del ESP32
     }
 }
 
