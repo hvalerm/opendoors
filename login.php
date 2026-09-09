@@ -5,6 +5,7 @@ require 'db.php';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    echo "Hola";
     $usuario = trim($_POST['user_acc']);
     $password = trim($_POST['pass_acc']);
 
