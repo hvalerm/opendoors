@@ -60,10 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
             ':idCuenta' => $id_cuenta,
             ':idPais' => $id_pais
         ]);
-    } catch (PDOException $e){
-        echo "ERROR: " . $e->getMessage();
-    }
-}
+    
 ?>
 
 
@@ -94,3 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
 
 </body>
 </html>
+
+<?php
+    } catch (PDOException $e){
+        echo "ERROR: " . $e->getMessage();
+    }
+}
+?>
