@@ -24,42 +24,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
         die("Error: El formato del correo electrónico no es válido.");
     }
     
-    // Encriptar la contraseña de forma segura utilizando Argon2id
-    $password_hash = password_hash($credencial, PASSWORD_ARGON2ID);
-    
-    $sql = "INSERT INTO Cuenta (correo_cuenta, credencial_cuenta, id_tipoCuenta)
-        VALUES (:correo, :credencial, 1)";
-    
-    $stmt = $pdo->prepare($sql);
-    
-    $stmt->execute([
-        ':correo' => $correo,
-        ':credencial' => $credencial
-    ]);
-    
-    
-    $sql ="SELECT id_cuenta FROM Cuenta where correo_cuenta=:correo";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':correo' => $correo
-    ]);
-    $r=$stmt->fetch(PDO::FETCH_ASSOC);
-    $id_cuenta=$r['id_cuenta'];
-    
-    
-    
-    $sql = "INSERT INTO Huesped (dni_huesped, nombre_huesped, apellido_huesped, id_cuenta, id_pais)
-            VALUES (:dni, :nombre, :apellido, :idCuenta, :idPais)";
-    
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':dni' => $dni,
-        ':nombre' => $nombre,
-        ':apellido' => $apellido,
-        ':idCuenta' => $id_cuenta,
-        ':idPais' => $id_pais
-    ]);
-    
+    try{
+        // Encriptar la contraseña de forma segura utilizando Argon2id
+        $credencial_hash = password_hash($credencial, PASSWORD_ARGON2ID);
+
+        $sql = "INSERT INTO Cuenta (correo_cuenta, credencial_cuenta, id_tipoCuenta)
+            VALUES (:correo, :credencial_encriptada, 1)";
+
+        $stmt = $pdo->prepare($sql);
+
+        $stmt->execute([
+            ':correo' => $correo,
+            ':credencial_encriptada' => $credencial_hash
+        ]);
+
+
+        $sql ="SELECT id_cuenta FROM Cuenta where correo_cuenta=:correo";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':correo' => $correo
+        ]);
+        $r=$stmt->fetch(PDO::FETCH_ASSOC);
+        $id_cuenta=$r['id_cuenta'];
+
+
+
+        $sql = "INSERT INTO Huesped (dni_huesped, nombre_huesped, apellido_huesped, id_cuenta, id_pais)
+                VALUES (:dni, :nombre, :apellido, :idCuenta, :idPais)";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':dni' => $dni,
+            ':nombre' => $nombre,
+            ':apellido' => $apellido,
+            ':idCuenta' => $id_cuenta,
+            ':idPais' => $id_pais
+        ]);
+    } catch (PDOException $e){
+        echo "ERROR: " . $e->getMessage();
+    }
 }
 ?>
 
