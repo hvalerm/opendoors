@@ -70,9 +70,9 @@ try {
                     Completar Registro
                 </button>
                 
-                <!-- Ir a iniciar sesion -->
-                <a href="../login.php" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200">
-                    Iniciar Sesión
+                <!-- Ir a iniciar sesión -->
+                <a href="../login.php" class="block w-full text-center text-gray-400 hover:text-emerald-400 text-sm font-medium transition duration-200 mt-4">
+                    ¿Ya tienes una cuenta? Iniciar Sesión
                 </a>
             </form>
            
