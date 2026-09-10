@@ -5,6 +5,7 @@ require 'db.php';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    die('Entra a POST');
     //Datos ingresados
     $correo_cuenta = trim($_POST['correo_cuenta']);
     $credencial_cuenta = trim($_POST['credencial_cuenta']);
