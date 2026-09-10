@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <div class="mt-6 text-center">
             <p class="text-sm text-gray-600">
                 ¿No tienes una cuenta? 
-                <a href="register.php" class="font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+                <a href="ModoHuesped/registarHuesped.php" class="font-semibold text-blue-600 hover:text-blue-800 transition-colors">
                     Regístrate aquí
                 </a>
             </p>

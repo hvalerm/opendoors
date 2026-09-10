@@ -1,16 +1,27 @@
-<!DOCTYPE html>
-<!--
-Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
-Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to edit this template
--->
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <title></title>
-    </head>
-    <body>
-        <?php
-        // put your code here
-        ?>
-    </body>
-</html>
+<?php
+session_start();
+
+// 1. Validar Sesión y Rol
+if (!isset($_SESSION['user_acc'])) {
+    header("Location: ../login.php");
+    exit;
+}
+
+$rol_permitido = 3; 
+$mi_rol = $_SESSION['id_accTyp'];
+
+if ($mi_rol != $rol_permitido){
+    header("Location: ../login.php");
+    exit;
+}
+
+//FIN VALIDACIONES
+
+
+
+require 'db.php';
+
+
+
+
+?>
