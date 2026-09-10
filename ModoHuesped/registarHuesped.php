@@ -70,6 +70,7 @@ try {
                     Completar Registro
                 </button>
             </form>
+            <br>
             <div>
                 <!-- Ir a iniciar sesion -->
                 <a href="../login.php" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200">
