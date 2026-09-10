@@ -5,28 +5,28 @@ require 'db.php';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $usuario = trim($_POST['user_acc']);
-    $password = trim($_POST['pass_acc']);
+    $correo_cuenta = trim($_POST['correo_cuenta']);
+    $credencial_cuenta = trim($_POST['credencial_cuenta']);
 
     // Generamos el hash SHA-512 en PHP con la contraseña ingresada
-    $password_hash = hash('sha512', $password);
+    $credencial_cuenta_hash = password_hash($credencial_cuenta, PASSWORD_ARGON2ID);
 
-    // Consulta preparada contra la tabla Account
+    // Consulta preparada contra la tabla Cuenta
     // Ahora comparamos también el hash de la contraseña directamente en la consulta (o en PHP)
-    $stmt = $pdo->prepare("SELECT user_acc, id_accTyp FROM Account WHERE user_acc = :usuario AND pass_acc = :password");
+    $stmt = $pdo->prepare("SELECT correo_cuenta, id_cuenta FROM Cuenta WHERE correo_cuenta = :correo AND credencial_cuenta = :credencial");
     $stmt->execute([
-        'usuario' => $usuario,
-        'password' => $password_hash // Pasamos el hash generado en PHP
+        ':correo' => $correo_cuenta,
+        ':credencial' => $credencial_cuenta_hash // Pasamos el hash generado en PHP
     ]);
     
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // Si $user tiene datos, las credenciales coinciden
     if ($user) {
-        $_SESSION['user_acc'] = $user['user_acc'];
-        $_SESSION['id_accTyp'] = $user['id_accTyp'];
+        $_SESSION['correo_cuenta'] = $user['correo_cuenta'];
+        $_SESSION['id_cuenta'] = $user['id_cuenta'];
         
-        switch ($_SESSION['id_accTyp']) {
+        switch ($_SESSION['id_cuenta']) {
             //Administrador
             case 1:
                 header("Location: ModoAdministrador/vistaAdministrador.php");
@@ -95,16 +95,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             <!-- Input Usuario -->
             <div>
-                <label for="user_acc" class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
-                <input type="text" id="user_acc" name="user_acc" required 
+                <label for="correo_cuenta" class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                <input type="text" id="correo_cuenta" name="correo_cuenta" required 
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                       placeholder="Ingresa tu usuario">
+                       placeholder="Ingresa tu correo">
             </div>
 
             <!-- Input Contraseña -->
             <div>
-                <label for="pass_acc" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-                <input type="password" id="pass_acc" name="pass_acc" required 
+                <label for="credencial_cuenta" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                <input type="password" id="credencial_cuenta" name="credencial_cuenta" required 
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                        placeholder="••••••••">
             </div>
