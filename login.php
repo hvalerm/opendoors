@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Consulta preparada contra la tabla Cuenta
     // Ahora comparamos también el hash de la contraseña directamente en la consulta (o en PHP)
-    $stmt = $pdo->prepare("SELECT correo_cuenta, id_cuenta FROM Cuenta WHERE correo_cuenta = ':correo' AND credencial_cuenta = ':credencial'");
+    $stmt = $pdo->prepare("SELECT correo_cuenta, id_cuenta FROM Cuenta WHERE correo_cuenta = :correo AND credencial_cuenta = :credencial");
     $stmt->execute([
         ':correo' => $correo_cuenta,
         ':credencial' => $credencial_cuenta_hash // Pasamos el hash generado en PHP
