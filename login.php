@@ -5,7 +5,7 @@ require 'db.php';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    die('Entra a POST');
+   
     //Datos ingresados
     $correo_cuenta = trim($_POST['correo_cuenta']);
     $credencial_cuenta = trim($_POST['credencial_cuenta']);
@@ -19,7 +19,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $registro = $stmt->fetch(PDO::FETCH_ASSOC);
     $credencia_hash = $registro['credencial_cuenta'];
 
+    
+    
+    
     if (password_verify($credencial_cuenta, $credencia_hash)) {
+        die("La credencial es valida");
         //Encontrar la id_cuenta de la cuenta
         $sql = "SELECT id_cuenta FROM Cuenta WHERE correo_cuenta = :correo_cuenta";
         $stmt = $pdo->prepare($sql);
