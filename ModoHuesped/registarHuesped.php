@@ -69,14 +69,13 @@ try {
                         class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-lg cursor-pointer mt-6">
                     Completar Registro
                 </button>
-            </form>
-            <br>
-            <div>
+                
                 <!-- Ir a iniciar sesion -->
                 <a href="../login.php" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-colors duration-200">
                     Iniciar Sesión
                 </a>
-            </div>
+            </form>
+           
         </div>
 
     </body>
