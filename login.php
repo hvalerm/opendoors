@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     
     if (password_verify($credencial_cuenta, $credencia_hash)) {
-        die("La credencial es valida");
+        
         //Encontrar la id_cuenta de la cuenta
         $sql = "SELECT id_cuenta FROM Cuenta WHERE correo_cuenta = :correo_cuenta";
         $stmt = $pdo->prepare($sql);
@@ -36,7 +36,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         //Asignamos los datos a GLOBAL
         $_SESSION['correo_cuenta'] = $correo_cuenta;
         $_SESSION['id_cuenta'] = $c['id_cuenta'];
-
+        
+        
+        die("id cuenta: ". $id_cuenta);
         switch ($_SESSION['id_cuenta']) {
             //Huesped
             case 1:
