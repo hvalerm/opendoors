@@ -1,38 +1,4 @@
-<?php
-session_start();
-require 'db.php';
-
-$error = '';
-
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    echo "Hola";
-    $usuario = trim($_POST['user_acc']);
-    $password = trim($_POST['pass_acc']);
-
-    // Generamos el hash SHA-512 en PHP con la contraseña ingresada
-    $password_hash = hash('sha512', $password);
-
-    // Consulta preparada contra la tabla Account
-    // Ahora comparamos también el hash de la contraseña directamente en la consulta (o en PHP)
-    $stmt = $pdo->prepare("SELECT user_acc, id_accTyp FROM Account WHERE user_acc = :usuario AND pass_acc = :password");
-    $stmt->execute([
-        'usuario' => $usuario,
-        'password' => $password_hash // Pasamos el hash generado en PHP
-    ]);
-    
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    // Si $user tiene datos, las credenciales coinciden
-    if ($user) {
-        $_SESSION['user_acc'] = $user['user_acc'];
-        $_SESSION['id_accTyp'] = $user['id_accTyp'];
-        header("Location: dashboard.php");
-        exit;
-    } else {
-        $error = "Usuario o contraseña incorrectos.";
-    }
-}
-?>
+<?php $error=''; ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
