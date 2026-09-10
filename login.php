@@ -5,26 +5,32 @@ require 'db.php';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    //Datos ingresados
     $correo_cuenta = trim($_POST['correo_cuenta']);
     $credencial_cuenta = trim($_POST['credencial_cuenta']);
 
-    // Generamos el hash SHA-512 en PHP con la contraseña ingresada
-    $credencial_cuenta_hash = password_hash($credencial_cuenta, PASSWORD_ARGON2ID);
-
-    // Consulta preparada contra la tabla Cuenta
-    // Ahora comparamos también el hash de la contraseña directamente en la consulta (o en PHP)
-    $stmt = $pdo->prepare("SELECT correo_cuenta, id_cuenta FROM Cuenta WHERE correo_cuenta = :correo AND credencial_cuenta = :credencial");
+    $sql = "select credencial_cuenta from Cuenta where correo_cuenta = :correo_cuenta";
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        ':correo' => $correo_cuenta,
-        ':credencial' => $credencial_cuenta_hash // Pasamos el hash generado en PHP
+        ':correo_cuenta' => $correo_cuenta
     ]);
 
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $registro = $stmt->fetch(PDO::FETCH_ASSOC);
+    $credencia_hash = $registro['credencial_cuenta'];
 
-    // Si $user tiene datos, las credenciales coinciden
-    if ($user) {
-        $_SESSION['correo_cuenta'] = $user['correo_cuenta'];
-        $_SESSION['id_cuenta'] = $user['id_cuenta'];
+    if (password_verify($credencia_hash, $credencial_cuenta)) {
+        //Encontrar la id_cuenta de la cuenta
+        $sql = "SELECT id_cuenta FROM Cuenta WHERE correo_cuenta = :correo_cuenta";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':correo_cuenta' => $correo_cuenta
+        ]);
+        //asigna el resultado de la consulta
+        $c = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        //Asignamos los datos a GLOBAL
+        $_SESSION['correo_cuenta'] = $correo_cuenta;
+        $_SESSION['id_cuenta'] = $c['id_cuenta'];
 
         switch ($_SESSION['id_cuenta']) {
             //Huesped
@@ -80,11 +86,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
 
             <!-- Alerta de Error -->
-            <?php if ($error): ?>
+<?php if ($error): ?>
                 <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
                     <p class="text-sm font-medium"><?php echo htmlspecialchars($error); ?></p>
                 </div>
-            <?php endif; ?>
+<?php endif; ?>
 
             <!-- Formulario -->
             <form method="POST" action="login.php" class="space-y-6">
