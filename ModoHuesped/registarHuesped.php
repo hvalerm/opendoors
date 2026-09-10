@@ -2,7 +2,7 @@
 require '../db.php';
 
 try {
-    $stmt = $pdo->query("select pais from Pais");
+    $stmt = $pdo->query("select id_pais, pais from Pais");
     $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     echo "Error de conexión: " . $e->getMessage();
@@ -48,7 +48,7 @@ try {
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Contraseña</label>
-                    <input type="password" name="password" placeholder="••••••••" required 
+                    <input type="password" name="credencial" placeholder="••••••••" required 
                            class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
                 </div>
 
@@ -57,7 +57,7 @@ try {
                     <select name="pais" required 
                             class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
                         <?php foreach ($resultados as $r): ?>
-                            <option value="<?php echo htmlspecialchars($r['pais']); ?>">
+                            <option value="<?php echo intval($r['id_pais']); ?>">
                                 <?php echo htmlspecialchars($r['pais']); ?>
                             </option>
                         <?php endforeach; ?>
