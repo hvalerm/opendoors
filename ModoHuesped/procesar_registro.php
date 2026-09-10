@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
     
     
     // Validar que ningún campo esté vacío
-    if (empty($dni) || empty($nombre) || empty($apellido) || empty($correo) || empty($password_plano) || empty($id_pais)) {
+    if (empty($dni) || empty($nombre) || empty($apellido) || empty($correo) || empty($credencial) || empty($id_pais)) {
         die("Error: Todos los campos son obligatorios.");
     }
     
@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'){
     }
     
     // Encriptar la contraseña de forma segura utilizando Argon2id
-    $password_hash = password_hash($password_plano, PASSWORD_ARGON2ID);
+    $password_hash = password_hash($credencial, PASSWORD_ARGON2ID);
     
     $sql = "INSERT INTO Cuenta (correo_cuenta, credencial_cuenta, id_tipoCuenta)
         VALUES (:correo, :credencial, 1)";
