@@ -52,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $error = "No detecta";
                 break;
         }
+        exit;
         
         header("Location: dashboard.php");
         exit;
