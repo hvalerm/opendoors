@@ -6,6 +6,10 @@ $dbname = 'opendoors';
 $user = getenv('DB_USER');
 $pass = getenv('DB_PASS');
 
+die($pass);
+
+
+
 try {
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
     
