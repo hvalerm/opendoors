@@ -6,7 +6,7 @@ $dbname = 'opendoors';
 $user = getenv('DB_USER');
 $pass = getenv('DB_PASS');
 
-die("user: " . $user . " Password: " . $pass);
+die("user: " . $user );
 
 
 
