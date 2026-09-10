@@ -25,6 +25,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($user) {
         $_SESSION['user_acc'] = $user['user_acc'];
         $_SESSION['id_accTyp'] = $user['id_accTyp'];
+        
+        switch ($_SESSION['id_accTyp']) {
+            //Administrador
+            case 1:
+                header("Location: ModoAdministrador/vistaAdministrador.php");
+                break;
+            
+            //Anfitrion
+            case 2:
+                header("Location: ModoAnfitrion/vistaAnfitrion.php");
+                break;
+            
+            //Huesped
+            case 3:
+                header("Location: ModoHuesped/vistaHuesped.php");
+                break;
+            
+            //Personal
+            case 4:
+                header("Location: ModoPersonal/vistaPersonal.php");
+                break;
+
+            
+            default:
+                $error = "No detecta";
+                break;
+        }
+        
         header("Location: dashboard.php");
         exit;
     } else {
