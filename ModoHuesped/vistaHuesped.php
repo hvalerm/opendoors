@@ -69,7 +69,7 @@ $c = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     ?>
                     <!-- Contenedor de cada formulario, uno debajo de otro -->
                     <div class="bg-white p-6 rounded-xl shadow-md w-full border border-gray-100">
-                        <form method="POST" class="space-y-4">
+                        <form method="POST" action="api_opendoor.php" class="space-y-4">
 
                             <input type="hidden" name="id_acceso" value="<?php echo $row['id_acceso']; ?>">
                             <input type="hidden" name="id_local" value="<?php echo $row['id_local']; ?>">
