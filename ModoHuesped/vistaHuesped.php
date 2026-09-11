@@ -63,7 +63,7 @@ $c = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <div class="w-full max-w-lg mx-auto flex flex-col items-center space-y-6">
                 <!-- Título principal fijo arriba -->
                 <h2 class="text-2xl font-bold text-blue-600 text-center">Información de Acceso</h2>
-                
+
                 <?php
                 foreach ($c as $row) {
                     ?>
@@ -108,14 +108,18 @@ $c = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <?php
         } else {
             ?>
-            <div class="mensaje-container">
-                <h2>Acceso Restringido</h2>
-                <p>Usted ya no tiene accesos disponibles. Cualquier inconveneinte contactarse con el Anfitrion</p>
-            </div>
+            <div class="flex flex-col items-center space-y-4 w-full max-w-lg mx-auto">
+                <!-- Mensaje de acceso restringido -->
+                <div class="mensaje-container bg-white p-6 rounded-xl shadow-md w-full text-center border border-gray-100">
+                    <h2 class="text-xl font-bold text-red-600 mb-2">Acceso Restringido</h2>
+                    <p class="text-sm text-gray-600">Usted ya no tiene accesos disponibles. Cualquier inconveniente contactarse con el Anfitrión.</p>
+                </div>
 
-            <a href="tel:993044808" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 shadow text-center">
-                Llamar al 993 044 808
-            </a>
+                <!-- Botón de llamada ubicado abajo -->
+                <a href="tel:993044808" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 shadow text-center">
+                    Llamar al 993 044 808
+                </a>
+            </div>
             <?php
         }
 

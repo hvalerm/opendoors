@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <title>Abriendo Puerta</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <!-- Opcional: Redirigir automáticamente después de 3 segundos -->
-        <meta http-equiv="refresh" content="3;url=index.php">
+        <meta http-equiv="refresh" content="2;url=puerta_abierta.php?id_local=<?php echo urldecode($id_local);?>&id_placa=<?php echo urldecode($id_placa); ?>">
     </head>
     <body class="bg-gray-50 flex items-center justify-center h-screen m-0">
 
