@@ -1,34 +1,11 @@
 <?php
 session_start();
 require '../db.php';
+require '../validarAcceso.php';
 
-// 1. Validar Sesión y Rol
-if (!isset($_SESSION['correo_cuenta'])) {
-
-    header("Location: ../login.php");
-    exit;
-}
 
 $correo_cuenta = $_SESSION['correo_cuenta'];
 
-//2. Verifica que haya una tipo de cuenta en la sesion
-if (!isset($_SESSION['id_tipoCuenta'])) {
-    echo "No Hay tipoCuenta asignado";
-    die();
-}
-
-//3. Se especifica el tipo de cuenta permitido
-$id_tipoCuenta_permitido = 1;
-
-//4. Se valida que este formulario se cargue si es un usuario permitido
-if ($_SESSION['id_tipoCuenta'] != $id_tipoCuenta_permitido) {
-    echo "Usted no es un usario permitido para entrada.";
-    die();
-
-    exit;
-}
-
-//  -------------- FIN VALIDACIONES --------------
 //select H.id_huesped from Cuenta C inner join Huesped H on C.id_cuenta = H.id_cuenta inner join Acceso A on A.id_huesped = H.id_huesped ;
 
 

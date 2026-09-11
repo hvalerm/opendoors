@@ -1,8 +1,7 @@
 <?php
 session_start();
-
-require '../db.php';
-require '../validarAcceso.php';
+require '../../db.php';
+require '../../validarAcceso.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Recoger y limpiar los datos del formulario
@@ -11,10 +10,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $apellido = trim($_POST['apellido'] ?? '');
     $correo = trim($_POST['correo'] ?? '');
     $credencial = $_POST['credencial'] ?? '';
-    $id_pais = trim($_POST['pais'] ?? '');
 
     // Validar que ningún campo esté vacío
-    if (empty($dni) || empty($nombre) || empty($apellido) || empty($correo) || empty($credencial) || empty($id_pais)) {
+    if (empty($dni) || empty($nombre) || empty($apellido) || empty($correo) || empty($credencial)) {
         die("Error: Todos los campos son obligatorios.");
     }
 
@@ -28,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $credencial_hash = password_hash($credencial, PASSWORD_ARGON2ID);
 
         $sql = "INSERT INTO Cuenta (correo_cuenta, credencial_cuenta, id_tipoCuenta)
-            VALUES (:correo, :credencial_encriptada, 1)";
+            VALUES (:correo, :credencial_encriptada, 2)";
 
         $stmt = $pdo->prepare($sql);
 
@@ -37,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':credencial_encriptada' => $credencial_hash
         ]);
 
+        //Obtiene la id_cuenta de la cuenta recien registrada
         $sql = "SELECT id_cuenta FROM Cuenta where correo_cuenta=:correo";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -45,16 +44,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $r = $stmt->fetch(PDO::FETCH_ASSOC);
         $id_cuenta = $r['id_cuenta'];
 
-        $sql = "INSERT INTO Huesped (dni_huesped, nombre_huesped, apellido_huesped, id_cuenta, id_pais)
-                VALUES (:dni, :nombre, :apellido, :idCuenta, :idPais)";
+        //Agrega el los datos del personal
+        $sql = "INSERT INTO Personal (dni_personal, nombre_personal, apellido_personal, id_cuenta)
+                VALUES (:dni, :nombre, :apellido, :idCuenta)";
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             ':dni' => $dni,
             ':nombre' => $nombre,
             ':apellido' => $apellido,
-            ':idCuenta' => $id_cuenta,
-            ':idPais' => $id_pais
+            ':idCuenta' => $id_cuenta
         ]);
         ?>
 
@@ -79,8 +78,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <h2 class="text-2xl font-bold text-gray-800 mb-2">¡Registro exitoso!</h2>
                     <p class="text-gray-600 mb-6">Tu cuenta ha sido creada correctamente en el sistema!!!</p>
 
-                    <a href="../login.php" class="block w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200">
-                        Iniciar sesión
+                    <a href="../vistaAnfitrion.php" class="block w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200">
+                        Regresar al panel
                     </a>
                 </div>
 

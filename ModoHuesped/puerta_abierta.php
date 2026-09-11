@@ -1,6 +1,7 @@
 <?php
 session_start();
 require '../db.php';
+require '../validarAcceso.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $idlocal = $_GET['id_local'];

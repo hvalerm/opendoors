@@ -11,70 +11,75 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $credencial_cuenta = trim($_POST['credencial_cuenta']);
 
     //2. Encuentra credencial encriptada y lo asigna en variable $credencia_hash
-    $sql = "select credencial_cuenta from Cuenta where correo_cuenta = :correo_cuenta";
+    $sql = "select credencial_cuenta from Cuenta where correo_cuenta = :correo_cuenta and id_EstadoCuenta = 1";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         ':correo_cuenta' => $correo_cuenta
     ]);
     $c = $stmt->fetch(PDO::FETCH_ASSOC);
-    $credencia_hash = $c['credencial_cuenta'];
-
     
-    
-    //3. Verifica la credencial 
-    if (password_verify($credencial_cuenta, $credencia_hash)) {
-        
-        
-        
-        
-        
-        //Encontrar la id_cuenta de la cuenta
-        $sql = "SELECT id_tipoCuenta FROM Cuenta WHERE correo_cuenta = :correo_cuenta";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            ':correo_cuenta' => $correo_cuenta
-        ]);
-        //asigna el resultado de la consulta
-        $c = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        
-        
-        
-        $id_tipoCuenta = $c['id_tipoCuenta'];
-        //Asignamos los datos a GLOBAL
-        $_SESSION['correo_cuenta'] = $correo_cuenta;
-        $_SESSION['id_tipoCuenta'] = $id_tipoCuenta;
-        
- 
-        //Redirije a la pagina adecuada
-        switch ($id_tipoCuenta) {
-            //Huesped
-            case 1:
-                header("Location: ModoHuesped/vistaHuesped.php");
-                break;
+    if ($c){
+        $credencia_hash = $c['credencial_cuenta'];
 
-            //Personal
-            case 2:
-                header("Location: ModoPersonal/vistaPersonal.php");
-                break;
 
-            //Anfitrion
-            case 3:
-                header("Location: ModoAnfitrion/vistaAnfitrion.php");
-                break;
 
-            //Administrador
-            case 4:
-                header("Location: ModoAdministrador/vistaAdministrador.php");
-                break;
+        //3. Verifica la credencial 
+        if (password_verify($credencial_cuenta, $credencia_hash)) {
 
-            default:
-                $error = "No detecta";
-                break;
+
+
+
+
+            //Encontrar la id_cuenta de la cuenta
+            $sql = "SELECT id_tipoCuenta FROM Cuenta WHERE correo_cuenta = :correo_cuenta";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':correo_cuenta' => $correo_cuenta
+            ]);
+            //asigna el resultado de la consulta
+            $c = $stmt->fetch(PDO::FETCH_ASSOC);
+
+
+
+
+            $id_tipoCuenta = $c['id_tipoCuenta'];
+            //Asignamos los datos a GLOBAL
+            $_SESSION['correo_cuenta'] = $correo_cuenta;
+            $_SESSION['id_tipoCuenta'] = $id_tipoCuenta;
+
+
+            //Redirije a la pagina adecuada
+            switch ($id_tipoCuenta) {
+                //Huesped
+                case 1:
+                    header("Location: ModoHuesped/vistaHuesped.php");
+                    break;
+
+                //Personal
+                case 2:
+                    header("Location: ModoPersonal/vistaPersonal.php");
+                    break;
+
+                //Anfitrion
+                case 3:
+                    header("Location: ModoAnfitrion/vistaAnfitrion.php");
+                    break;
+
+                //Administrador
+                case 4:
+                    header("Location: ModoAdministrador/vistaAdministrador.php");
+                    break;
+
+                default:
+                    $error = "No detecta";
+                    break;
+            }
+            exit;
+        } else {
+            $error = "Usuario o contraseña incorrectos.";
         }
-        exit;
-    } else {
-        $error = "Usuario o contraseña incorrectos.";
+    } else{
+        $error = "Usuario inexistente o inhabilitado.";
     }
 }
 ?>
