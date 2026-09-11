@@ -1,5 +1,5 @@
 <?php
-/* * /
+/* */
 $host = getenv('DB_HOST');
 $port = getenv('DB_PORT');
 //$dbname = getenv('DB_NAME');
@@ -8,13 +8,6 @@ $user = getenv('DB_USER');
 $pass = getenv('DB_PASS');
 
 /**/
-
-$host = 'mysql-25019e99-opendoors.j.aivencloud.com';
-$port = '13195';
-$dbname = 'opendoors';
-$user = 'avnadmin';
-$pass = 'AVNS_9BjfJpsOvEDvfcr0iuT';
-
 try {
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
     
