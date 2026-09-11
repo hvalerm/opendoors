@@ -6,40 +6,48 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
    
-    //Datos ingresados
+    //1. Datos ingresados
     $correo_cuenta = trim($_POST['correo_cuenta']);
     $credencial_cuenta = trim($_POST['credencial_cuenta']);
 
+    //2. Encuentra credencial encriptada y lo asigna en variable $credencia_hash
     $sql = "select credencial_cuenta from Cuenta where correo_cuenta = :correo_cuenta";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         ':correo_cuenta' => $correo_cuenta
     ]);
+    $c = $stmt->fetch(PDO::FETCH_ASSOC);
+    $credencia_hash = $c['credencial_cuenta'];
 
-    $registro = $stmt->fetch(PDO::FETCH_ASSOC);
-    $credencia_hash = $registro['credencial_cuenta'];
-
     
     
-    
+    //3. Verifica la credencial 
     if (password_verify($credencial_cuenta, $credencia_hash)) {
         
+        
+        
+        
+        
         //Encontrar la id_cuenta de la cuenta
-        $sql = "SELECT id_cuenta FROM Cuenta WHERE correo_cuenta = :correo_cuenta";
+        $sql = "SELECT id_tipoCuenta FROM Cuenta WHERE correo_cuenta = :correo_cuenta";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             ':correo_cuenta' => $correo_cuenta
         ]);
         //asigna el resultado de la consulta
         $c = $stmt->fetch(PDO::FETCH_ASSOC);
-
+        
+        
+        
+        
+        $id_tipoCuenta = $c['id_tipoCuenta'];
         //Asignamos los datos a GLOBAL
         $_SESSION['correo_cuenta'] = $correo_cuenta;
-        $_SESSION['id_cuenta'] = $c['id_cuenta'];
+        $_SESSION['id_tipoCuenta'] = $id_tipoCuenta;
         
-        
-        die("id cuenta: ". $id_cuenta);
-        switch ($_SESSION['id_cuenta']) {
+ 
+        //Redirije a la pagina adecuada
+        switch ($id_tipoCuenta) {
             //Huesped
             case 1:
                 header("Location: ModoHuesped/vistaHuesped.php");
