@@ -32,11 +32,14 @@ if ($_SESSION['id_tipoCuenta'] != $id_tipoCuenta_permitido) {
 //select H.id_huesped from Cuenta C inner join Huesped H on C.id_cuenta = H.id_cuenta inner join Acceso A on A.id_huesped = H.id_huesped ;
 
 
-
-
-$datetimeAhora = new DateTime();
-
-$sql = "select L.nombre_local, L.direccion_local, C.correo_cuenta, H.nombre_huesped, H.apellido_huesped, A.id_acceso, A.id_local, A.datetime_inicio, A.datetime_fin from Cuenta C inner join Huesped H on C.id_cuenta = H.id_cuenta inner join Acceso A on A.id_huesped = H.id_huesped inner join Local L on L.id_local = A.id_local where correo_cuenta = :correo_cuenta and ejecutado = 0;";
+$sql = "SELECT L.nombre_local, L.direccion_local, C.correo_cuenta, H.nombre_huesped, H.apellido_huesped, A.id_acceso, A.id_local, A.datetime_inicio, A.datetime_fin 
+        FROM Cuenta C 
+        INNER JOIN Huesped H ON C.id_cuenta = H.id_cuenta 
+        INNER JOIN Acceso A ON A.id_huesped = H.id_huesped 
+        INNER JOIN Local L ON L.id_local = A.id_local 
+        WHERE C.correo_cuenta = :correo_cuenta 
+          AND A.ejecutado = 0 
+          AND NOW() BETWEEN A.datetime_inicio AND A.datetime_fin;";
 $stmt = $pdo->prepare($sql);
 $stmt->execute([
     ':correo_cuenta' => $correo_cuenta
