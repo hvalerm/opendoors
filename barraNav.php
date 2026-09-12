@@ -5,9 +5,7 @@ $correo_cuenta = $_SERVER['correo_cuenta'] ?? '';
 $nombre_usuario = "nombre";
 $apellido_usuario = "apellido";
 
-if ($debug == 1) {
-    $modo = "DEBUG";
-} else {
+
     if ($mi_rol >= 1 && $mi_rol <= 4) {
 
         //Establece el tipo de modo (Huesped, Personal, Anfitrion o Administrador)
@@ -46,7 +44,7 @@ if ($debug == 1) {
     } else {
         $modo = "DESCONOCIDO (ERROR)";
     }
-}
+
 ?>
 
 
