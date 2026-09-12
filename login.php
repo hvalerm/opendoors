@@ -24,6 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         //3. Verifica la credencial 
         if (password_verify($credencial_cuenta, $credencia_hash)) {
 
+
+            //Asignamos el correo verificado a global
+            $_SESSION['correo_cuenta'] = $correo_cuenta;
+            
             //Encontrar la id_cuenta de la cuenta
             $sql = "SELECT id_tipoCuenta FROM Cuenta WHERE correo_cuenta = :correo_cuenta";
             $stmt = $pdo->prepare($sql);
@@ -34,8 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $c = $stmt->fetch(PDO::FETCH_ASSOC);
 
             $id_tipoCuenta = $c['id_tipoCuenta'];
-            //Asignamos los datos a GLOBAL
-            $_SESSION['correo_cuenta'] = $correo_cuenta;
             $_SESSION['id_tipoCuenta'] = $id_tipoCuenta;
 
             //Redirije a la pagina adecuada
@@ -43,28 +45,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 //Huesped
                 case 1:
                     header("Location: ModoHuesped/vistaHuesped.php");
+                    exit;
                     break;
 
                 //Personal
                 case 2:
                     header("Location: ModoPersonal/vistaPersonal.php");
+                    exit;
                     break;
 
                 //Anfitrion
                 case 3:
                     header("Location: ModoAnfitrion/vistaAnfitrion.php");
+                    exit;
                     break;
 
                 //Administrador
                 case 4:
                     header("Location: ModoAdministrador/vistaAdministrador.php");
+                    exit;
                     break;
 
                 default:
                     $error = "No detecta";
+                    exit;
                     break;
             }
-            exit;
         } else {
             $error = "Usuario o contraseña incorrectos.";
         }
@@ -96,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
 
             <!-- Alerta de Error -->
-            <?php if ($error): ?>
+<?php if ($error): ?>
                 <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
                     <p class="text-sm font-medium"><?php echo htmlspecialchars($error); ?></p>
                 </div>

@@ -1,7 +1,7 @@
 <?php
 
 $modo;
-$correo_cuenta = $_SERVER['correo_cuenta'] ?? '';
+$correo_cuenta = $_SESSION['correo_cuenta'] ?? '';
 $nombre_usuario = "nombre";
 $apellido_usuario = "apellido";
 
@@ -36,7 +36,7 @@ $apellido_usuario = "apellido";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([':correo_cuenta' => $correo_cuenta]);
         $datos = $stmt->fetch(PDO::FETCH_ASSOC);
-
+        
         if ($datos) {
             $nombre_usuario = $datos['nombre'];
             $apellido_usuario = $datos['apellido'];
