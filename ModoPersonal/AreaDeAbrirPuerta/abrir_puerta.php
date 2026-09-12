@@ -25,25 +25,7 @@ try {
     </head>
     <body class="bg-gray-50 min-h-screen">
 
-        <!-- Barra de Navegación -->
-        <nav class="bg-white shadow-sm border-b border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-16 items-center">
-                    <div class="flex-shrink-0 flex items-center">
-                        <!-- Icono o Logo del sistema -->
-                        <span class="text-xl font-bold text-blue-600 tracking-wide">Panel de Personal</span>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <span class="text-sm text-gray-600 hidden sm:inline-block">
-                            Hola, <span class="font-semibold text-gray-800"><?php echo "---Datos de personal---"; ?></span>
-                        </span>
-                        <a href="../logout.php" class="text-sm font-medium text-red-600 hover:text-red-800 transition-colors bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg">
-                            Cerrar Sesión
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </nav>
+        <?php require '../../barraNav.php'; ?>
 
         <!-- Contenido Principal -->
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -73,8 +55,11 @@ try {
                 <?php else: ?>
 
                     <?php foreach ($localizaciones as $local): ?>
+
+
+
                         <!-- Enlace con altura flexible (se remueve h-40 y se usa py-8 para adaptarse al contenido) -->
-                        <a href="local.php?id_loc=<?php echo $local['id_local']; ?>" 
+                        <a href="local.php?id_local=<?php echo $local['id_local']; ?>" 
                            class="group relative block bg-white border border-gray-200 rounded-2xl p-6 py-8 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-blue-400 transition-all duration-300 flex flex-col items-center justify-center text-center overflow-hidden">
 
                             <!-- Fondo decorativo sutil en el hover -->
@@ -99,6 +84,8 @@ try {
                             </span>
 
                         </a>
+
+
                     <?php endforeach; ?>
 
                 <?php endif; ?>

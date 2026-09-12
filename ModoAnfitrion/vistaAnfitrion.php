@@ -21,6 +21,8 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
     </head>
     <body>
 
+        <?php require '../barraNav.php'; ?>
+        
         <div class="w-full max-w-xs mx-auto flex flex-col items-center space-y-6">
             <!-- Título ANFITRION en grande -->
             <h1 class="text-3xl font-extrabold text-gray-800 tracking-wide text-center">
@@ -34,6 +36,11 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
                     Abrir Puerta
                 </a>
 
+                 <!-- Área - Programar Acceso -->
+                <a href="AreaDeAcceso/area_acceso.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
+                    Area - Accesos
+                </a>
+                
                 <!-- Área - Personal de Limpieza -->
                 <a href="AreaDePersonal/area_limpieza.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
                     Area - Personal de Limpieza

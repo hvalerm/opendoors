@@ -21,6 +21,8 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
     </head>
     <body>
 
+        <?php require '../barraNav.php'; ?>
+        
         <div class="w-full max-w-xs mx-auto flex flex-col items-center space-y-6">
             <!-- Título ANFITRION en grande -->
             <h1 class="text-3xl font-extrabold text-gray-800 tracking-wide text-center">

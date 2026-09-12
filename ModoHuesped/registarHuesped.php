@@ -1,6 +1,7 @@
 <?php
+//Registra huesped - no necesita session_start()
 require '../db.php';
-require '../validarAcceso.php';
+//Registrar huesped - no necesita validar porque no ha iniciado sesion todavia
 
 try {
     $stmt = $pdo->query("select id_pais, pais from Pais");

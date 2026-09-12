@@ -18,18 +18,17 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body>
-
+        
+        <?php require '../barraNav.php'; ?>
+        
         <div class="w-full max-w-xs mx-auto flex flex-col items-center space-y-6">
-            <!-- Título ANFITRION en grande -->
-            <h1 class="text-3xl font-extrabold text-gray-800 tracking-wide text-center">
-                PERSONAL
-            </h1>
+            
 
             <!-- Contenedor de botones apilados con sus rutas específicas -->
             <div class="flex flex-col space-y-3 w-full">
-                <!-- Abrir Puerta -->
+                <!-- Area - Abrir Puerta -->
                 <a href="AreaDeAbrirPuerta/abrir_puerta.php" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow text-center">
-                    Abrir Puerta
+                    Area - Abrir Puerta
                 </a>
 
 
