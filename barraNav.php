@@ -1,5 +1,5 @@
 <?php
-require 'db.php';
+
 $modo;
 $correo_cuenta = $_SERVER['correo_cuenta'] ?? '';
 $nombre_usuario = "nombre";
