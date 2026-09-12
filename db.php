@@ -6,6 +6,16 @@ $dbname = getenv('DB_NAME');
 $user = getenv('DB_USER');
 $pass = getenv('DB_PASS');
 
+$debug = 0;
+
+if ($debug == 1) {
+    
+    if (!isset($mi_rol)) {
+        $mi_rol = 0;
+    }
+    
+}
+
 try {
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
 

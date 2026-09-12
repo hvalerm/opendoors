@@ -4,6 +4,9 @@
 $mi_rol = $_SESSION['id_tipoCuenta'];
 //----------------------
 
+if (!isset($debug)) {
+    $debug = 0;
+}
 
 if ($debug == 0)://Si el modo debug esta desactivado, prosigue en la verificacion
 
