@@ -5,7 +5,7 @@ require 'db.php';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-   
+
     //1. Datos ingresados
     $correo_cuenta = trim($_POST['correo_cuenta']);
     $credencial_cuenta = trim($_POST['credencial_cuenta']);
@@ -17,18 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         ':correo_cuenta' => $correo_cuenta
     ]);
     $c = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if ($c){
+
+    //Si hay resultados
+    if ($c) {
         $credencia_hash = $c['credencial_cuenta'];
-
-
 
         //3. Verifica la credencial 
         if (password_verify($credencial_cuenta, $credencia_hash)) {
-
-
-
-
 
             //Encontrar la id_cuenta de la cuenta
             $sql = "SELECT id_tipoCuenta FROM Cuenta WHERE correo_cuenta = :correo_cuenta";
@@ -39,14 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             //asigna el resultado de la consulta
             $c = $stmt->fetch(PDO::FETCH_ASSOC);
 
-
-
-
             $id_tipoCuenta = $c['id_tipoCuenta'];
             //Asignamos los datos a GLOBAL
             $_SESSION['correo_cuenta'] = $correo_cuenta;
             $_SESSION['id_tipoCuenta'] = $id_tipoCuenta;
-
 
             //Redirije a la pagina adecuada
             switch ($id_tipoCuenta) {
@@ -78,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } else {
             $error = "Usuario o contraseña incorrectos.";
         }
-    } else{
+    } else {
         $error = "Usuario inexistente o inhabilitado.";
     }
 }
@@ -106,11 +97,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
 
             <!-- Alerta de Error -->
-<?php if ($error): ?>
+            <?php if ($error): ?>
                 <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
                     <p class="text-sm font-medium"><?php echo htmlspecialchars($error); ?></p>
                 </div>
-<?php endif; ?>
+            <?php endif; ?>
 
             <!-- Formulario -->
             <form method="POST" action="login.php" class="space-y-6">

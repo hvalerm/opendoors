@@ -39,8 +39,10 @@ if ($debug == 1) {
         $stmt->execute([':correo_cuenta' => $correo_cuenta]);
         $datos = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $nombre_usuario = $datos['nombre'];
-        $apellido_usuario = $datos['apellido'];
+        if ($datos) {
+            $nombre_usuario = $datos['nombre'];
+            $apellido_usuario = $datos['apellido'];
+        }
     } else {
         $modo = "DESCONOCIDO (ERROR)";
     }

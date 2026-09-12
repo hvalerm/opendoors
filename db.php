@@ -14,6 +14,11 @@ if ($debug == 1) {
         $mi_rol = 0;
     }
     
+    $host = 'mysql-25019e99-opendoors.j.aivencloud.com';
+    $port = '13195';
+    $dbname = 'opendoors';
+    $user = 'avnadmin';
+    $pass = 'AVNS_9BjfJpsOvEDvfcr0iuT';
 }
 
 try {
