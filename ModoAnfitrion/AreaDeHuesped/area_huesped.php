@@ -31,11 +31,11 @@ require '../../validarAcceso.php';
                         Huésped - Administrar datos
                     </a>
 
-                    <a href="Curso/huesped_curso.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
+                    <a href="Huesped_AdministrarEstancia/huesped_administrarEstancia.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
                         Huésped - Administrar Estancia
                     </a>
 
-                    <a href="Antecedentes/huesped_antecedentes.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
+                    <a href="Huesped_Antecedentes/huesped_antecedentes.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
                         Huésped - Antecedentes
                     </a>
                 </div>

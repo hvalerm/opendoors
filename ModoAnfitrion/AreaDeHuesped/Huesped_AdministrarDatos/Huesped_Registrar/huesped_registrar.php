@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Registrar Huésped</title><script src="https://cdn.tailwindcss.com"></script></head>
 <body class="bg-gray-50 min-h-screen flex flex-col m-0">
 <div class="w-full"><?php require '../../../../barraNav.php'; ?></div>
-<div class="w-full px-4 pt-4"><a href="../../area_huesped.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al área de huéspedes</a></div>
+<div class="w-full px-4 pt-4"><a href="../huesped_administrarDatos.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar a administración de huéspedes</a></div>
 <main class="flex-grow flex items-center justify-center px-4 py-10"><section class="bg-white p-8 rounded-xl shadow-md max-w-lg w-full">
 <h1 class="text-2xl font-bold text-gray-800 text-center">Registrar Huésped</h1>
 <?php if (isset($_GET['registro'])): ?><p class="mt-4 bg-green-100 text-green-700 p-3 rounded-lg text-center">Huésped registrado correctamente.</p><?php endif; ?>

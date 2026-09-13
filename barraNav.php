@@ -62,7 +62,7 @@ $apellido_usuario = "apellido";
                 <span class="text-sm text-gray-600 hidden sm:inline-block">
                     Hola, <span class="font-semibold text-gray-800"><?php echo $nombre_usuario . " " . $apellido_usuario; ?></span>
                 </span>
-                <a href="/opendoors/logout.php" class="text-sm font-medium text-red-600 hover:text-red-800 transition-colors bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg">
+                <a href="/logout.php" class="text-sm font-medium text-red-600 hover:text-red-800 transition-colors bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg">
                     Cerrar Sesión
                 </a>
             </div>
