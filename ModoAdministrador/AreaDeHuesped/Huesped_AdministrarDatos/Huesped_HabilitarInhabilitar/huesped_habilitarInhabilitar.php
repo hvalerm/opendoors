@@ -38,8 +38,8 @@ $huespedes = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <?php require '../../../../barraNav.php'; ?>
         </div>
         <div class="w-full px-4 pt-4">
-            <a href="../../area_huesped.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg transition duration-200">
-                &larr; Regresar al área de huéspedes
+            <a href="../huesped_administrarDatos.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg transition duration-200">
+                &larr; Regresar a administración de huéspedes
             </a>
         </div>
 

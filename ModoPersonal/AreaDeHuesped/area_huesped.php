@@ -14,7 +14,6 @@ require '../../validarAcceso.php';
     </head>
     <body class="bg-gray-50 min-h-screen flex flex-col justify-between m-0">
 
-        <!-- Contenedor superior: Barra de navegación -->
         <div class="w-full">
             <?php require '../../barraNav.php'; ?>
         </div>

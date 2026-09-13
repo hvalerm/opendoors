@@ -3,6 +3,11 @@ require '../../../../db.php';
 require '../../../../validarAcceso.php';
 
 $error = '';
+$dni = '';
+$nombre = '';
+$apellido = '';
+$correo = '';
+$pais_seleccionado = '';
 $resultados = [];
 
 try {
@@ -19,9 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $correo = trim($_POST['correo'] ?? '');
     $credencial = $_POST['credencial'] ?? '';
     $credencial_confirmacion = $_POST['credencial_confirmacion'] ?? '';
-    $id_pais = trim($_POST['pais'] ?? '');
+    $pais_seleccionado = trim($_POST['pais'] ?? '');
 
-    if ($dni === '' || $nombre === '' || $apellido === '' || $correo === '' || $credencial === '' || $credencial_confirmacion === '' || $id_pais === '') {
+    if ($dni === '' || $nombre === '' || $apellido === '' || $correo === '' || $credencial === '' || $credencial_confirmacion === '' || $pais_seleccionado === '') {
         $error = 'Todos los campos son obligatorios.';
     } elseif (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
         $error = 'El formato del correo electrónico no es válido.';
@@ -44,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':nombre' => $nombre,
                 ':apellido' => $apellido,
                 ':id_cuenta' => $id_cuenta,
-                ':id_pais' => $id_pais
+                ':id_pais' => $pais_seleccionado
             ]);
 
             $pdo->commit();
@@ -72,8 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php require '../../../../barraNav.php'; ?>
         </div>
         <div class="w-full px-4 pt-4">
-            <a href="../../area_huesped.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg transition duration-200">
-                &larr; Regresar al área de huéspedes
+                <a href="../huesped_administrarDatos.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg transition duration-200">
+                &larr; Regresar a administración de huéspedes
             </a>
         </div>
 
@@ -89,16 +94,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
 
                 <form method="POST" class="space-y-4 mt-6">
-                    <input type="text" name="dni" maxlength="8" pattern="[0-9]{8}" placeholder="DNI" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
-                    <input type="text" name="nombre" placeholder="Nombre" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
-                    <input type="text" name="apellido" placeholder="Apellido" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
-                    <input type="email" name="correo" placeholder="Correo electrónico" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                    <input type="text" name="dni" value="<?php echo htmlspecialchars($dni); ?>" maxlength="8" pattern="[0-9]{8}" placeholder="DNI" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                    <input type="text" name="nombre" value="<?php echo htmlspecialchars($nombre); ?>" placeholder="Nombre" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                    <input type="text" name="apellido" value="<?php echo htmlspecialchars($apellido); ?>" placeholder="Apellido" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                    <input type="email" name="correo" value="<?php echo htmlspecialchars($correo); ?>" placeholder="Correo electrónico" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
                     <input type="password" name="credencial" placeholder="Contraseña" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
                     <input type="password" name="credencial_confirmacion" placeholder="Confirmar contraseña" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
                     <select name="pais" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
-                        <option value="" disabled selected>Selecciona el país</option>
-                        <?php foreach ($resultados as $pais): ?>
-                            <option value="<?php echo (int) $pais['id_pais']; ?>"><?php echo htmlspecialchars($pais['pais']); ?></option>
+                        <option value="" disabled <?php echo $pais_seleccionado === '' ? 'selected' : ''; ?>>Selecciona el país</option>
+                        <?php foreach ($resultados as $opcion_pais): ?>
+                            <option value="<?php echo (int) $opcion_pais['id_pais']; ?>" <?php echo (string) $opcion_pais['id_pais'] === $pais_seleccionado ? 'selected' : ''; ?>><?php echo htmlspecialchars($opcion_pais['pais']); ?></option>
                         <?php endforeach; ?>
                     </select>
                     <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-lg">

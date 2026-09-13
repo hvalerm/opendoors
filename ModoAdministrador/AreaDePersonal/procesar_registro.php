@@ -15,15 +15,21 @@ $credencial = $_POST['credencial'] ?? '';
 $credencial_confirmacion = $_POST['credencial_confirmacion'] ?? '';
 
 if (empty($dni) || empty($nombre) || empty($apellido) || empty($correo) || empty($credencial) || empty($credencial_confirmacion)) {
-    die('Error: Todos los campos son obligatorios.');
+    $error = 'Todos los campos son obligatorios.';
+    include 'registrarPersonal.php';
+    exit;
 }
 
 if ($credencial !== $credencial_confirmacion) {
-    die('Error: Las contraseñas no coinciden.');
+    $error = 'Las contraseñas no coinciden.';
+    include 'registrarPersonal.php';
+    exit;
 }
 
 if (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
-    die('Error: El formato del correo electrónico no es válido.');
+    $error = 'El formato del correo electrónico no es válido.';
+    include 'registrarPersonal.php';
+    exit;
 }
 
 try {
@@ -59,8 +65,11 @@ try {
     }
 
     if ($e->getCode() === '23000') {
-        die('Error: El correo o DNI ya está registrado.');
+        $error = 'El correo o DNI ya está registrado.';
+    } else {
+        $error = 'Error al registrar el personal.';
     }
 
-    die('Error al registrar el personal.');
+    include 'registrarPersonal.php';
+    exit;
 }

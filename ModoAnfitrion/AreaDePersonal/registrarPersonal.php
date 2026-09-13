@@ -11,6 +11,21 @@ require '../../validarAcceso.php';
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Registro de Personal</title>
         <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body.bg-gray-900 > div.w-full > nav {
+                background-color: transparent;
+                border-color: rgba(255, 255, 255, 0.15);
+                box-shadow: none;
+            }
+
+            body.bg-gray-900 > div.w-full > nav .text-gray-600 {
+                color: rgb(209 213 219);
+            }
+
+            body.bg-gray-900 > div.w-full > nav .text-gray-800 {
+                color: rgb(255 255 255);
+            }
+        </style>
     </head>
     <body class="bg-gray-900 text-white min-h-screen flex flex-col items-center p-4">
         <div class="w-full">

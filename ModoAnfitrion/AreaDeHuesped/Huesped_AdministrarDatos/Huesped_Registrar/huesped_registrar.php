@@ -2,6 +2,11 @@
 require '../../../../db.php';
 require '../../../../validarAcceso.php';
 $error = '';
+$dni = '';
+$nombre = '';
+$apellido = '';
+$correo = '';
+$pais_seleccionado = '';
 $paises = $pdo->query('SELECT id_pais, pais FROM Pais ORDER BY pais')->fetchAll(PDO::FETCH_ASSOC);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dni = trim($_POST['dni'] ?? '');
@@ -10,8 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $correo = trim($_POST['correo'] ?? '');
     $credencial = $_POST['credencial'] ?? '';
     $confirmacion = $_POST['credencial_confirmacion'] ?? '';
-    $pais = trim($_POST['pais'] ?? '');
-    if ($dni === '' || $nombre === '' || $apellido === '' || $correo === '' || $credencial === '' || $confirmacion === '' || $pais === '') {
+    $pais_seleccionado = trim($_POST['pais'] ?? '');
+    if ($dni === '' || $nombre === '' || $apellido === '' || $correo === '' || $credencial === '' || $confirmacion === '' || $pais_seleccionado === '') {
         $error = 'Todos los campos son obligatorios.';
     } elseif (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
         $error = 'El correo electrónico no es válido.';
@@ -24,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([':correo' => $correo, ':credencial' => password_hash($credencial, PASSWORD_ARGON2ID)]);
             $id_cuenta = $pdo->lastInsertId();
             $stmt = $pdo->prepare('INSERT INTO Huesped (dni_huesped, nombre_huesped, apellido_huesped, id_cuenta, id_pais) VALUES (:dni, :nombre, :apellido, :id_cuenta, :pais)');
-            $stmt->execute([':dni' => $dni, ':nombre' => $nombre, ':apellido' => $apellido, ':id_cuenta' => $id_cuenta, ':pais' => $pais]);
+            $stmt->execute([':dni' => $dni, ':nombre' => $nombre, ':apellido' => $apellido, ':id_cuenta' => $id_cuenta, ':pais' => $pais_seleccionado]);
             $pdo->commit();
             header('Location: huesped_registrar.php?registro=exitoso');
             exit;
@@ -45,5 +50,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <h1 class="text-2xl font-bold text-gray-800 text-center">Registrar Huésped</h1>
 <?php if (isset($_GET['registro'])): ?><p class="mt-4 bg-green-100 text-green-700 p-3 rounded-lg text-center">Huésped registrado correctamente.</p><?php endif; ?>
 <?php if ($error !== ''): ?><p class="mt-4 bg-red-100 text-red-700 p-3 rounded-lg text-center"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
-<form method="POST" class="space-y-4 mt-6"><input type="text" name="dni" maxlength="8" pattern="[0-9]{8}" placeholder="DNI" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><input type="text" name="nombre" placeholder="Nombre" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><input type="text" name="apellido" placeholder="Apellido" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><input type="email" name="correo" placeholder="Correo electrónico" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><input type="password" name="credencial" placeholder="Contraseña" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><input type="password" name="credencial_confirmacion" placeholder="Confirmar contraseña" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><select name="pais" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><option value="" disabled selected>Selecciona el país</option><?php foreach ($paises as $pais): ?><option value="<?php echo (int) $pais['id_pais']; ?>"><?php echo htmlspecialchars($pais['pais']); ?></option><?php endforeach; ?></select><button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-lg">Registrar Huésped</button></form>
+<form method="POST" class="space-y-4 mt-6"><input type="text" name="dni" value="<?php echo htmlspecialchars($dni); ?>" maxlength="8" pattern="[0-9]{8}" placeholder="DNI" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><input type="text" name="nombre" value="<?php echo htmlspecialchars($nombre); ?>" placeholder="Nombre" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><input type="text" name="apellido" value="<?php echo htmlspecialchars($apellido); ?>" placeholder="Apellido" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><input type="email" name="correo" value="<?php echo htmlspecialchars($correo); ?>" placeholder="Correo electrónico" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><input type="password" name="credencial" placeholder="Contraseña" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><input type="password" name="credencial_confirmacion" placeholder="Confirmar contraseña" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><select name="pais" required class="w-full border border-gray-300 rounded-lg px-4 py-2"><option value="" disabled <?php echo $pais_seleccionado === '' ? 'selected' : ''; ?>>Selecciona el país</option><?php foreach ($paises as $opcion_pais): ?><option value="<?php echo (int) $opcion_pais['id_pais']; ?>" <?php echo (string) $opcion_pais['id_pais'] === $pais_seleccionado ? 'selected' : ''; ?>><?php echo htmlspecialchars($opcion_pais['pais']); ?></option><?php endforeach; ?></select><button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-lg">Registrar Huésped</button></form>
 </section></main></body></html>
