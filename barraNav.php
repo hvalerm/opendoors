@@ -24,7 +24,7 @@ $apellido_usuario = "apellido";
 
             case 3:
                 $modo = "ANFITRION";
-                $sql = "";
+                $sql = "select P.nombre_personal as nombre, P.apellido_personal as apellido from Anfitrion P inner join Cuenta C on P.id_cuenta = C.id_cuenta where C.correo_cuenta = :correo_cuenta";
                 break;
 
             case 4:
