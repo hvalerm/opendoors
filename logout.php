@@ -18,5 +18,5 @@ if (ini_get('session.use_cookies')) {
 
 session_destroy();
 
-header('Location: /opendoors/login.php');
+header('Location: https://opendoors.onrender.com/login.php');
 exit;

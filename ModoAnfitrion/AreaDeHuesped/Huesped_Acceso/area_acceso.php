@@ -1,6 +1,6 @@
 <?php
-require '../../db.php';
-require '../../validarAcceso.php';
+require '../../../db.php';
+require '../../../validarAcceso.php';
 
 $error = '';
 $exito = isset($_GET['programado']);
@@ -66,10 +66,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	</head>
 	<body class="bg-gray-50 min-h-screen flex flex-col">
 		<div class="w-full">
-			<?php require '../../barraNav.php'; ?>
+			<?php require '../../../barraNav.php'; ?>
 		</div>
 		<div class="w-full px-4 pt-4">
-			<a href="../vistaAnfitrion.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al panel anfitrión</a>
+			<a href="../../../vistaAnfitrion.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al panel anfitrión</a>
 		</div>
 
 		<main class="max-w-5xl mx-auto w-full px-4 py-10">
