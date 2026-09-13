@@ -1,6 +1,7 @@
 <?php
 //Registra huesped - no necesita session_start()
 require '../../db.php';
+$rol_pagina = 4;
 $error = $error ?? '';
 $dni = $dni ?? '';
 $nombre = $nombre ?? '';

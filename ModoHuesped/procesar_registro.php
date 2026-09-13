@@ -1,5 +1,6 @@
 <?php
 require '../db.php';
+$rol_pagina = 1;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     //Validar coincidencia de contraseñas

@@ -1,5 +1,6 @@
 <?php
 require '../../db.php';
+$rol_pagina = 3;
 require '../../validarAcceso.php';
 
 // 1. Obtener el id_local de la URL (GET) usando id_local en lugar de id_loc

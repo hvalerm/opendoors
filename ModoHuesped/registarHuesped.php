@@ -1,6 +1,7 @@
 <?php
 //Registra huesped - no necesita session_start()
 require '../db.php';
+$rol_pagina = 1;
 //Registrar huesped - no necesita validar porque no ha iniciado sesion todavia
 $resultados = [];
 

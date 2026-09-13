@@ -1,5 +1,6 @@
 <?php
 require '../../db.php';
+$rol_pagina = 4;
 require '../../validarAcceso.php';
 
 $id_local = (int) ($_GET['id_local'] ?? 0);

@@ -1,5 +1,6 @@
 <?php
 require '../db.php';
+$rol_pagina = 1;
 require '../validarAcceso.php';
 
 $correo_cuenta = $_SESSION['correo_cuenta'];

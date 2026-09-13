@@ -1,5 +1,6 @@
 <?php
 require '../db.php';
+$rol_pagina = 1;
 require '../validarAcceso.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

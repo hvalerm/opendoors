@@ -1,5 +1,6 @@
 <?php
 require '../../db.php';
+$rol_pagina = 3;
 require '../../validarAcceso.php';
 
 // 1. Validar Sesión y Rol de Anfitrión (asumiendo que id_tipoCuenta para anfitrión es diferente o validas tu sesión)

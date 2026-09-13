@@ -1,5 +1,6 @@
 <?php
 require '../db.php';
+$rol_pagina = 2;
 require '../validarAcceso.php';
 ?>
 

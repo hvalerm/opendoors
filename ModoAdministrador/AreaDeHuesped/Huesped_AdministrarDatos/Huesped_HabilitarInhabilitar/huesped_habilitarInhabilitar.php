@@ -1,5 +1,6 @@
 <?php
 require '../../../../db.php';
+$rol_pagina = 4;
 require '../../../../validarAcceso.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_cuenta_accion'], $_POST['nuevo_estado'])) {

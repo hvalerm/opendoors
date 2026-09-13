@@ -1,5 +1,6 @@
 <?php
 require '../../../../db.php';
+$rol_pagina = 3;
 require '../../../../validarAcceso.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id_cuenta_accion'], $_POST['nuevo_estado'])) {
     $stmt = $pdo->prepare('UPDATE Cuenta SET id_EstadoCuenta = :estado WHERE id_cuenta = :id_cuenta AND id_tipoCuenta = 1');

@@ -1,5 +1,6 @@
 <?php
 require '../../db.php';
+$rol_pagina = 4;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dni = trim($_POST['dni'] ?? '');

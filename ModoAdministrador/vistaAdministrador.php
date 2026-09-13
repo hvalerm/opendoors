@@ -1,5 +1,6 @@
 <?php
 require '../db.php';
+$rol_pagina = 4;
 require '../validarAcceso.php';
 
 $modo='ADMINISTRADOR';
