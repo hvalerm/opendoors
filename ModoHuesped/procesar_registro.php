@@ -2,6 +2,10 @@
 require '../db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    //Validar coincidencia de contraseñas
+    //...
+    
+    
     // Recoger y limpiar los datos del formulario
     $dni = trim($_POST['dni'] ?? '');
     $nombre = trim($_POST['nombre'] ?? '');

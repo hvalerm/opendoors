@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iniciar sesión — Meridian</title>
+
+<!-- Bootstrap 5 -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<!-- Bootstrap Icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+<style>
+  :root {
+    --ink: #14213D;
+    --forest: #2F5D50;
+    --forest-hover: #244A40;
+    --slate: #5A6478;
+    --line: #DDE2EC;
+  }
+
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+  }
+
+  /* ---- Panel de marca ---- */
+  .brand-panel {
+    background: var(--ink);
+    color: #E7EAF2;
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .brand-mark {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.4rem;
+  }
+
+  .brand-panel h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-size: 2.1rem;
+    line-height: 1.3;
+    max-width: 420px;
+  }
+
+  .brand-panel p.lead-text {
+    color: #B9C0D4;
+    max-width: 380px;
+    font-size: 0.95rem;
+  }
+
+  .brand-foot {
+    color: #8B93AC;
+    font-size: 0.8rem;
+  }
+
+  .brand-graphic {
+    position: absolute;
+    right: -60px;
+    bottom: -40px;
+    width: 380px;
+    height: 380px;
+    opacity: 0.5;
+  }
+
+  /* ---- Formulario ---- */
+  .form-panel {
+    min-height: 100vh;
+  }
+
+  .form-shell {
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .form-label {
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .form-control {
+    padding: 0.6rem 0.75rem;
+    border-color: var(--line);
+  }
+
+  .form-control:focus {
+    border-color: var(--ink);
+    box-shadow: 0 0 0 0.2rem rgba(20, 33, 61, 0.15);
+  }
+
+  .btn-brand {
+    background-color: var(--forest);
+    border-color: var(--forest);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.65rem;
+  }
+
+  .btn-brand:hover,
+  .btn-brand:focus {
+    background-color: var(--forest-hover);
+    border-color: var(--forest-hover);
+    color: #fff;
+  }
+
+  .btn-outline-brand {
+    border-color: var(--line);
+    color: var(--ink);
+    font-weight: 500;
+    padding: 0.6rem;
+  }
+
+  .btn-outline-brand:hover {
+    background-color: #F4F6FA;
+    color: var(--ink);
+  }
+
+  .link-quiet {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .link-quiet:hover {
+    border-bottom-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .divider-text {
+    color: var(--slate);
+    font-size: 0.85rem;
+  }
+
+  .divider-text::before,
+  .divider-text::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background-color: var(--line);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container-fluid">
+  <div class="row">
+
+    <!-- Panel izquierdo: identidad -->
+    <div class="col-lg-6 d-none d-lg-flex brand-panel flex-column justify-content-between p-5">
+      <div class="brand-mark">Meridian</div>
+
+      <div>
+        <h1 class="mb-3">Un solo lugar para ver cómo avanza el trabajo del equipo.</h1>
+        <p class="lead-text mb-0">Accede a tus proyectos, reportes y flujos de aprobación con una sola cuenta.</p>
+      </div>
+
+      <svg class="brand-graphic" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <polyline points="10,320 80,260 140,300 200,180 260,220 320,90 390,140"
+          stroke="#4A5578" stroke-width="1.5" fill="none"/>
+        <circle cx="200" cy="180" r="3" fill="#8B93AC"/>
+        <circle cx="320" cy="90" r="3" fill="#8B93AC"/>
+        <line x1="10" y1="360" x2="390" y2="360" stroke="#2A3660" stroke-width="1"/>
+      </svg>
+
+      <div class="brand-foot">© 2026 Meridian Technologies</div>
+    </div>
+
+    <!-- Panel derecho: formulario -->
+    <div class="col-lg-6 d-flex align-items-center justify-content-center form-panel px-3 py-5">
+      <div class="form-shell">
+        <h2 class="h4 mb-1">Inicia sesión</h2>
+        <p class="text-secondary mb-4" style="font-size:0.9rem;">Ingresa tus datos para continuar a tu espacio de trabajo.</p>
+
+        <form id="login-form" novalidate>
+          <div class="mb-3">
+            <label for="email" class="form-label">Correo electrónico</label>
+            <input type="email" class="form-control" id="email" name="email" autocomplete="email" required>
+          </div>
+
+          <div class="mb-2">
+            <label for="password" class="form-label">Contraseña</label>
+            <div class="input-group">
+              <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" required>
+              <button class="btn btn-outline-brand" type="button" id="toggle-password" aria-label="Mostrar contraseña">
+                <i class="bi bi-eye" id="toggle-icon"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="error-text" class="text-danger small mb-3" style="display:none;">
+            Revisa tu correo y contraseña e inténtalo de nuevo.
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-4" style="font-size:0.85rem;">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="remember">
+              <label class="form-check-label text-secondary" for="remember">
+                Mantener sesión iniciada
+              </label>
+            </div>
+            <a href="#" class="link-quiet">¿Olvidaste tu contraseña?</a>
+          </div>
+
+          <button type="submit" class="btn btn-brand w-100">Iniciar sesión</button>
+        </form>
+
+        <div class="d-flex align-items-center gap-2 my-4 divider-text">
+          <span>o continúa con</span>
+        </div>
+
+        <button type="button" class="btn btn-outline-brand w-100 d-flex align-items-center justify-content-center gap-2" id="google-login">
+          <i class="bi bi-google"></i>
+          Continuar con Google
+        </button>
+
+        <p class="text-center text-secondary mt-4" style="font-size:0.85rem;">
+          ¿No tienes cuenta? <a href="#" class="link-quiet">Solicita acceso</a>
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script>
+  const form = document.getElementById('login-form');
+  const errorText = document.getElementById('error-text');
+  const togglePassword = document.getElementById('toggle-password');
+  const toggleIcon = document.getElementById('toggle-icon');
+  const passwordInput = document.getElementById('password');
+  const googleBtn = document.getElementById('google-login');
+
+  togglePassword.addEventListener('click', () => {
+    const isHidden = passwordInput.type === 'password';
+    passwordInput.type = isHidden ? 'text' : 'password';
+    toggleIcon.className = isHidden ? 'bi bi-eye-slash' : 'bi bi-eye';
+    togglePassword.setAttribute('aria-label', isHidden ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    // Punto de integración: reemplazar con la llamada real de autenticación.
+    const email = document.getElementById('email').value.trim();
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+      errorText.style.display = 'block';
+      return;
+    }
+
+    errorText.style.display = 'none';
+    console.log('Enviar credenciales al backend:', { email, remember: document.getElementById('remember').checked });
+  });
+
+  googleBtn.addEventListener('click', () => {
+    // Punto de integración: reemplazar con el flujo OAuth real (p. ej. Google Identity Services).
+    console.log('Iniciar flujo de login con Google');
+  });
+</script>
+
+</body>
+</html>
