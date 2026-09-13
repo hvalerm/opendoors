@@ -17,6 +17,9 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body>
+        <div class="w-full">
+            <?php require '../../barraNav.php'; ?>
+        </div>
 
         <div class="w-full max-w-xs mx-auto flex flex-col items-center space-y-6">
             <!-- Título ANFITRION en grande -->

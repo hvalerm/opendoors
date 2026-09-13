@@ -42,9 +42,12 @@ $anfitriones = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <title>Gestión de Anfitriones</title>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
-    <body class="bg-gray-50 min-h-screen py-10 px-4">
+    <body class="bg-gray-50 min-h-screen px-4">
+        <div class="w-full">
+            <?php require '../../barraNav.php'; ?>
+        </div>
 
-        <div class="max-w-4xl mx-auto space-y-6">
+        <div class="max-w-4xl mx-auto space-y-6 py-10">
             <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-md border border-gray-100 gap-4">
                 <h1 class="text-2xl font-bold text-gray-800">Anfitriones</h1>
 

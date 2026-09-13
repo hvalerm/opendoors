@@ -1,4 +1,6 @@
 <?php
+require '../../db.php';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dni = trim($_POST['dni'] ?? '');
     $nombre = trim($_POST['nombre'] ?? '');
@@ -6,7 +8,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $correo = trim($_POST['correo'] ?? '');
     $credencial1 = $_POST['credencial1'] ?? '';
     $credencial2 = $_POST['credencial2'] ?? '';
-    $id_pais = trim($_POST['pais'] ?? '');
 
     //Verificar que las credenciales coinciden
     if ($credencial1 == $credencial2) {
@@ -15,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <?php
         // Validar que ningún campo esté vacío
-        if (empty($dni) || empty($nombre) || empty($apellido) || empty($correo) || empty($credencial) || empty($id_pais)) {
+        if (empty($dni) || empty($nombre) || empty($apellido) || empty($correo) || empty($credencial1)) {
             die("Error: Todos los campos son obligatorios.");
         }
 
@@ -26,16 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
             // Encriptar la contraseña de forma segura utilizando Argon2id
-            $credencial_hash = password_hash($credencial, PASSWORD_ARGON2ID);
+            $credencial_hash = password_hash($credencial1, PASSWORD_ARGON2ID);
 
             $sql = "INSERT INTO Cuenta (correo_cuenta, credencial_cuenta, id_tipoCuenta)
-            VALUES (:correo, :credencial_encriptada, 3)";
+            VALUES (:correo, :credencial_hash, 3)";
 
             $stmt = $pdo->prepare($sql);
 
             $stmt->execute([
                 ':correo' => $correo,
-                ':credencial_encriptada' => $credencial_hash
+                ':credencial_hash' => $credencial_hash
             ]);
 
             $sql = "SELECT id_cuenta FROM Cuenta where correo_cuenta=:correo";
@@ -46,16 +47,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $r = $stmt->fetch(PDO::FETCH_ASSOC);
             $id_cuenta = $r['id_cuenta'];
 
-            $sql = "INSERT INTO Huesped (dni_huesped, nombre_huesped, apellido_huesped, id_cuenta, id_pais)
-                VALUES (:dni, :nombre, :apellido, :idCuenta, :idPais)";
+            $sql = "INSERT INTO Anfitrion (dni_anfitrion, nombre_anfitrion, apellido_anfitrion, id_cuenta)
+                VALUES (:dni, :nombre, :apellido, :idCuenta)";
 
             $stmt = $pdo->prepare($sql);
             $stmt->execute([
                 ':dni' => $dni,
                 ':nombre' => $nombre,
                 ':apellido' => $apellido,
-                ':idCuenta' => $id_cuenta,
-                ':idPais' => $id_pais
+                ':idCuenta' => $id_cuenta
             ]);
             ?>
 

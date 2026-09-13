@@ -48,9 +48,12 @@ $personales = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <title>Gestión de Personal de Limpieza</title>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
-    <body class="bg-gray-50 min-h-screen py-10 px-4">
+    <body class="bg-gray-50 min-h-screen px-4">
+        <div class="w-full">
+            <?php require '../../barraNav.php'; ?>
+        </div>
 
-        <div class="max-w-4xl mx-auto space-y-6">
+        <div class="max-w-4xl mx-auto space-y-6 py-10">
 
             <!-- Cabecera -->
             <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-md border border-gray-100 gap-4">

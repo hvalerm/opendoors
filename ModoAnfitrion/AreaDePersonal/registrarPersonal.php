@@ -12,7 +12,10 @@ require '../../validarAcceso.php';
         <title>Registro de Personal</title>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
-    <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+    <body class="bg-gray-900 text-white min-h-screen flex flex-col items-center p-4">
+        <div class="w-full">
+            <?php require '../../barraNav.php'; ?>
+        </div>
 
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 max-w-md w-full">
             <h1 class="text-2xl font-bold mb-6 text-center text-gray-100">Registro de Personal</h1>

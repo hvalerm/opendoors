@@ -14,6 +14,9 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
         <title></title>
     </head>
     <body>
+        <div class="w-full">
+            <?php require '../../../barraNav.php'; ?>
+        </div>
         <?php
         // put your code here
         ?>
