@@ -1,8 +1,22 @@
 <?php
+session_start();
 
-$_SESSION['correo_cuenta'] = null;
-$mi_rol = null;
-$_SESSION['correo_cuenta'] = null;
-$_SESSION['id_tipoCuenta'] = null;
+$_SESSION = [];
 
-header("Location: login.php");
+if (ini_get('session.use_cookies')) {
+	$params = session_get_cookie_params();
+	setcookie(
+		session_name(),
+		'',
+		time() - 42000,
+		$params['path'],
+		$params['domain'],
+		$params['secure'],
+		$params['httponly']
+	);
+}
+
+session_destroy();
+
+header('Location: /opendoors/login.php');
+exit;

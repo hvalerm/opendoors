@@ -1,6 +1,7 @@
 <?php
 
 $modo;
+$mi_rol = $_SESSION['id_tipoCuenta'] ?? 0;
 $correo_cuenta = $_SESSION['correo_cuenta'] ?? '';
 $nombre_usuario = "nombre";
 $apellido_usuario = "apellido";
@@ -62,7 +63,7 @@ $apellido_usuario = "apellido";
                 <span class="text-sm text-gray-600 hidden sm:inline-block">
                     Hola, <span class="font-semibold text-gray-800"><?php echo $nombre_usuario . " " . $apellido_usuario; ?></span>
                 </span>
-                <a href="logout.php" class="text-sm font-medium text-red-600 hover:text-red-800 transition-colors bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg">
+                <a href="https://opendoors.onrender.com/logout.php" class="text-sm font-medium text-red-600 hover:text-red-800 transition-colors bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg">
                     Cerrar Sesión
                 </a>
             </div>
