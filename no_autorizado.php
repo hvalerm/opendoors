@@ -7,6 +7,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
     <head>
         <meta charset="UTF-8">
         <title></title>
+        <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body>
         <?php
