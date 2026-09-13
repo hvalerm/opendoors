@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <h2 class="text-2xl font-bold text-gray-800 mb-2">¡Registro exitoso!</h2>
                         <p class="text-gray-600 mb-6">Tu cuenta ha sido creada correctamente en el sistema!!!</p>
 
-                        <a href="../login.php" class="block w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200">
+                        <a href="../../login.php" class="block w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200">
                             Iniciar sesión
                         </a>
                     </div>

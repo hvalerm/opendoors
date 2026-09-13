@@ -21,6 +21,9 @@ try {
 </head>
 <body class="bg-gray-50 min-h-screen">
     <?php require '../../barraNav.php'; ?>
+    <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4">
+        <a href="../vistaAdministrador.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al panel administrador</a>
+    </div>
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div class="mb-8 border-b border-gray-200 pb-5">
             <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Ubicaciones Disponibles</h1>

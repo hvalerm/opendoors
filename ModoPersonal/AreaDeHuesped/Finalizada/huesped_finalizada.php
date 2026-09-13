@@ -14,6 +14,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
         <title></title>
     </head>
     <body>
+        <a href="../area_huesped.php" class="inline-block m-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al área de huéspedes</a>
         <div class="w-full">
             <?php require '../../../barraNav.php'; ?>
         </div>

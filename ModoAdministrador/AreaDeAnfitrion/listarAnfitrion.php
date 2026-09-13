@@ -46,6 +46,9 @@ $anfitriones = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <div class="w-full">
             <?php require '../../barraNav.php'; ?>
         </div>
+        <div class="w-full px-4 pt-4">
+            <a href="area_anfitrion.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al área de anfitriones</a>
+        </div>
 
         <div class="max-w-4xl mx-auto space-y-6 py-10">
             <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-md border border-gray-100 gap-4">

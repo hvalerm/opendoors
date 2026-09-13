@@ -52,6 +52,9 @@ $personales = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <div class="w-full">
             <?php require '../../barraNav.php'; ?>
         </div>
+        <div class="w-full px-4 pt-4">
+            <a href="area_limpieza.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al área de personal</a>
+        </div>
 
         <div class="max-w-4xl mx-auto space-y-6 py-10">
 

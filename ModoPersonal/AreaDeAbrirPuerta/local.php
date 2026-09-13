@@ -34,6 +34,9 @@ if (!$local) {
 
          <!-- Barra de Navegación -->
         <?php require '../../barraNav.php'; ?>
+        <div class="max-w-md mx-auto w-full px-4 pt-4">
+            <a href="abrir_puerta.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar a ubicaciones</a>
+        </div>
 
         <!-- Contenido Principal -->
         <main class="max-w-md mx-auto px-4 py-10 w-full">

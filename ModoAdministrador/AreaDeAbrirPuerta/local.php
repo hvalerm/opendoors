@@ -28,6 +28,9 @@ if (!$local && $error === '') $error = 'El local especificado no existe.';
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col">
     <?php require '../../barraNav.php'; ?>
+    <div class="max-w-md mx-auto w-full px-4 pt-4">
+        <a href="abrir_puerta.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar a ubicaciones</a>
+    </div>
     <main class="max-w-md mx-auto px-4 py-10 w-full flex-grow">
         <?php if ($error !== ''): ?>
             <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg"><p class="text-red-700 font-medium"><?php echo htmlspecialchars($error); ?></p><a href="abrir_puerta.php" class="inline-block mt-4 bg-gray-200 px-4 py-2 rounded-lg">Volver a ubicaciones</a></div>

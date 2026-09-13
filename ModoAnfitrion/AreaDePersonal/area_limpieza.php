@@ -20,6 +20,9 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
         <div class="w-full">
             <?php require '../../barraNav.php'; ?>
         </div>
+        <div class="w-full px-4 pt-4">
+            <a href="../vistaAnfitrion.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al panel anfitrión</a>
+        </div>
 
         <div class="w-full max-w-xs mx-auto flex flex-col items-center space-y-6">
             <!-- Título ANFITRION en grande -->

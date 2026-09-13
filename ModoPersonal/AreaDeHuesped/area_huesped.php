@@ -18,6 +18,9 @@ require '../../validarAcceso.php';
         <div class="w-full">
             <?php require '../../barraNav.php'; ?>
         </div>
+        <div class="w-full px-4 pt-4">
+            <a href="../vistaPersonal.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al panel personal</a>
+        </div>
 
         <!-- Contenedor central con el título y los botones -->
         <div class="flex-grow flex items-center justify-center px-4 py-10">

@@ -14,6 +14,9 @@ require '../../validarAcceso.php';
         <div class="w-full">
             <?php require '../../barraNav.php'; ?>
         </div>
+        <div class="w-full px-4 pt-4">
+            <a href="../vistaAdministrador.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al panel administrador</a>
+        </div>
 
         <main class="flex-grow flex items-center justify-center px-4 py-10">
             <div class="w-full max-w-sm mx-auto flex flex-col items-center space-y-6">
@@ -26,11 +29,11 @@ require '../../validarAcceso.php';
                         Huésped - Administrar datos
                     </a>
 
-                    <a href="administrar_estancia.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
+                    <a href="Huesped_AdministrarEstancia/huesped_administrarEstancia.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
                         Huésped - Administrar Estancia
                     </a>
 
-                    <a href="antecedentes.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
+                    <a href="Huesped_Antecedentes/huesped_antecedentes.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
                         Huésped - Antecedentes
                     </a>
                 </div>

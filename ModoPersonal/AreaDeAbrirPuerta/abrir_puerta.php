@@ -25,6 +25,9 @@ try {
     <body class="bg-gray-50 min-h-screen">
 
         <?php require '../../barraNav.php'; ?>
+        <div class="max-w-7xl mx-auto w-full px-4 pt-4">
+            <a href="../vistaPersonal.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al panel personal</a>
+        </div>
 
         <!-- Contenido Principal -->
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">

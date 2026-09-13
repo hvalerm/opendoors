@@ -26,6 +26,7 @@ require '../../validarAcceso.php';
 		<script src="https://cdn.tailwindcss.com"></script>
 	</head>
 	<body>
+		<a href="../vistaAnfitrion.php" class="inline-block m-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al panel anfitrión</a>
 		<div class="w-full">
 			<?php require '../../barraNav.php'; ?>
 		</div>

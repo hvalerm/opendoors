@@ -21,6 +21,7 @@ try {
 </head>
 
 <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+    <a href="area_anfitrion.php" class="absolute top-4 left-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al área de anfitriones</a>
 
     <div class="bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 max-w-md w-full">
         <h1 class="text-2xl font-bold mb-6 text-center text-gray-100">Registro de Huésped</h1>
@@ -90,7 +91,7 @@ try {
             </button>
 
             <!-- Ir a iniciar sesión -->
-            <a href="../login.php" class="block w-full text-center text-gray-400 hover:text-emerald-400 text-sm font-medium transition duration-200 mt-4">
+            <a href="../../login.php" class="block w-full text-center text-gray-400 hover:text-emerald-400 text-sm font-medium transition duration-200 mt-4">
                 ¿Ya tienes una cuenta? Iniciar Sesión
             </a>
         </form>

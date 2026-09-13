@@ -16,6 +16,9 @@ require '../../validarAcceso.php';
         <div class="w-full">
             <?php require '../../barraNav.php'; ?>
         </div>
+        <div class="w-full px-4 pt-4">
+            <a href="area_limpieza.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al área de personal</a>
+        </div>
 
         <div class="bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 max-w-md w-full">
             <h1 class="text-2xl font-bold mb-6 text-center text-gray-100">Registro de Personal</h1>

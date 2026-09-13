@@ -14,6 +14,9 @@ require '../../../validarAcceso.php';
         <div class="w-full">
             <?php require '../../../barraNav.php'; ?>
         </div>
+        <div class="w-full px-4 pt-4">
+            <a href="../area_huesped.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al área de huéspedes</a>
+        </div>
 
         <main class="flex-grow flex items-center justify-center px-4 py-10">
             <div class="w-full max-w-lg mx-auto flex flex-col items-center space-y-6">
