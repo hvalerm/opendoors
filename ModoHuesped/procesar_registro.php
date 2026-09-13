@@ -12,11 +12,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $apellido = trim($_POST['apellido'] ?? '');
     $correo = trim($_POST['correo'] ?? '');
     $credencial = $_POST['credencial'] ?? '';
+    $credencial_confirmacion = $_POST['credencial_confirmacion'] ?? '';
     $id_pais = trim($_POST['pais'] ?? '');
 
     // Validar que ningún campo esté vacío
-    if (empty($dni) || empty($nombre) || empty($apellido) || empty($correo) || empty($credencial) || empty($id_pais)) {
+    if (empty($dni) || empty($nombre) || empty($apellido) || empty($correo) || empty($credencial) || empty($credencial_confirmacion) || empty($id_pais)) {
         die("Error: Todos los campos son obligatorios.");
+    }
+
+    if ($credencial !== $credencial_confirmacion) {
+        die("Error: Las contraseñas no coinciden.");
     }
 
     // Validar formato del correo electrónico

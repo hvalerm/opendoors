@@ -2,6 +2,7 @@
 //Registra huesped - no necesita session_start()
 require '../db.php';
 //Registrar huesped - no necesita validar porque no ha iniciado sesion todavia
+$resultados = [];
 
 try {
     $stmt = $pdo->query("select id_pais, pais from Pais");
@@ -51,6 +52,12 @@ try {
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Contraseña</label>
                     <input type="password" name="credencial" placeholder="••••••••" required 
+                           class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Confirmar contraseña</label>
+                    <input type="password" name="credencial_confirmacion" placeholder="••••••••" required
                            class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
                 </div>
 

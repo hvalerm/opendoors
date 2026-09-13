@@ -2,8 +2,6 @@
 require '../../db.php';
 require '../../validarAcceso.php';
 ?>
-
-
 <!DOCTYPE html>
 <html lang="es">
     <head>
@@ -17,54 +15,50 @@ require '../../validarAcceso.php';
             <?php require '../../barraNav.php'; ?>
         </div>
 
-        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 max-w-md w-full">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 max-w-md w-full mt-4">
             <h1 class="text-2xl font-bold mb-6 text-center text-gray-100">Registro de Personal</h1>
 
             <form action="procesar_registro.php" method="POST" class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">DNI</label>
-                    <input type="text" name="dni" maxlength="8" pattern="[0-9]{8}" placeholder="Ej. 12345678" required 
+                    <input type="text" name="dni" maxlength="8" pattern="[0-9]{8}" placeholder="Ej. 12345678" required
                            class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Nombre</label>
-                    <input type="text" name="nombre" placeholder="Tu nombre" required 
+                    <input type="text" name="nombre" placeholder="Nombre" required
                            class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Apellido</label>
-                    <input type="text" name="apellido" placeholder="Tu apellido" required 
+                    <input type="text" name="apellido" placeholder="Apellido" required
                            class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Correo electrónico</label>
-                    <input type="email" name="correo" placeholder="correo@ejemplo.com" required 
+                    <input type="email" name="correo" placeholder="correo@ejemplo.com" required
                            class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Contraseña</label>
-                    <input type="password" name="credencial" placeholder="••••••••" required 
+                    <input type="password" name="credencial" placeholder="Contraseña" required
                            class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Confirmar contraseña</label>
-                    <input type="password" name="credencial_confirmacion" placeholder="••••••••" required
+                    <input type="password" name="credencial_confirmacion" placeholder="Confirmar contraseña" required
                            class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500">
                 </div>
 
-                <button type="submit" 
-                        class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-lg cursor-pointer mt-6">
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-lg cursor-pointer mt-6">
                     Completar Registro
                 </button>
-                
             </form>
-           
         </div>
-
     </body>
 </html>
