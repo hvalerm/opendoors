@@ -30,6 +30,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':id_acceso' => $id_acceso]);
 }//FIN IF POST
+
+
+if (empty($id_local) || empty($id_placa) || empty($id_acceso)) {
+    header("Location: acceso_denegado.php");
+    exit;
+    exit;
+}
 ?>
 
 <!DOCTYPE html>

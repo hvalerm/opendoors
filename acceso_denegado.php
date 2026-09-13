@@ -18,7 +18,7 @@
                 <p class="text-sm font-semibold uppercase tracking-widest text-red-600">Acceso restringido</p>
                 <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-gray-900">Acceso denegado</h1>
                 <p class="mt-4 text-base leading-7 text-gray-600">
-                    No cuenta con los permisos necesarios para consultar esta sección. Por motivos de seguridad, cierre la sesión y vuelva a iniciar sesión con una cuenta autorizada.
+                    OCURRIO UN PROBLEMA!!!: No cuenta con los permisos necesarios para consultar esta sección. Por motivos de seguridad, cierre la sesión y vuelva a iniciar sesión con una cuenta autorizada.
                 </p>
 
                 <a href="https://opendoors.onrender.com/logout.php" class="mt-8 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
