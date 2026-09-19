@@ -1,3 +1,14 @@
+<?php
+session_start();
+
+$retrocesos = "";
+while(!file_exists($retrocesos . "index.php")) {
+    $retrocesos .= "../";
+}
+$logout_path = $retrocesos . "logout.php";
+?> 
+
+
 <!DOCTYPE html>
 <html lang="es">
     <head>
@@ -15,13 +26,11 @@
                     </svg>
                 </div>
 
-                <p class="text-sm font-semibold uppercase tracking-widest text-red-600">Acceso restringido</p>
-                <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-gray-900">Acceso denegado</h1>
-                <p class="mt-4 text-base leading-7 text-gray-600">
-                    OCURRIO UN PROBLEMA!!!: No cuenta con los permisos necesarios para consultar esta sección. Por motivos de seguridad, cierre la sesión y vuelva a iniciar sesión con una cuenta autorizada.
-                </p>
+                <p class="text-sm font-semibold uppercase tracking-widest text-red-600">Acceso Denegado</p>
+                <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-gray-900"><?php echo "Tipo de error: ".(isset($_SESSION['error_tipo']) ? $_SESSION['error_tipo'] : ''); ?></h1>
+                <h2 class="mt-4 text-base leading-7 text-gray-600"> OCURRIO UN PROBLEMA!!!: <?php echo "Mensaje de error: ".(isset($_SESSION['error_mensaje']) ? $_SESSION['error_mensaje'] : ''); ?></h2>
 
-                <a href="https://opendoors.onrender.com/logout.php" class="mt-8 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <a href="<?php echo $logout_path; ?>" class="mt-8 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                     Volver a iniciar sesión
                 </a>
             </section>

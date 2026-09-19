@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			<?php require '../../../barraNav.php'; ?>
 		</div>
 		<div class="w-full px-4 pt-4">
-			<a href="../../../vistaAnfitrion.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al panel anfitrión</a>
+			<a href="../area_huesped.php" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg">&larr; Regresar al área huésped</a>
 		</div>
 
 		<main class="max-w-5xl mx-auto w-full px-4 py-10">

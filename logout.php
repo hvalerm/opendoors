@@ -1,6 +1,11 @@
 <?php
 session_start();
 
+while(!file_exists($retrocesos . "index.php")) {
+    $retrocesos .= "../";
+}
+$login_path = $retrocesos . "login.php";
+
 $_SESSION = [];
 
 if (ini_get('session.use_cookies')) {
@@ -18,5 +23,5 @@ if (ini_get('session.use_cookies')) {
 
 session_destroy();
 
-header('Location: https://opendoors.onrender.com/login.php');
+header('Location: ' . $login_path);
 exit;
