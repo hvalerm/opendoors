@@ -1,5 +1,6 @@
 <?php
 
+$retrocesos = "";
 while(!file_exists($retrocesos . "index.php")) {
     $retrocesos .= "../";
 }

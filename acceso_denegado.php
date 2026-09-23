@@ -27,8 +27,8 @@ $logout_path = $retrocesos . "logout.php";
                 </div>
 
                 <p class="text-sm font-semibold uppercase tracking-widest text-red-600">Acceso Denegado</p>
-                <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-gray-900"><?php echo "Tipo de error: ".(isset($_SESSION['error_tipo']) ? $_SESSION['error_tipo'] : ''); ?></h1>
-                <h2 class="mt-4 text-base leading-7 text-gray-600"> OCURRIO UN PROBLEMA!!!: <?php echo "Mensaje de error: ".(isset($_SESSION['error_mensaje']) ? $_SESSION['error_mensaje'] : ''); ?></h2>
+                <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-gray-900"><?php echo (isset($_GET['error_tipo']) ? $_GET['error_tipo'] : ''); ?></h1>
+                <h2 class="mt-4 text-base leading-7 text-gray-600"><?php echo (isset($_GET['error_mensaje']) ? $_GET['error_mensaje'] : ''); ?></h2>
 
                 <a href="<?php echo $logout_path; ?>" class="mt-8 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                     Volver a iniciar sesión
