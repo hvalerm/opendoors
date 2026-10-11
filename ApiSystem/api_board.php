@@ -14,10 +14,9 @@ if ($id_loc > 0 && $id_pla > 0) {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
-            exit;
-            // Si está en 1, respondemos JSON y lo actualizamos a 0 de inmediato
-            echo json_encode(["accionar" => 1]);
-            
+            $accionar = (int) $row['accionar'];
+            echo json_encode(["accionar" => $accionar]);
+
             $update = $pdo->prepare("UPDATE Local_Placa SET accionar = 0 WHERE id_placa = :id_pla AND id_local = :id_loc");
             $update->execute(['id_pla' => $id_pla, 'id_loc' => $id_loc]);
             exit;
@@ -27,5 +26,5 @@ if ($id_loc > 0 && $id_pla > 0) {
     }
 }
 
-echo json_encode(["accionar" => 0]);
+echo json_encode(["accionar" => -1]);
 ?>
