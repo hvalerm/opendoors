@@ -13,7 +13,7 @@ if ($id_loc > 0 && $id_pla > 0) {
         $stmt->execute(['id_pla' => $id_pla, 'id_loc' => $id_loc]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($row && intval($row['accionar']) == 1) {
+        if ($row) {
             // Si está en 1, respondemos JSON y lo actualizamos a 0 de inmediato
             echo json_encode(["accionar" => 1]);
             
