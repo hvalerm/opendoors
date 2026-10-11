@@ -14,6 +14,7 @@ if ($id_loc > 0 && $id_pla > 0) {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($row) {
+            exit;
             // Si está en 1, respondemos JSON y lo actualizamos a 0 de inmediato
             echo json_encode(["accionar" => 1]);
             
