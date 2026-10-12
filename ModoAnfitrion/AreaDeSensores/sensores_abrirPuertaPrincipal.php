@@ -26,6 +26,7 @@ Algoritmo:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="1">
     <title>Sensor de: Abrir Puerta Principal</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -48,6 +49,7 @@ Algoritmo:
                 <thead class="bg-gray-800 text-sm uppercase tracking-wide text-white">
                     <tr>
                         <th scope="col" class="px-6 py-4 font-semibold">Nombre del local</th>
+                        <th scope="col" class="px-6 py-4 font-semibold">Última consulta</th>
                         <th scope="col" class="px-6 py-4 font-semibold">Estado</th>
                     </tr>
                 </thead>
@@ -84,6 +86,11 @@ Algoritmo:
                                 <td class="px-6 py-4 font-medium">
                                     <?php echo htmlspecialchars($fila['nombre_local'], ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
+                                <td class="px-6 py-4">
+                                    <?php echo $fila['consultado'] !== null
+                                        ? htmlspecialchars($fila['consultado'], ENT_QUOTES, 'UTF-8')
+                                        : 'Sin registro'; ?>
+                                </td>
                                 <td class="px-6 py-4 font-semibold">
                                     <?php echo htmlspecialchars($estado, ENT_QUOTES, 'UTF-8'); ?>
                                 </td>
@@ -94,11 +101,11 @@ Algoritmo:
                             // Los datos ya se están mostrando en la tabla HTML, por lo que este bloque es redundante y puede eliminarse.
                         }
                     } catch (Exception $e) {
-                        echo '<tr><td colspan="2" class="bg-red-50 px-6 py-4 text-red-800">No se pudo cargar la lista de sensores.</td></tr>';
+                        echo '<tr><td colspan="3" class="bg-red-50 px-6 py-4 text-red-800">No se pudo cargar la lista de sensores.</td></tr>';
                     }
 
                     if (isset($result) && empty($result)) {
-                        echo '<tr><td colspan="2" class="px-6 py-8 text-center text-gray-500">No hay sensores registrados para este tipo.</td></tr>';
+                        echo '<tr><td colspan="3" class="px-6 py-8 text-center text-gray-500">No hay sensores registrados para este tipo.</td></tr>';
                     }
                     ?>
                 </tbody>
