@@ -63,7 +63,7 @@ Algoritmo:
                 foreach ($result as $fila) {
                     $ahora = time();
                     $umbral = 15; // segundos
-                    echo $fila['consultado'];
+                    echo "*) Consultado: " . $fila['consultado'] . " | Ahora: " . date('Y-m-d H:i:s', $ahora) . "<br>";
                     $consultado = strtotime($fila['consultado']);
                     $estado = ($ahora - $consultado > $umbral) ? 'Inhabilitado' : 'Habilitado';
                     $claseFila = $estado === 'Inhabilitado'
