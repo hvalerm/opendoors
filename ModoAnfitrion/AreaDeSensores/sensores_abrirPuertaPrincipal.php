@@ -53,45 +53,50 @@ Algoritmo:
                 </thead>
                 <tbody class="divide-y divide-white/70 text-sm">
 
-            <?php
-            try {
-                $query = "SELECT l.nombre_local, lp.consultado FROM Local_Placa lp INNER JOIN Local l ON lp.id_local = l.id_local WHERE lp.id_placa = 1";
-                $stmt = $pdo->prepare($query);
-                $stmt->execute();
-                $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    <?php
+                    try {
+                        $query = "SELECT l.nombre_local, lp.consultado FROM Local_Placa lp INNER JOIN Local l ON lp.id_local = l.id_local WHERE lp.id_placa = 1";
+                        $stmt = $pdo->prepare($query);
+                        $stmt->execute();
+                        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                foreach ($result as $fila) {
-                    $ahora = time();
-                    $umbral = 15; // segundos
-                    echo "*) Consultado: " . $fila['consultado'] . " | Ahora: " . date('Y-m-d H:i:s', $ahora) . "<br>";
-                    $consultado = strtotime($fila['consultado']);
-                    $estado = ($ahora - $consultado > $umbral) ? 'Inhabilitado' : 'Habilitado';
-                    $claseFila = $estado === 'Inhabilitado'
-                        ? 'bg-red-100 text-red-950 hover:bg-red-200'
-                        : 'bg-blue-100 text-blue-950 hover:bg-blue-200';
+                        $query2 = "SELECT NOW() AS fecha_actual";
+                        $stmt = $pdo->prepare($query2);
+                        $stmt->execute();
+                        $result2 = $stmt->fetch(PDO::FETCH_ASSOC);
+                        $ahora = strtotime($result2['fecha_actual']);
+                        $umbral = 15; // segundos
+
+                        foreach ($result as $fila) {
+                            echo "*) Consultado: " . $fila['consultado'] . " | Ahora: " . date('Y-m-d H:i:s', $ahora) . "<br>";
+                            $consultado = strtotime($fila['consultado']);
+                            $estado = ($ahora - $consultado > $umbral) ? 'Inhabilitado' : 'Habilitado';
+                            $claseFila = $estado === 'Inhabilitado'
+                                ? 'bg-red-100 text-red-950 hover:bg-red-200'
+                                : 'bg-blue-100 text-blue-950 hover:bg-blue-200';
 
                     ?>
-                    <tr class="<?php echo $claseFila; ?> transition-colors">
-                        <td class="px-6 py-4 font-medium">
-                            <?php echo htmlspecialchars($fila['nombre_local'], ENT_QUOTES, 'UTF-8'); ?>
-                        </td>
-                        <td class="px-6 py-4 font-semibold">
-                            <?php echo htmlspecialchars($estado, ENT_QUOTES, 'UTF-8'); ?>
-                        </td>
-                    </tr>
+                            <tr class="<?php echo $claseFila; ?> transition-colors">
+                                <td class="px-6 py-4 font-medium">
+                                    <?php echo htmlspecialchars($fila['nombre_local'], ENT_QUOTES, 'UTF-8'); ?>
+                                </td>
+                                <td class="px-6 py-4 font-semibold">
+                                    <?php echo htmlspecialchars($estado, ENT_QUOTES, 'UTF-8'); ?>
+                                </td>
+                            </tr>
                     <?php
 
-                        // Cada $fila es un array asociativo con los datos de un registro
-                        // Los datos ya se están mostrando en la tabla HTML, por lo que este bloque es redundante y puede eliminarse.
-                }
-            } catch (Exception $e) {
-                echo '<tr><td colspan="2" class="bg-red-50 px-6 py-4 text-red-800">No se pudo cargar la lista de sensores.</td></tr>';
-            }
+                            // Cada $fila es un array asociativo con los datos de un registro
+                            // Los datos ya se están mostrando en la tabla HTML, por lo que este bloque es redundante y puede eliminarse.
+                        }
+                    } catch (Exception $e) {
+                        echo '<tr><td colspan="2" class="bg-red-50 px-6 py-4 text-red-800">No se pudo cargar la lista de sensores.</td></tr>';
+                    }
 
-            if (isset($result) && empty($result)) {
-                echo '<tr><td colspan="2" class="px-6 py-8 text-center text-gray-500">No hay sensores registrados para este tipo.</td></tr>';
-            }
-            ?>
+                    if (isset($result) && empty($result)) {
+                        echo '<tr><td colspan="2" class="px-6 py-8 text-center text-gray-500">No hay sensores registrados para este tipo.</td></tr>';
+                    }
+                    ?>
                 </tbody>
             </table>
         </div>
