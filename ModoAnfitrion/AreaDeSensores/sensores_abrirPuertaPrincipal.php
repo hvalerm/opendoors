@@ -68,9 +68,13 @@ Algoritmo:
                         $umbral = 15; // segundos
 
                         foreach ($result as $fila) {
-                            echo "*) Consultado: " . $fila['consultado'] . " | Ahora: " . date('Y-m-d H:i:s', $ahora) . "<br>";
-                            $consultado = strtotime($fila['consultado']);
-                            $estado = ($ahora - $consultado > $umbral) ? 'Inhabilitado' : 'Habilitado';
+                            if ($fila['consultado'] === null) {
+                                $estado = 'Inhabilitado';
+                            } else {
+                                $consultado = strtotime($fila['consultado']);
+                                $estado = ($ahora - $consultado > $umbral) ? 'Inhabilitado' : 'Habilitado';
+                            }
+
                             $claseFila = $estado === 'Inhabilitado'
                                 ? 'bg-red-100 text-red-950 hover:bg-red-200'
                                 : 'bg-blue-100 text-blue-950 hover:bg-blue-200';
