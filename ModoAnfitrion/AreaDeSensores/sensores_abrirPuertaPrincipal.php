@@ -33,7 +33,7 @@ Algoritmo:
 
 <body class="min-h-screen bg-gray-50">
 
-    <?php require '../barraNav.php'; ?>
+    <?php require '../../barraNav.php'; ?>
 
     <main class="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
         <div class="mb-6 border-b border-gray-200 pb-5">
@@ -52,7 +52,7 @@ Algoritmo:
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-white/70 text-sm">
-                    
+
             <?php
             try {
                 $query = "SELECT l.nombre_local, lp.consultado FROM Local_Placa lp INNER JOIN Local l ON lp.id_local = l.id_local WHERE lp.id_placa = 1";
