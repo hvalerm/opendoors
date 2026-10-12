@@ -1,0 +1,44 @@
+<?php
+require '../../db.php';
+$rol_pagina = 3;
+require '../../validarAcceso.php';
+
+$modo='ANFITRION';
+?>
+
+<!DOCTYPE html>
+<!--
+Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to edit this template
+-->
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title><?php $modo ?></title>
+        <!-- Tailwind CSS CDN -->
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body>
+
+        <?php require '../../barraNav.php'; ?>
+        
+        <div class="w-full max-w-xs mx-auto flex flex-col items-center space-y-6">
+            <!-- Título ANFITRION en grande -->
+            <h1 class="text-3xl font-extrabold text-gray-800 tracking-wide text-center">
+                <?php $modo ?>
+            </h1>
+
+            <!-- Contenedor de botones apilados con sus rutas específicas -->
+            <div class="flex flex-col space-y-3 w-full">
+                <!-- Sensor de: Abrir Puerta Principal -->
+                <a href="sensores_abrirPuertaPrincipal.php" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow text-center">
+                    Sensor de: Abrir Puerta Principal
+                </a>
+
+                
+            </div>
+        </div>
+
+    </body>
+</html>

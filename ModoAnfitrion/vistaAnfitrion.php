@@ -33,7 +33,7 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
             <div class="flex flex-col space-y-3 w-full">
                 <!-- Abrir Puerta -->
                 <a href="AreaDeAbrirPuerta/abrir_puerta.php" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow text-center">
-                    Abrir Puerta
+                    Area - Abrir Puerta
                 </a>
 
                 <!-- Área - Huésped -->
@@ -48,6 +48,10 @@ Click nbfs://nbhost/SystemFileSystem/Templates/Scripting/EmptyPHPWebPage.php to 
                     Area - Personal de Limpieza
                 </a>
 
+                <!-- Área - Personal de Limpieza -->
+                <a href="AreaDeSensores/area_sensores.php" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300 shadow-sm text-center">
+                    Area - Sensores
+                </a>
                 
             </div>
         </div>
