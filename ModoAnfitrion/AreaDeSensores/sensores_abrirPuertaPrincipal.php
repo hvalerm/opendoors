@@ -26,7 +26,6 @@ Algoritmo:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="1">
     <title>Sensor de: Abrir Puerta Principal</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -53,65 +52,86 @@ Algoritmo:
                         <th scope="col" class="px-6 py-4 font-semibold">Estado</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-white/70 text-sm">
-
-                    <?php
-                    try {
-                        $query = "SELECT l.nombre_local, lp.consultado FROM Local_Placa lp INNER JOIN Local l ON lp.id_local = l.id_local WHERE lp.id_placa = 1";
-                        $stmt = $pdo->prepare($query);
-                        $stmt->execute();
-                        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                        $query2 = "SELECT NOW() AS fecha_actual";
-                        $stmt = $pdo->prepare($query2);
-                        $stmt->execute();
-                        $result2 = $stmt->fetch(PDO::FETCH_ASSOC);
-                        $ahora = strtotime($result2['fecha_actual']);
-                        $umbral = 5; // segundos
-
-                        foreach ($result as $fila) {
-                            if ($fila['consultado'] === null) {
-                                $estado = 'Inhabilitado';
-                            } else {
-                                $consultado = strtotime($fila['consultado']);
-                                $estado = ($ahora - $consultado > $umbral) ? 'Inhabilitado' : 'Habilitado';
-                            }
-
-                            $claseFila = $estado === 'Inhabilitado'
-                                ? 'bg-red-100 text-red-950 hover:bg-red-200'
-                                : 'bg-blue-100 text-blue-950 hover:bg-blue-200';
-
-                    ?>
-                            <tr class="<?php echo $claseFila; ?> transition-colors">
-                                <td class="px-6 py-4 font-medium">
-                                    <?php echo htmlspecialchars($fila['nombre_local'], ENT_QUOTES, 'UTF-8'); ?>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <?php echo $fila['consultado'] !== null
-                                        ? htmlspecialchars($fila['consultado'], ENT_QUOTES, 'UTF-8')
-                                        : 'Sin registro'; ?>
-                                </td>
-                                <td class="px-6 py-4 font-semibold">
-                                    <?php echo htmlspecialchars($estado, ENT_QUOTES, 'UTF-8'); ?>
-                                </td>
-                            </tr>
-                    <?php
-
-                            // Cada $fila es un array asociativo con los datos de un registro
-                            // Los datos ya se están mostrando en la tabla HTML, por lo que este bloque es redundante y puede eliminarse.
-                        }
-                    } catch (Exception $e) {
-                        echo '<tr><td colspan="3" class="bg-red-50 px-6 py-4 text-red-800">No se pudo cargar la lista de sensores.</td></tr>';
-                    }
-
-                    if (isset($result) && empty($result)) {
-                        echo '<tr><td colspan="3" class="px-6 py-8 text-center text-gray-500">No hay sensores registrados para este tipo.</td></tr>';
-                    }
-                    ?>
+                <tbody id="sensores-tabla" class="divide-y divide-white/70 text-sm">
+                    <tr>
+                        <td colspan="3" class="px-6 py-8 text-center text-gray-500">Cargando sensores...</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </main>
+
+    <script>
+        const cuerpoTablaSensores = document.getElementById('sensores-tabla');
+        let consultaEnCurso = false;
+
+        async function actualizarSensores() {
+            if (consultaEnCurso) {
+                return;
+            }
+
+            consultaEnCurso = true;
+            try {
+                const respuesta = await fetch('api_estadoSensores.php', {
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!respuesta.ok) {
+                    throw new Error('No se pudo cargar la lista de sensores.');
+                }
+
+                const sensores = await respuesta.json();
+                cuerpoTablaSensores.replaceChildren();
+
+                if (!sensores.length) {
+                    const fila = document.createElement('tr');
+                    const celda = document.createElement('td');
+                    celda.colSpan = 3;
+                    celda.className = 'px-6 py-8 text-center text-gray-500';
+                    celda.textContent = 'No hay sensores registrados para este tipo.';
+                    fila.appendChild(celda);
+                    cuerpoTablaSensores.appendChild(fila);
+                    return;
+                }
+
+                sensores.forEach((sensor) => {
+                    const fila = document.createElement('tr');
+                    fila.className = sensor.estado === 'Inhabilitado'
+                        ? 'bg-red-100 text-red-950 hover:bg-red-200 transition-colors'
+                        : 'bg-blue-100 text-blue-950 hover:bg-blue-200 transition-colors';
+
+                    const local = document.createElement('td');
+                    local.className = 'px-6 py-4 font-medium';
+                    local.textContent = sensor.nombre_local;
+
+                    const ultimaConsulta = document.createElement('td');
+                    ultimaConsulta.className = 'px-6 py-4';
+                    ultimaConsulta.textContent = sensor.consultado || 'Sin registro';
+
+                    const estado = document.createElement('td');
+                    estado.className = 'px-6 py-4 font-semibold';
+                    estado.textContent = sensor.estado;
+
+                    fila.append(local, ultimaConsulta, estado);
+                    cuerpoTablaSensores.appendChild(fila);
+                });
+            } catch (error) {
+                const fila = document.createElement('tr');
+                const celda = document.createElement('td');
+                celda.colSpan = 3;
+                celda.className = 'bg-red-50 px-6 py-4 text-red-800';
+                celda.textContent = 'No se pudo actualizar la lista de sensores.';
+                fila.appendChild(celda);
+                cuerpoTablaSensores.replaceChildren(fila);
+            } finally {
+                consultaEnCurso = false;
+            }
+        }
+
+        actualizarSensores();
+        window.setInterval(actualizarSensores, 1000);
+    </script>
 
 </body>
 
