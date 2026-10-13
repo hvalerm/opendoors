@@ -35,6 +35,23 @@ if ($id_loc > 0 && $id_pla > 0) {
                 'id_pla' => $id_pla,
                 'id_loc' => $id_loc
             ]);
+
+            //Registra (por ahora) desde aquí el momento en que se ejecuta la acción
+            if ($accionar == 1) {
+                try {
+                    $sql2 = "UPDATE Local_Placa SET ejecutado = NOW() WHERE id_placa = :id_pla AND id_local = :id_loc";
+
+                    $stmt2 = $pdo->prepare($sql2);
+
+                    $stmt2->execute([
+                        'id_pla' => $id_pla,
+                        'id_loc' => $id_loc
+                    ]);
+                } catch (PDOException $e) {
+                    // Error silencioso
+                }
+            }
+
             exit;
         }
     } catch (PDOException $e) {
