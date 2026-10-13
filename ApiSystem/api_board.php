@@ -28,22 +28,6 @@ if ($id_loc > 0 && $id_pla > 0) {
 
         if ($row) {
             $accionar = (int) $row['accionar'];
-
-            if ($accionar == 1) {
-                try {
-                    $sql2 = "UPDATE Local_Placa SET ejecutado = NOW() WHERE id_placa = :id_pla AND id_local = :id_loc";
-
-                    $stmt2 = $pdo->prepare($sql2);
-
-                    $stmt2->execute([
-                        'id_pla' => $id_pla,
-                        'id_loc' => $id_loc
-                    ]);
-                } catch (PDOException $e) {
-                    // Error silencioso
-                }
-            }
-
             echo json_encode(["accionar" => $accionar]);
 
             $update = $pdo->prepare("UPDATE Local_Placa SET accionar = 0 WHERE id_placa = :id_pla AND id_local = :id_loc");
