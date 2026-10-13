@@ -67,7 +67,7 @@ Algoritmo:
                         $stmt->execute();
                         $result2 = $stmt->fetch(PDO::FETCH_ASSOC);
                         $ahora = strtotime($result2['fecha_actual']);
-                        $umbral = 15; // segundos
+                        $umbral = 5; // segundos
 
                         foreach ($result as $fila) {
                             if ($fila['consultado'] === null) {
