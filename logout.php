@@ -1,6 +1,8 @@
 <?php
 session_start();
 
+$retrocesos = "";
+
 while(!file_exists($retrocesos . "index.php")) {
     $retrocesos .= "../";
 }
