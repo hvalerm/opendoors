@@ -49,12 +49,13 @@ Algoritmo:
                     <tr>
                         <th scope="col" class="px-6 py-4 font-semibold">Nombre del local</th>
                         <th scope="col" class="px-6 py-4 font-semibold">Última consulta</th>
+                        <th scope="col" class="px-6 py-4 font-semibold">Última apertura</th>
                         <th scope="col" class="px-6 py-4 font-semibold">Estado</th>
                     </tr>
                 </thead>
                 <tbody id="sensores-tabla" class="divide-y divide-white/70 text-sm">
                     <tr>
-                        <td colspan="3" class="px-6 py-8 text-center text-gray-500">Cargando sensores...</td>
+                        <td colspan="4" class="px-6 py-8 text-center text-gray-500">Cargando sensores...</td>
                     </tr>
                 </tbody>
             </table>
@@ -87,7 +88,7 @@ Algoritmo:
                 if (!sensores.length) {
                     const fila = document.createElement('tr');
                     const celda = document.createElement('td');
-                    celda.colSpan = 3;
+                    celda.colSpan = 4;
                     celda.className = 'px-6 py-8 text-center text-gray-500';
                     celda.textContent = 'No hay sensores registrados para este tipo.';
                     fila.appendChild(celda);
@@ -109,17 +110,21 @@ Algoritmo:
                     ultimaConsulta.className = 'px-6 py-4';
                     ultimaConsulta.textContent = sensor.consultado || 'Sin registro';
 
+                    const ultimaApertura = document.createElement('td');
+                    ultimaApertura.className = 'px-6 py-4';
+                    ultimaApertura.textContent = sensor.ejecutado || 'Sin registro';
+
                     const estado = document.createElement('td');
                     estado.className = 'px-6 py-4 font-semibold';
                     estado.textContent = sensor.estado;
 
-                    fila.append(local, ultimaConsulta, estado);
+                    fila.append(local, ultimaConsulta, ultimaApertura, estado);
                     cuerpoTablaSensores.appendChild(fila);
                 });
             } catch (error) {
                 const fila = document.createElement('tr');
                 const celda = document.createElement('td');
-                celda.colSpan = 3;
+                celda.colSpan = 4;
                 celda.className = 'bg-red-50 px-6 py-4 text-red-800';
                 celda.textContent = 'No se pudo actualizar la lista de sensores.';
                 fila.appendChild(celda);

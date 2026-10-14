@@ -7,7 +7,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 try {
-    $query = "SELECT l.nombre_local, lp.consultado, NOW() AS fecha_actual
+    $query = "SELECT l.nombre_local, lp.consultado, lp.ejecutado, NOW() AS fecha_actual
               FROM Local_Placa lp
               INNER JOIN Local l ON lp.id_local = l.id_local
               WHERE lp.id_placa = 1
