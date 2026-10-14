@@ -9,7 +9,7 @@ while(!file_exists($retrocesos . "index.php")) {
 }
 
 //Declaracion de variables
-$mi_rol = $_SESSION['id_tipoCuenta'];
+$mi_rol = $_SESSION['id_tipoCuenta'] ?? null;
 $login_path = $retrocesos . "login.php";
 $acceso_denegado_path = $retrocesos . "acceso_denegado.php";
 
