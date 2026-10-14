@@ -18,7 +18,7 @@ $acceso_denegado_path = $retrocesos . "acceso_denegado.php";
 //Posible redireccion
 // 1. Verificar si hay sesión activa
 if (!isset($_SESSION['id_tipoCuenta'])) {
-
+echo "entra a salida";
     $_SESSION = [];
 
     if (ini_get('session.use_cookies')) {
@@ -33,6 +33,7 @@ if (!isset($_SESSION['id_tipoCuenta'])) {
             $params['httponly']
         );
     }
+    echo "id_tipoCurnta: ".$_SESSION['id_tipoCuenta'];
 
     session_destroy();
 
