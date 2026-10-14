@@ -2,7 +2,7 @@
 return;
 //no es necesario poner session_start porque se llama a este con un require que ya lo inició previamente
 //Direccion inicial
-$retroceso="../";
+
 $retrocesos = "";
 
 while(!file_exists($retrocesos . "index.php")) {
