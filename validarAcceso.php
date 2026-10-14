@@ -1,24 +1,22 @@
 <?php
 
-//no es necesario poner session_start porque se llama a este con un require que ya lo inició previamente
-//Direccion inicial
+// No es necesario poner session_start porque se llama a este con un require que ya lo inició previamente
+// Dirección inicial
 
 $retrocesos = "";
 while(!file_exists($retrocesos . "index.php")) {
     $retrocesos .= "../";
 }
 
-//Declaracion de variables
+// Declaración de variables
 $mi_rol = $_SESSION['id_tipoCuenta'] ?? null;
 $login_path = $retrocesos . "login.php";
 $acceso_denegado_path = $retrocesos . "acceso_denegado.php";
 
-
-
-//Posible redireccion
+// Posible redirección
 // 1. Verificar si hay sesión activa
 if (!isset($_SESSION['id_tipoCuenta'])) {
-echo "entra a salida";
+    // Se eliminaron los 'echo' para evitar romper el envío de cabeceras (headers)
     $_SESSION = [];
 
     if (ini_get('session.use_cookies')) {
@@ -33,22 +31,22 @@ echo "entra a salida";
             $params['httponly']
         );
     }
-    echo "id_tipoCurnta: ".$_SESSION['id_tipoCuenta'];
 
     session_destroy();
 
-    //Mensaje especifico deacuerdo al caso
+    // Mensaje específico de acuerdo al caso
     $error_mensaje = "Acceso denegado: no hay sesión activa.";
     $error_tipo = "No sesión activa";
-    header('Location: ' . $acceso_denegado_path."?error_mensaje=" . urlencode($error_mensaje) . "&error_tipo=" . urlencode($error_tipo));
+    header('Location: ' . $acceso_denegado_path . "?error_mensaje=" . urlencode($error_mensaje) . "&error_tipo=" . urlencode($error_tipo));
     exit;
 }
 
+// ----------------------
 
-//----------------------
+// Inicializamos el arreglo por seguridad
+$roles_permitidos = [];
 
-
-// 2. Encontrar a que roles puedo acceder, de acuerdo al rol actual
+// 2. Encontrar a qué roles puedo acceder, de acuerdo al rol actual
 switch ($mi_rol) {
     case 1:
         $roles_permitidos = [1];
@@ -64,24 +62,20 @@ switch ($mi_rol) {
         break;
 }
 
-//Posible redireccion
-// 3. Verifica que no haya error, es decir, que existan roles permitidos para el usuario actual, y si no los hay, redirige al acceso denegado
+// Posible redirección
+// 3. Verifica que no haya error, es decir, que existan roles permitidos para el usuario actual
 if (empty($roles_permitidos)) {
     session_destroy();
-    //Mensaje especifico deacuerdo al caso
     $error_mensaje = "Acceso denegado: rol no permitido.";
     $error_tipo = "Rol no permitido";
     header("Location: " . $acceso_denegado_path . "?error_mensaje=" . urlencode($error_mensaje) . "&error_tipo=" . urlencode($error_tipo));
     exit;
 }
 
-
-
-//Posible redireccion
-// 4. Verificar si el rol actual tiene acceso a la página, y si no lo tiene, redirige al acceso denegado
+// Posible redirección
+// 4. Verificar si el rol actual tiene acceso a la página
 if (!in_array($mi_rol, $roles_permitidos)) {
     session_destroy();
-    //Mensaje especifico deacuerdo al caso
     $error_mensaje = "Acceso denegado: rol no permitido para esta página.";
     $error_tipo = "Rol no permitido";
     header("Location: " . $acceso_denegado_path . "?error_mensaje=" . urlencode($error_mensaje) . "&error_tipo=" . urlencode($error_tipo));
