@@ -4,13 +4,12 @@ return;
 //Direccion inicial
 
 $retrocesos = "";
-
 while(!file_exists($retrocesos . "index.php")) {
     $retrocesos .= "../";
 }
 
 //Declaracion de variables
-
+$mi_rol = $_SESSION['id_tipoCuenta'];
 $login_path = $retrocesos . "login.php";
 $acceso_denegado_path = $retrocesos . "acceso_denegado.php";
 
@@ -44,7 +43,7 @@ if (!isset($_SESSION['id_tipoCuenta'])) {
     exit;
 }
 
-$mi_rol = $_SESSION['id_tipoCuenta'];
+
 //----------------------
 
 
@@ -79,7 +78,7 @@ if (empty($roles_permitidos)) {
 
 //Posible redireccion
 // 4. Verificar si el rol actual tiene acceso a la página, y si no lo tiene, redirige al acceso denegado
-if (!in_array($rol_pagina, $roles_permitidos)) {
+if (!in_array($mi_rol, $roles_permitidos)) {
     session_destroy();
     //Mensaje especifico deacuerdo al caso
     $error_mensaje = "Acceso denegado: rol no permitido para esta página.";
