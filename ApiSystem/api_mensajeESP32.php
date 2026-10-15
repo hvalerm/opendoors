@@ -6,6 +6,7 @@ $id_pla = intval($_GET['id_pla'] ?? 0);
 $msg    = $_GET['msg'] ?? "";
 
 if ($id_loc > 0 && $id_pla > 0 && $msg !== "") {
+    echo "id_loc: ".$id_loc." id_pla: ".$id_pla." msg: ".$msg;
     try {
         $sql = "INSERT INTO Mensajes_Locales_Placas (id_local, id_placa, mensaje) VALUES (:id_loc, :id_pla, :msg)";
 
@@ -18,6 +19,7 @@ if ($id_loc > 0 && $id_pla > 0 && $msg !== "") {
         ]);
     } catch (PDOException $e) {
         // Error silencioso
+        echo "ERROR".$e->getMessage();
     }
 }
 
