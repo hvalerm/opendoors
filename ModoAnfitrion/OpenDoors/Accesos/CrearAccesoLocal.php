@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../../util/verificar.php';
-require_once __DIR__ . '/../../util/db.php';
+require_once __DIR__ . '/../../../util/verificar.php';
+require_once __DIR__ . '/../../../util/db.php';
 requerirSesion();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -85,7 +85,7 @@ try {
     $error = 'Ocurrió un error al guardar el acceso.';
 }
 $q = $embed ? '?embed=1' : '';
-$urlVolver = 'localSeleccionado.php?id=' . (int) $idLocal . ($embed ? '&embed=1' : '');
+$urlVolver = '../Locales/localSeleccionado.php?id=' . (int) $idLocal . ($embed ? '&embed=1' : '');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -93,7 +93,7 @@ $urlVolver = 'localSeleccionado.php?id=' . (int) $idLocal . ($embed ? '&embed=1'
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Crear acceso | Administrar Alojamiento</title>
-    <link rel="icon" type="image/png" href="../../img/OpenDoors.png">
+    <link rel="icon" type="image/png" href="../../../img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: <?= $embed ? '#fff' : '#f2f5f7' ?>; color: #1b2a35; padding: 24px; }

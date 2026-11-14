@@ -82,6 +82,7 @@ $fmt = fn($f) => (new DateTime($f))->format('d/m/Y H:i');
             <h1>Acceso al alojamiento</h1>
             <div class="dato"><span>Local</span><strong><?= $h($acceso['nombre_local']) ?></strong></div>
             <div class="dato"><span>Dirección</span><strong><?= $h($acceso['direccion_local']) ?></strong></div>
+            <div class="dato"><span>Vigente desde</span><strong><?= $h($fmt($acceso['activo_desde'])) ?></strong></div>
             <div class="dato"><span>Vigente hasta</span><strong><?= $h($fmt($acceso['activo_hasta'])) ?></strong></div>
 
             <div class="advertencia" role="alert">
@@ -92,6 +93,7 @@ $fmt = fn($f) => (new DateTime($f))->format('d/m/Y H:i');
 
             <form method="post" action="ApiSystem/ordenDeApertura_porLinkAcceso.php">
                 <input type="hidden" name="token" value="<?= $h($token) ?>">
+                <input type="hidden" name="confirmar" value="1">
                 <button type="submit" class="btn">Abrir puerta</button>
             </form>
         <?php else: ?>

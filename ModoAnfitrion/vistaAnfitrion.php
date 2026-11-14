@@ -18,7 +18,7 @@ try {
     );
     $stmt->execute([$usuario['id']]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $local) {
-        $itemsLocales[] = [$local['nombre_local'], null, 'OpenDoors/localSeleccionado.php?id=' . $local['id_local'], 'local-' . $local['id_local']];
+        $itemsLocales[] = [$local['nombre_local'], null, 'OpenDoors/Locales/localSeleccionado.php?id=' . $local['id_local'], 'local-' . $local['id_local']];
     }
 } catch (Throwable $e) {
     error_log('No se pudieron cargar los locales: ' . $e->getMessage());
@@ -29,13 +29,15 @@ if (!$itemsLocales) {
 
 // Estructura del menú: [título, ícono, [hijos]]. Hijo: [título, [hijos], página, clave] u hoja [título]; '-' es un separador.
 $menu = [
-    ['DashBoard', 'M3 3h8v10H3zm10 0h8v6h-8zM3 15h8v6H3zm10-4h8v10h-8z', [], 'Dashboard/resumen.php'],
-    ['OpenDoors', 'M5 3h14v18H5zm9 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2z', $itemsLocales],
-    ['Accesos', 'M12.65 10A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z', [
-        ['Crear', null, 'Accesos/SeleccionarLocalAcceso.php'], ['Listar', null, 'Accesos/listarAccesos.php'], ['Revocar', null, 'Accesos/busquedaAccesoRevocar.php'],
-    ]],
-    ['Dispositivos de apertura', 'M6 6h12v12H6zM9 9v6h6V9zM7 3h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2zM7 18h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2z', [
-        ['Ver estado', null, 'Microcontroladores/verEstado.php'], ['Ver actividad', null, 'Microcontroladores/verActividad.php'],
+    ['OpenDoors', 'M5 3h14v18H5zm9 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2z', [
+        ['Dashboard', null, 'OpenDoors/Dashboard/resumen.php', 'dashboard', 'M3 3h8v10H3zm10 0h8v6h-8zM3 15h8v6H3zm10-4h8v10h-8z'],
+        ['Locales', $itemsLocales, null, 'locales', 'M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z'],
+        ['Accesos', [
+            ['Crear', null, 'OpenDoors/Accesos/SeleccionarLocalAcceso.php'], ['Listar', null, 'OpenDoors/Accesos/listarAccesos.php'], ['Revocar', null, 'OpenDoors/Accesos/busquedaAccesoRevocar.php'],
+        ], null, 'accesos', 'M12.65 10A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'],
+        ['Dispositivos', [
+            ['Ver estado', null, 'OpenDoors/Microcontroladores/verEstado.php'], ['Ver actividad', null, 'OpenDoors/Microcontroladores/verActividad.php'],
+        ], null, 'dispositivos-de-apertura', 'M6 6h12v12H6zM9 9v6h6V9zM7 3h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2zM7 18h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2z'],
     ]],
 ];
 
@@ -61,9 +63,13 @@ function renderItems(array $items, string $prefix, array $labels, int $depth, ar
         $clave = $prefix . '/' . ($item[3] ?? slug($item[0]));
         $ruta = array_merge($labels, [$item[0]]);
         $pad = 'style="--d:' . $depth . '"';
+        $icono = !empty($item[4])
+            ? '<svg class="ico" viewBox="0 0 24 24" fill-rule="evenodd"><path d="' . $h($item[4]) . '"/></svg>'
+            : '';
         if (!empty($item[1])) {
             $abierto = str_starts_with($actual, $clave . '/');
             $out .= '<li class="group' . ($abierto ? ' open' : '') . '"><button type="button" class="item-btn" ' . $pad . ' aria-expanded="' . ($abierto ? 'true' : 'false') . '">'
+                . $icono
                 . '<span class="label">' . $h($item[0]) . '</span>'
                 . '<svg class="arrow" viewBox="0 0 24 24"><path d="M8 5l8 7-8 7z"/></svg></button>'
                 . '<div class="sub"><ul>' . renderItems($item[1], $clave, $ruta, $depth + 1, $validas, $actual, $h) . '</ul></div></li>';
@@ -72,7 +78,8 @@ function renderItems(array $items, string $prefix, array $labels, int $depth, ar
             if (!empty($item[2])) {
                 $paginas[$clave] = $item[2];
             }
-            $out .= '<li><a href="?seccion=' . $h($clave) . '" ' . $pad . ' class="' . ($actual === $clave ? 'active' : '') . '">' . $h($item[0]) . '</a></li>';
+            $out .= '<li><a href="?seccion=' . $h($clave) . '" ' . $pad . ' class="' . ($actual === $clave ? 'active' : '') . '">'
+                . $icono . '<span class="label">' . $h($item[0]) . '</span></a></li>';
         }
     }
     return $out;
@@ -143,7 +150,9 @@ if (!isset($validas[$actual])) {
         }
         .item-btn:hover, .sub a:hover { background: rgba(255,255,255,.1); }
         .item-btn svg.ico { flex: 0 0 22px; width: 22px; height: 22px; fill: currentColor; }
+        .sub a svg.ico { flex: 0 0 22px; width: 22px; height: 22px; fill: currentColor; }
         .item-btn .label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+        .sub .label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
         .item-btn .arrow { width: 16px; height: 16px; fill: currentColor; transition: transform .2s; }
         .group.open > .item-btn .arrow { transform: rotate(90deg); }
         .sub { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; }
@@ -234,21 +243,23 @@ if (!isset($validas[$actual])) {
                     <h2>Bienvenido, <?= $h($usuario['nombre']) ?></h2>
                     <p>Selecciona una opción del menú lateral.</p>
                     <ul class="guia">
-                        <li>📊 <b>DashBoard</b> — <span>Lo importante de tu negocio de un vistazo.</span></li>
-                        <li>🚪 <b>OpenDoors</b> — <span>Tus alojamientos.</span>
-                            <ul><li><b>Cada local</b> — <span>Mira sus datos y ábrelo desde aquí.</span></li></ul>
-                        </li>
-                        <li>🔑 <b>Accesos</b> — <span>Las llaves digitales para tus huéspedes.</span>
+                        <li>🚪 <b>OpenDoors</b> — <span>Administra tu alojamiento desde un solo lugar.</span>
                             <ul>
-                                <li><b>Crear</b> — <span>Genera un enlace de acceso para un huésped.</span></li>
-                                <li><b>Listar</b> — <span>Consulta los accesos y si ya se usaron.</span></li>
-                                <li><b>Revocar</b> — <span>Cancela un acceso antes de que se use.</span></li>
-                            </ul>
-                        </li>
-                        <li>📟 <b>Dispositivos de apertura</b> — <span>Los equipos que abren tus puertas.</span>
-                            <ul>
-                                <li><b>Ver estado</b> — <span>Mira cuáles están conectados (Activo) o caídos (Inactivo).</span></li>
-                                <li><b>Ver actividad</b> — <span>Cuenta cuántas veces se ha abierto cada puerta.</span></li>
+                                <li>📊 <b>Dashboard</b> — <span>Lo importante de tu negocio de un vistazo.</span></li>
+                                <li>🏠 <b>Locales</b> — <span>Mira los datos y abre cada local desde aquí.</span></li>
+                                <li>🔑 <b>Accesos</b> — <span>Las llaves digitales para tus huéspedes.</span>
+                                    <ul>
+                                        <li><b>Crear</b> — <span>Genera un enlace de acceso para un huésped.</span></li>
+                                        <li><b>Listar</b> — <span>Consulta los accesos y si ya se usaron.</span></li>
+                                        <li><b>Revocar</b> — <span>Cancela un acceso antes de que se use.</span></li>
+                                    </ul>
+                                </li>
+                                <li>📟 <b>Dispositivos</b> — <span>Los equipos que abren tus puertas.</span>
+                                    <ul>
+                                        <li><b>Ver estado</b> — <span>Mira cuáles están conectados (Activo) o caídos (Inactivo).</span></li>
+                                        <li><b>Ver actividad</b> — <span>Cuenta cuántas veces se ha abierto cada puerta.</span></li>
+                                    </ul>
+                                </li>
                             </ul>
                         </li>
                     </ul>
@@ -268,10 +279,11 @@ if (!isset($validas[$actual])) {
             var esRaiz = grupo.parentElement.tagName === 'NAV';
             var movil = window.matchMedia('(max-width: 768px)').matches;
             if (esRaiz && !movil && body.classList.contains('collapsed')) body.classList.remove('collapsed');
-            if (esRaiz && !grupo.classList.contains('open')) {
-                document.querySelectorAll('nav > .group.open').forEach(function (g) {
+            if (!grupo.classList.contains('open')) {
+                Array.from(grupo.parentElement.children).forEach(function (g) {
+                    if (g === grupo || !g.classList.contains('group') || !g.classList.contains('open')) return;
                     g.classList.remove('open');
-                    g.querySelector('.item-btn').setAttribute('aria-expanded', 'false');
+                    g.querySelector(':scope > .item-btn').setAttribute('aria-expanded', 'false');
                 });
             }
             var abierto = grupo.classList.toggle('open');

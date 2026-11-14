@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../../util/verificar.php';
-require_once __DIR__ . '/../../util/db.php';
+require_once __DIR__ . '/../../../util/verificar.php';
+require_once __DIR__ . '/../../../util/db.php';
 requerirSesion();
 
 $usuario = usuarioActual();
@@ -42,13 +42,18 @@ try {
             } else {
                 $stmt = getPDO()->prepare('UPDATE locales SET accionar = 1 WHERE id_local = ? AND id_empresa = ?');
                 $stmt->execute([$local['id_local'], $local['id_empresa']]);
-                header('Location: puertaAccionada.php?id=' . $local['id_local'] . ($embed ? '&embed=1' : ''));
+                header('Location: ../puertaAccionada.php?id=' . $local['id_local'] . ($embed ? '&embed=1' : ''));
                 exit;
             }
         } elseif (($_POST['accion'] ?? '') === 'anular_apertura') {
-            $stmt = getPDO()->prepare('UPDATE locales SET accionar = 0 WHERE id_local = ? AND id_empresa = ?');
+            $stmt = getPDO()->prepare('UPDATE locales SET accionar = 0 WHERE id_local = ? AND id_empresa = ? AND accionar = 1');
             $stmt->execute([$local['id_local'], $local['id_empresa']]);
-            $mensaje = 'La apertura de puerta fue anulada.';
+            if ($stmt->rowCount() > 0) {
+                $mensaje = 'La apertura de puerta fue anulada.';
+            } else {
+                $mensaje = 'No hay una apertura pendiente para anular.';
+                $esError = true;
+            }
             $local = cargarLocal($idLocal, (int) $usuario['id']);
         }
     }
@@ -64,7 +69,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Local seleccionado | Administrar Alojamiento</title>
-    <link rel="icon" type="image/png" href="../../img/OpenDoors.png">
+    <link rel="icon" type="image/png" href="../../../img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: <?= $embed ? '#fff' : '#f2f5f7' ?>; color: #1b2a35; padding: 24px; }
@@ -79,6 +84,7 @@ try {
         .btn.secundario { background: #3a8fb7; }
         .btn.peligro { background: #b3261e; }
         .btn.peligro:hover { background: #8c1d18; }
+        .btn:disabled { background: #a3adb5; cursor: not-allowed; }
         .aviso { margin-bottom: 18px; padding: 10px 14px; border-radius: 8px; background: #e6f4ea; color: #1e6b34; }
         .aviso.error { background: #fdecea; color: #b3261e; }
     </style>
@@ -109,7 +115,7 @@ try {
                 <form method="post" action="">
                     <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf'] ?? '') ?>">
                     <input type="hidden" name="accion" value="anular_apertura">
-                    <button type="submit" class="btn peligro">Anular apertura de puerta</button>
+                    <button type="submit" class="btn peligro" <?= (int) $local['accionar'] === 1 ? '' : 'disabled' ?>>Anular apertura de puerta</button>
                 </form>
                 <a class="btn secundario" href="../Accesos/CrearAccesoLocal.php?id=<?= (int) $local['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">Crear Acceso</a>
             </div>

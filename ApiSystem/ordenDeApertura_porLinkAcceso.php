@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../util/db.php';
+require_once __DIR__ . '/../util/verificar.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -23,6 +24,11 @@ if (!is_string($token) || !preg_match('/^[A-Za-z0-9]{1,250}$/', $token)) {
 }
 
 try {
+    $confirmar = ($_POST['confirmar'] ?? '') === '1';
+    if ($confirmar) {
+        iniciarSesionSegura();
+        $confirmacion = bin2hex(random_bytes(32));
+    }
     $pdo = getPDO();
     // Paso 2: comparar el token con accesos.token y obtener los datos del acceso y su local
     // (el acceso no debe estar ejecutado y el local no debe estar eliminado)
@@ -63,7 +69,18 @@ try {
 
     $pdo->commit();
 
-    // Paso 6: responder que la orden fue emitida
+    if ($confirmar) {
+        $_SESSION['confirmacion_apertura'] = [
+            'clave' => $confirmacion,
+            'id_local' => (int) $acceso['id_local'],
+            'expira' => time() + 120,
+        ];
+        session_write_close();
+        header('Location: ../ModoAnfitrion/OpenDoors/puertaAccionada.php?confirmacion=' . $confirmacion, true, 303);
+        exit;
+    }
+
+    // Los clientes de la API conservan la respuesta JSON.
     responder(200, true, 'Orden de apertura emitida.');
 } catch (PDOException $e) {
     if (isset($pdo) && $pdo->inTransaction()) {

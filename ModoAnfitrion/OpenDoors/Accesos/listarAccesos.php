@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../../util/verificar.php';
-require_once __DIR__ . '/../../util/db.php';
+require_once __DIR__ . '/../../../util/verificar.php';
+require_once __DIR__ . '/../../../util/db.php';
 requerirSesion();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -36,8 +36,8 @@ $si = fn($v) => $v ? 'Sí' : 'No';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Revocar accesos | Administrar Alojamiento</title>
-    <link rel="icon" type="image/png" href="../../img/OpenDoors.png">
+    <title>Listar accesos | Administrar Alojamiento</title>
+    <link rel="icon" type="image/png" href="../../../img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: <?= $embed ? '#fff' : '#f2f5f7' ?>; color: #1b2a35; padding: 24px; }
@@ -53,9 +53,9 @@ $si = fn($v) => $v ? 'Sí' : 'No';
         th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e1e8ec; white-space: nowrap; }
         th { color: #6b7a86; font-weight: 600; background: #f7f9fa; }
         td.token { max-width: 200px; overflow: hidden; text-overflow: ellipsis; font-family: Consolas, monospace; font-size: .8rem; }
-        .btn-fila { display: inline-block; padding: 5px 12px; border-radius: 6px; color: #fff; text-decoration: none; font-weight: 600; font-size: .85rem; }
-        .btn-fila.revocar { background: #b3261e; }
-        .btn-fila.conceder { background: #25a244; }
+        .fila { cursor: pointer; }
+        .fila:hover { background: #f2f7fa; }
+        .enlace-id { color: #2c5364; font-weight: 600; text-decoration: none; }
         .vacio { text-align: center; color: #6b7a86; padding: 20px 0; }
         .si { color: #1e8e3e; font-weight: 700; }
         .no { color: #c0392b; font-weight: 700; }
@@ -64,7 +64,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
 </head>
 <body>
     <section class="panel">
-        <h1>Revocar accesos</h1>
+        <h1>Listar accesos</h1>
 
         <?php if ($error): ?>
             <p class="vacio"><?= $h($error) ?></p>
@@ -89,12 +89,12 @@ $si = fn($v) => $v ? 'Sí' : 'No';
             <div class="tabla">
                 <table>
                     <thead>
-                        <tr><th>ID</th><th>Activo desde</th><th>Activo hasta</th><th>Local</th><th>Empresa</th><th>Token</th><th>Ejecutado</th><th>Habilitado</th><th>¿Se puede usar?</th><th>Acción</th></tr>
+                        <tr><th>ID</th><th>Activo desde</th><th>Activo hasta</th><th>Local</th><th>Empresa</th><th>Token</th><th>Ejecutado</th><th>Habilitado</th><th>¿Se puede usar?</th></tr>
                     </thead>
                     <tbody id="cuerpo">
                         <?php foreach ($accesos as $a): ?>
-                            <tr data-desde="<?= $h(date('Y-m-d', strtotime($a['activo_desde']))) ?>" data-hasta="<?= $h(date('Y-m-d', strtotime($a['activo_hasta']))) ?>">
-                                <td><?= (int) $a['id_acceso'] ?></td>
+                            <tr class="fila" data-href="vetanaDelAcceso.php?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>" data-desde="<?= $h(date('Y-m-d', strtotime($a['activo_desde']))) ?>" data-hasta="<?= $h(date('Y-m-d', strtotime($a['activo_hasta']))) ?>">
+                                <td><a class="enlace-id" href="vetanaDelAcceso.php?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>"><?= (int) $a['id_acceso'] ?></a></td>
                                 <td><?= $h($fmt($a['activo_desde'])) ?></td>
                                 <td><?= $h($fmt($a['activo_hasta'])) ?></td>
                                 <td><?= $h($a['nombre_local']) ?></td>
@@ -103,7 +103,6 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                                 <td><?= $si($a['ejecutado']) ?></td>
                                 <td><?= $si($a['habilitado']) ?></td>
                                 <td class="<?= $a['en_rango'] ? 'si' : 'no' ?>"><?= $si($a['en_rango']) ?></td>
-                                <td><a class="btn-fila <?= $a['habilitado'] ? 'revocar' : 'conceder' ?>" href="revocarAcceso.php?id=<?= (int) $a['id_acceso'] ?>&amp;origen=busqueda<?= $embed ? '&amp;embed=1' : '' ?>"><?= $a['habilitado'] ? 'Revocar' : 'Conceder' ?></a></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -122,6 +121,9 @@ $si = fn($v) => $v ? 'Sí' : 'No';
             var sinResultados = document.getElementById('sinResultados');
 
             var fDesde = document.getElementById('f-desde');
+            filas.forEach(function (tr) {
+                tr.addEventListener('click', function () { window.location.href = tr.dataset.href; });
+            });
             var fHasta = document.getElementById('f-hasta');
 
             // Minúsculas y sin acentos para que "si" y "Sí" coincidan

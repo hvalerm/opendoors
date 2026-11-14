@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../../util/verificar.php';
-require_once __DIR__ . '/../../util/db.php';
+require_once __DIR__ . '/../../../util/verificar.php';
+require_once __DIR__ . '/../../../util/db.php';
 requerirSesion();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -31,7 +31,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Actividad de dispositivos de apertura | OpenDoors</title>
-    <link rel="icon" type="image/png" href="../../img/OpenDoors.png">
+    <link rel="icon" type="image/png" href="../../../img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: <?= $embed ? '#fff' : '#f2f5f7' ?>; color: #1b2a35; padding: 24px; }
