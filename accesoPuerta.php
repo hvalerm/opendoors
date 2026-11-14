@@ -8,17 +8,18 @@ header('X-Robots-Tag: noindex, nofollow');
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
-$token = $_GET['token'] ?? '';
+$token = $_POST['token'] ?? $_GET['token'] ?? '';
+$esValidacion = $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'validar';
 $estado = 'invalido';
 $acceso = null;
 
 if (is_string($token) && preg_match('/^[A-Za-z0-9]{1,250}$/', $token)) {
     try {
         $stmt = getPDO()->prepare(
-            'SELECT a.activo_desde, a.activo_hasta, a.ejecutado, a.habilitado,
-                    l.nombre_local, l.direccion_local
+            'SELECT a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, a.ejecutado, a.habilitado,
+                    l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local
              FROM accesos a
-             INNER JOIN locales l ON l.id_local = a.id_local AND l.id_empresa = a.id_empresa
+             INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
              WHERE a.token = ? AND l.eliminado = 0'
         );
         $stmt->execute([$token]);
@@ -51,6 +52,16 @@ $mensajes = [
     'fuera_de_horario' => 'Este acceso no está vigente en este momento.',
     'error' => 'Ocurrió un error. Inténtalo nuevamente en unos minutos.',
 ];
+// Validación previa al clic en "Abrir puerta": responde el estado actual del acceso en JSON
+if ($esValidacion) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'valido' => $estado === 'valido',
+        'mensaje' => $estado === 'valido' ? '' : $mensajes[$estado],
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $fmt = fn($f) => (new DateTime($f))->format('d/m/Y H:i');
 ?>
 <!DOCTYPE html>
@@ -74,6 +85,7 @@ $fmt = fn($f) => (new DateTime($f))->format('d/m/Y H:i');
         .btn { display: block; width: 100%; padding: 15px; border-radius: 8px; background: #27ae60; color: #fff; font-size: 1.1rem; font-weight: 700; text-decoration: none; border: 0; cursor: pointer; font-family: inherit; }
         .btn:hover { background: #1f8f4f; }
         .estado { padding: 22px 16px; border-radius: 10px; background: #fdecea; color: #8e1b10; font-size: 1.3rem; font-weight: 700; }
+        [hidden] { display: none !important; }
     </style>
 </head>
 <body>
@@ -87,19 +99,64 @@ $fmt = fn($f) => (new DateTime($f))->format('d/m/Y H:i');
 
             <div class="advertencia" role="alert">
                 <span class="titulo">⚠ Advertencia de seguridad</span>
-                Debes estar físicamente frente a la puerta del hospedaje antes de continuar. Al presionar el botón la puerta se abrirá y solo deben ingresar los huéspedes.
+                Debes estar físicamente frente a la puerta del hospedaje antes de continuar. Al presionar el botón la puerta se abrirá y sólo deben ingresar los huéspedes.
             </div>
             <div class="unico">La apertura es de un único uso: una vez ejecutada, este enlace no podrá volver a utilizarse.</div>
 
-            <form method="post" action="ApiSystem/ordenDeApertura_porLinkAcceso.php">
+            <form method="post" action="ApiSystem/ordenDeApertura_porLinkAcceso.php" id="formAbrir">
                 <input type="hidden" name="token" value="<?= $h($token) ?>">
                 <input type="hidden" name="confirmar" value="1">
-                <button type="submit" class="btn">Abrir puerta</button>
+                <button type="submit" class="btn" id="btnAbrir">Abrir puerta</button>
             </form>
+            <div class="estado" id="estadoError" role="alert" hidden></div>
         <?php else: ?>
             <h1>Acceso al alojamiento</h1>
             <div class="estado"><?= $h($mensajes[$estado]) ?></div>
         <?php endif; ?>
     </section>
+    <?php if ($estado === 'valido'): ?>
+    <script>
+        (function () {
+            var form = document.getElementById('formAbrir');
+            var btn = document.getElementById('btnAbrir');
+            var estadoError = document.getElementById('estadoError');
+            var verificando = false;
+
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                if (verificando) return;
+                verificando = true;
+                btn.disabled = true;
+                btn.textContent = 'Verificando acceso...';
+                estadoError.hidden = true;
+                try {
+                    // Re-valida el acceso justo antes de abrir: pudo ser usado, revocado o vencer
+                    // mientras la página estaba abierta
+                    var res = await fetch('accesoPuerta.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({ accion: 'validar', token: form.token.value })
+                    });
+                    var data = await res.json();
+                    if (data.valido) {
+                        btn.textContent = 'Abriendo puerta...';
+                        form.submit();
+                        return;
+                    }
+                    // Ya no se puede usar: oculta el formulario y muestra el motivo
+                    form.hidden = true;
+                    estadoError.textContent = data.mensaje || 'Este acceso ya no se puede utilizar.';
+                    estadoError.hidden = false;
+                } catch (err) {
+                    estadoError.textContent = 'No se pudo verificar el acceso. Revisa tu conexión a internet e inténtalo nuevamente.';
+                    estadoError.hidden = false;
+                    btn.disabled = false;
+                    btn.textContent = 'Abrir puerta';
+                }
+                verificando = false;
+            });
+        })();
+    </script>
+    <?php endif; ?>
 </body>
 </html>

@@ -18,17 +18,20 @@ if (empty($_SESSION['csrf'])) {
 function cargarAcceso(PDO $pdo, int $idAcceso, int $idCuenta): ?array
 {
     $stmt = $pdo->prepare(
-        'SELECT a.id_acceso, a.id_empresa, a.activo_desde, a.activo_hasta, l.nombre_local, e.nombre_empresa,
+        'SELECT a.idAcceso AS id_acceso, a.idEmpresa AS id_empresa, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
                 a.token, a.ejecutado, a.habilitado
          FROM accesos a
-         INNER JOIN locales l ON l.id_local = a.id_local AND l.id_empresa = a.id_empresa
-         INNER JOIN empresas e ON e.id_empresa = a.id_empresa
-         INNER JOIN cuentas c ON c.id_empresa = a.id_empresa
-         WHERE a.id_acceso = ? AND c.id_cuenta = ?'
+         INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
+         INNER JOIN empresas e ON e.idEmpresa = a.idEmpresa
+         INNER JOIN empresas_cuentas c ON c.idEmpresa = a.idEmpresa
+         WHERE a.idAcceso = ? AND c.idCuenta = ?'
     );
     $stmt->execute([$idAcceso, $idCuenta]);
     return $stmt->fetch() ?: null;
 }
+
+$origen = ($_GET['origen'] ?? $_POST['origen'] ?? '') === 'busqueda' ? 'busqueda' : '';
+$urlLista = ($origen ? 'busquedaAccesoRevocar.php' : 'listarAccesos.php') . ($embed ? '?embed=1' : '');
 
 try {
     $pdo = getPDO();
@@ -41,18 +44,16 @@ try {
             $error = 'Solicitud no válida. Recarga la página e inténtalo de nuevo.';
         } else {
             $nuevo = $acceso['habilitado'] ? 0 : 1;
-            $upd = $pdo->prepare('UPDATE accesos SET habilitado = ? WHERE id_acceso = ? AND id_empresa = ?');
+            $upd = $pdo->prepare('UPDATE accesos SET habilitado = ? WHERE idAcceso = ? AND idEmpresa = ?');
             $upd->execute([$nuevo, $acceso['id_acceso'], $acceso['id_empresa']]);
-            $mensaje = $nuevo ? 'El acceso fue concedido nuevamente.' : 'El acceso fue revocado.';
-            $acceso = cargarAcceso($pdo, $idAcceso, (int) $_SESSION['usuario_id']);
+            header('Location: ' . $urlLista);
+            exit;
         }
     }
 } catch (PDOException $e) {
     error_log('Error en revocarAcceso: ' . $e->getMessage());
     $error = 'Ocurrió un error al actualizar el acceso.';
 }
-$origen = ($_GET['origen'] ?? $_POST['origen'] ?? '') === 'busqueda' ? 'busqueda' : '';
-$urlLista = ($origen ? 'busquedaAccesoRevocar.php' : 'listarAccesos.php') . ($embed ? '?embed=1' : '');
 $fmt = fn($f) => $f ? date('d/m/Y H:i', strtotime($f)) : '';
 ?>
 <!DOCTYPE html>

@@ -24,7 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo = getPDO();
-            $q = $pdo->prepare('SELECT id_cuenta FROM cuentas WHERE correo_cuenta = ? AND Habilitado = 1');
+            $q = $pdo->prepare(
+                'SELECT c.idCuenta FROM cuentas c
+                 WHERE c.correoCuenta = ? AND c.habilitado = 1
+                   AND EXISTS (SELECT 1 FROM empresas_cuentas ec WHERE ec.idCuenta = c.idCuenta)'
+            );
             $q->execute([$correo]);
             $idCuenta = $q->fetchColumn();
 
@@ -33,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($idCuenta !== false) {
                 $u = $pdo->prepare(
                     'UPDATE recuperacion_password SET intentos = intentos + 1
-                     WHERE id_cuenta = ? AND verificado = 0 AND expira > NOW() AND intentos < ' . REC_MAX_INTENTOS
+                     WHERE idCuenta = ? AND verificado = 0 AND expira > NOW() AND intentos < ' . REC_MAX_INTENTOS
                 );
                 $u->execute([$idCuenta]);
                 $cuenta = $u->rowCount() === 1;
@@ -41,19 +45,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!$cuenta) {
                 if ($idCuenta !== false) {
-                    $pdo->prepare('DELETE FROM recuperacion_password WHERE id_cuenta = ? AND verificado = 0')->execute([$idCuenta]);
+                    $pdo->prepare('DELETE FROM recuperacion_password WHERE idCuenta = ? AND verificado = 0')->execute([$idCuenta]);
                 }
                 recRedirigir('recuperar_password.php?vencido=1');
             }
 
-            $q = $pdo->prepare('SELECT codigo_hash, intentos FROM recuperacion_password WHERE id_cuenta = ?');
+            $q = $pdo->prepare('SELECT codigoHash AS codigo_hash, intentos FROM recuperacion_password WHERE idCuenta = ?');
             $q->execute([$idCuenta]);
             $fila = $q->fetch();
 
             if ($fila && password_verify($codigo, $fila['codigo_hash'])) {
                 $pdo->prepare(
                     'UPDATE recuperacion_password SET verificado = 1, expira = DATE_ADD(NOW(), INTERVAL ' . REC_VERIFICADO_MINUTOS . ' MINUTE)
-                     WHERE id_cuenta = ?'
+                     WHERE idCuenta = ?'
                 )->execute([$idCuenta]);
                 session_regenerate_id(true);
                 $_SESSION['rec_cuenta'] = (int) $idCuenta;
@@ -62,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $quedan = max(REC_MAX_INTENTOS - (int) ($fila['intentos'] ?? REC_MAX_INTENTOS), 0);
             if ($quedan === 0) {
-                $pdo->prepare('DELETE FROM recuperacion_password WHERE id_cuenta = ?')->execute([$idCuenta]);
+                $pdo->prepare('DELETE FROM recuperacion_password WHERE idCuenta = ?')->execute([$idCuenta]);
                 recRedirigir('recuperar_password.php?vencido=1');
             }
             $error = 'Código incorrecto. Te ' . ($quedan === 1 ? 'queda 1 intento.' : 'quedan ' . $quedan . ' intentos.');

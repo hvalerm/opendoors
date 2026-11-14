@@ -10,11 +10,11 @@ $error = '';
 
 try {
     $stmt = getPDO()->prepare(
-        'SELECT l.id_local, l.nombre_local, l.direccion_local, l.habilitado
+        'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, l.habilitado
          FROM locales l
-         INNER JOIN cuentas c ON c.id_empresa = l.id_empresa
-         WHERE c.id_cuenta = ? AND l.eliminado = 0
-         ORDER BY l.nombre_local, l.id_local'
+         INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa
+         WHERE c.idCuenta = ? AND l.eliminado = 0
+         ORDER BY l.nombreLocal, l.idLocal'
     );
     $stmt->execute([$_SESSION['usuario_id']]);
     $locales = $stmt->fetchAll();

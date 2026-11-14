@@ -18,13 +18,13 @@ if (empty($_SESSION['csrf'])) {
 function cargarAcceso(PDO $pdo, int $idAcceso, int $idCuenta): ?array
 {
     $stmt = $pdo->prepare(
-        'SELECT a.id_acceso, a.id_empresa, a.activo_desde, a.activo_hasta, l.nombre_local, e.nombre_empresa,
+        'SELECT a.idAcceso AS id_acceso, a.idEmpresa AS id_empresa, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
                 a.token, a.ejecutado, a.habilitado
          FROM accesos a
-         INNER JOIN locales l ON l.id_local = a.id_local AND l.id_empresa = a.id_empresa
-         INNER JOIN empresas e ON e.id_empresa = a.id_empresa
-         INNER JOIN cuentas c ON c.id_empresa = a.id_empresa
-         WHERE a.id_acceso = ? AND c.id_cuenta = ?'
+         INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
+         INNER JOIN empresas e ON e.idEmpresa = a.idEmpresa
+         INNER JOIN empresas_cuentas c ON c.idEmpresa = a.idEmpresa
+         WHERE a.idAcceso = ? AND c.idCuenta = ?'
     );
     $stmt->execute([$idAcceso, $idCuenta]);
     return $stmt->fetch() ?: null;
@@ -51,7 +51,7 @@ try {
             $error = 'Solicitud no válida. Recarga la página e inténtalo de nuevo.';
         } elseif ($accion === 'toggle') {
             $nuevo = $acceso['habilitado'] ? 0 : 1;
-            $pdo->prepare('UPDATE accesos SET habilitado = ? WHERE id_acceso = ? AND id_empresa = ?')
+            $pdo->prepare('UPDATE accesos SET habilitado = ? WHERE idAcceso = ? AND idEmpresa = ?')
                 ->execute([$nuevo, $acceso['id_acceso'], $acceso['id_empresa']]);
             $mensaje = $nuevo ? 'El acceso fue concedido nuevamente.' : 'El acceso fue revocado.';
         } elseif ($accion === 'actualizar') {
@@ -62,7 +62,7 @@ try {
             $idLocalNuevo = filter_var($_POST['id_local'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $ejecutadoNuevo = ($_POST['ejecutado'] ?? '') === '1' ? 1 : 0;
             $habilitadoNuevo = ($_POST['habilitado'] ?? '') === '1' ? 1 : 0;
-            $chk = $pdo->prepare('SELECT 1 FROM locales WHERE id_local = ? AND id_empresa = ? AND eliminado = 0');
+            $chk = $pdo->prepare('SELECT 1 FROM locales WHERE idLocal = ? AND idEmpresa = ? AND eliminado = 0');
             $chk->execute([$idLocalNuevo ?: 0, $acceso['id_empresa']]);
             if (!$d1 || !$d2) {
                 $error = 'Ingresa fechas y horas válidas.';
@@ -72,8 +72,8 @@ try {
                 $error = 'El local seleccionado no es válido.';
             } else {
                 $pdo->prepare(
-                    'UPDATE accesos SET activo_desde = ?, activo_hasta = ?, id_local = ?, ejecutado = ?, habilitado = ?
-                     WHERE id_acceso = ? AND id_empresa = ?'
+                    'UPDATE accesos SET activoDesde = ?, activoHasta = ?, idLocal = ?, ejecutado = ?, habilitado = ?
+                     WHERE idAcceso = ? AND idEmpresa = ?'
                 )->execute([
                     $d1->format('Y-m-d H:i:s'), $d2->format('Y-m-d H:i:s'), $idLocalNuevo,
                     $ejecutadoNuevo, $habilitadoNuevo, $acceso['id_acceso'], $acceso['id_empresa'],
@@ -97,7 +97,7 @@ $urlLista = 'listarAccesos.php' . ($embed ? '?embed=1' : '');
 $locales = [];
 if ($acceso) {
     try {
-        $st = getPDO()->prepare('SELECT id_local, nombre_local FROM locales WHERE id_empresa = ? AND eliminado = 0 ORDER BY nombre_local');
+        $st = getPDO()->prepare('SELECT idLocal AS id_local, nombreLocal AS nombre_local FROM locales WHERE idEmpresa = ? AND eliminado = 0 ORDER BY nombreLocal');
         $st->execute([$acceso['id_empresa']]);
         $locales = $st->fetchAll();
     } catch (PDOException $e) {
@@ -124,6 +124,10 @@ $valHasta = $hasta ?? ($acceso ? date('Y-m-d\TH:i', strtotime($acceso['activo_ha
         dt { color: #6b7a86; }
         dd { word-break: break-all; }
         dd input, dd select { width: 100%; padding: 9px 10px; border: 1px solid #c9d3da; border-radius: 8px; font: inherit; color: #1b2a35; background: #fff; }
+        dd input[type="checkbox"] { width: 20px; height: 20px; padding: 0; accent-color: #3a8fb7; cursor: pointer; }
+        .chk { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+        .chk input[type="checkbox"] { flex-shrink: 0; }
+        .nota { color: #6b7a86; font-size: .85rem; }
         .acciones { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
         .btn { display: inline-block; border: none; border-radius: 8px; padding: 12px 22px; font: inherit; font-weight: 600; color: #fff; background: #3a8fb7; cursor: pointer; text-decoration: none; }
         .btn.peligro { background: #b3261e; }
@@ -165,9 +169,9 @@ $valHasta = $hasta ?? ($acceso ? date('Y-m-d\TH:i', strtotime($acceso['activo_ha
                     <dt>Activo hasta</dt><dd><input type="datetime-local" name="activo_hasta" required value="<?= $h($valHasta) ?>"></dd>
                     <dt>Token</dt><dd><?= $h($acceso['token']) ?></dd>
                     <dt>Ejecutado</dt>
-                    <dd><select name="ejecutado"><option value="1" <?= $acceso['ejecutado'] ? 'selected' : '' ?>>Sí</option><option value="0" <?= $acceso['ejecutado'] ? '' : 'selected' ?>>No</option></select></dd>
+                    <dd><label class="chk"><input type="checkbox" name="ejecutado" value="1" <?= $acceso['ejecutado'] ? 'checked' : '' ?>> <span class="nota">(Debe estar sin marcar para que pueda usarse)</span></label></dd>
                     <dt>Habilitado</dt>
-                    <dd><select name="habilitado"><option value="1" <?= $acceso['habilitado'] ? 'selected' : '' ?>>Sí</option><option value="0" <?= $acceso['habilitado'] ? '' : 'selected' ?>>No</option></select></dd>
+                    <dd><label class="chk"><input type="checkbox" name="habilitado" value="1" <?= $acceso['habilitado'] ? 'checked' : '' ?>> <span class="nota">(Debe estar marcado para que pueda usarse)</span></label></dd>
                 </dl>
                 <div class="acciones">
                     <button type="submit" class="btn">Actualizar</button>

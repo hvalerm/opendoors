@@ -10,11 +10,11 @@ $itemsLocales = [];
 try {
     require_once __DIR__ . '/../util/db.php';
     $stmt = getPDO()->prepare(
-        'SELECT l.id_local, l.nombre_local
+        'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local
          FROM locales l
-         INNER JOIN cuentas c ON c.id_empresa = l.id_empresa
-         WHERE c.id_cuenta = ? AND l.eliminado = 0
-         ORDER BY l.nombre_local, l.id_local'
+         INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa
+         WHERE c.idCuenta = ? AND l.eliminado = 0
+         ORDER BY l.nombreLocal, l.idLocal'
     );
     $stmt->execute([$usuario['id']]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $local) {

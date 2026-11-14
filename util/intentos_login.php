@@ -14,7 +14,7 @@ function claveIntentos(string $usuario): string
 // Segundos de bloqueo que quedan (0 si puede intentar). Limpia los bloqueos ya vencidos.
 function segundosBloqueado(PDO $pdo, string $clave): int
 {
-    $stmt = $pdo->prepare('SELECT GREATEST(TIMESTAMPDIFF(SECOND, NOW(), bloqueado_hasta), 0) FROM intentos_login WHERE usuario = ? AND bloqueado_hasta IS NOT NULL');
+    $stmt = $pdo->prepare('SELECT GREATEST(TIMESTAMPDIFF(SECOND, NOW(), bloqueadoHasta), 0) FROM intentos_login WHERE usuario = ? AND bloqueadoHasta IS NOT NULL');
     $stmt->execute([$clave]);
     $seg = $stmt->fetchColumn();
     if ($seg === false) {
@@ -32,7 +32,7 @@ function registrarFallo(PDO $pdo, string $clave): int
     $pdo->prepare(
         'INSERT INTO intentos_login (usuario, intentos) VALUES (?, 1)
          ON DUPLICATE KEY UPDATE intentos = intentos + 1,
-             bloqueado_hasta = IF(intentos >= ' . LOGIN_MAX_INTENTOS . ', DATE_ADD(NOW(), INTERVAL ' . LOGIN_BLOQUEO_MINUTOS . ' MINUTE), bloqueado_hasta)'
+             bloqueadoHasta = IF(intentos >= ' . LOGIN_MAX_INTENTOS . ', DATE_ADD(NOW(), INTERVAL ' . LOGIN_BLOQUEO_MINUTOS . ' MINUTE), bloqueadoHasta)'
     )->execute([$clave]);
     $stmt = $pdo->prepare('SELECT intentos FROM intentos_login WHERE usuario = ?');
     $stmt->execute([$clave]);

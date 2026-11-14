@@ -43,18 +43,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Demasiados intentos fallidos. Inténtalo de nuevo en ' . max((int) ceil($segBloqueo / 60), 1) . ' minuto(s).';
             } else {
             $stmt = $pdo->prepare(
-                'SELECT c.id_cuenta AS id,
-                        COALESCE(NULLIF(TRIM(c.nombre_cuenta), \'\'), c.correo_cuenta) AS nombre,
-                        c.pwd AS password,
-                        e.nombre_empresa,
-                        e.licencia_expira
+                'SELECT c.idCuenta AS id,
+                        COALESCE(NULLIF(TRIM(c.nombreCuenta), \'\'), c.correoCuenta) AS nombre,
+                        c.pwd AS password
                  FROM cuentas c
-                 INNER JOIN empresas e ON e.id_empresa = c.id_empresa
-                 WHERE c.correo_cuenta = ? AND c.Habilitado = 1'
+                 WHERE c.correoCuenta = ? AND c.habilitado = 1'
             );
             $stmt->execute([$usuario]);
             $row = $stmt->fetch();
             if ($row && password_verify($password, $row['password'])) {
+                $row += empresaUnicaCuenta($pdo, (int) $row['id']);
                 if ($limitarIntentos) {
                     limpiarIntentos($pdo, $clave);
                 }
@@ -69,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 session_regenerate_id(true);
                 $_SESSION['usuario_id'] = $row['id'];
+                $_SESSION['empresa_id'] = $row['id_empresa'];
                 $_SESSION['nombre'] = $row['nombre'];
                 $_SESSION['ultima_actividad'] = time();
                 $_SESSION['huella'] = hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? '');
@@ -85,6 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             }
+        } catch (DomainException $e) {
+            $error = $e->getMessage();
         } catch (PDOException $e) {
             error_log('Error al iniciar sesión: ' . $e->getMessage());
             $error = 'No se pudo consultar la cuenta. Inténtalo más tarde.';

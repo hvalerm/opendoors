@@ -12,11 +12,11 @@ $local = null;
 try {
     if ($idLocal) {
         $stmt = getPDO()->prepare(
-            'SELECT l.id_local, l.nombre_local, l.direccion_local, e.nombre_empresa, l.habilitado
+            'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, e.nombreEmpresa AS nombre_empresa, l.habilitado
              FROM locales l
-             INNER JOIN empresas e ON e.id_empresa = l.id_empresa
-             INNER JOIN cuentas c ON c.id_empresa = l.id_empresa
-             WHERE l.id_local = ? AND c.id_cuenta = ? AND l.eliminado = 0'
+             INNER JOIN empresas e ON e.idEmpresa = l.idEmpresa
+             INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa
+             WHERE l.idLocal = ? AND c.idCuenta = ? AND l.eliminado = 0'
         );
         $stmt->execute([$idLocal, $_SESSION['usuario_id']]);
         $local = $stmt->fetch() ?: null;

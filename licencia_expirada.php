@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/util/verificar.php';
+require_once __DIR__ . '/util/db.php';
 require_once __DIR__ . '/util/contacto.php';
 
 iniciarSesionSegura();
@@ -13,6 +14,12 @@ $info = $_SESSION['licencia_expirada'];
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $fecha = (new DateTime($info['fecha']))->format('d/m/Y H:i');
 $mensajeWa = rawurlencode('Hola, la licencia de ' . $info['empresa'] . ' expiró el ' . $fecha . '. Deseo renovar el servicio.');
+$telefonoSoporte = null;
+try {
+    $telefonoSoporte = obtenerTelefonoSoporte(getPDO());
+} catch (PDOException $e) {
+    error_log('Error al obtener el teléfono de soporte: ' . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -41,8 +48,12 @@ $mensajeWa = rawurlencode('Hola, la licencia de ' . $info['empresa'] . ' expiró
         <p>La licencia de <strong><?= $h($info['empresa']) ?></strong> expiró el <span class="fecha"><?= $h($fecha) ?></span>.</p>
         <p>Si deseas seguir usando el servicio, por favor contáctate con tu proveedor de servicio.</p>
         <div class="acciones">
-            <a class="btn llamar" href="tel:+<?= $h(PROVEEDOR_TELEFONO) ?>">Llamar por teléfono</a>
-            <a class="btn whatsapp" href="https://wa.me/<?= $h(PROVEEDOR_WHATSAPP) ?>?text=<?= $mensajeWa ?>" target="_blank" rel="noopener">Escribir por WhatsApp</a>
+            <?php if ($telefonoSoporte !== null): ?>
+                <a class="btn llamar" href="tel:+<?= $h($telefonoSoporte) ?>">Llamar por teléfono</a>
+                <a class="btn whatsapp" href="https://wa.me/<?= $h($telefonoSoporte) ?>?text=<?= $mensajeWa ?>" target="_blank" rel="noopener">Escribir por WhatsApp</a>
+            <?php else: ?>
+                <p>El contacto de soporte no está disponible por el momento.</p>
+            <?php endif; ?>
         </div>
         <a class="volver" href="login.php">Volver al inicio de sesión</a>
     </section>

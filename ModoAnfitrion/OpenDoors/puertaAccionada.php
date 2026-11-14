@@ -25,11 +25,13 @@ if ($esHuesped) {
 function obtenerLocal(int $idLocal, ?int $idCuenta): ?array
 {
     $stmt = getPDO()->prepare(
-        'SELECT l.accionar, l.nombre_local, l.direccion_local
-         FROM locales l' .
-        ($idCuenta !== null ? ' INNER JOIN cuentas c ON c.id_empresa = l.id_empresa' : '') .
-        ' WHERE l.id_local = ? AND l.eliminado = 0' .
-        ($idCuenta !== null ? ' AND c.id_cuenta = ?' : '')
+        'SELECT l.accionar, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local,
+                e.telefonoContacto AS telefono_anfitrion
+         FROM locales l
+         INNER JOIN empresas e ON e.idEmpresa = l.idEmpresa' .
+        ($idCuenta !== null ? ' INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa' : '') .
+        ' WHERE l.idLocal = ? AND l.eliminado = 0' .
+        ($idCuenta !== null ? ' AND c.idCuenta = ?' : '')
     );
     $stmt->execute($idCuenta !== null ? [$idLocal, $idCuenta] : [$idLocal]);
     return $stmt->fetch() ?: null;
@@ -73,6 +75,15 @@ try {
     error_log('Error en puertaAccionada: ' . $e->getMessage());
 }
 $existe = $local !== null;
+$telefonoAnfitrion = $existe ? normalizarTelefonoContacto($local['telefono_anfitrion'] ?? null) : null;
+$telefonoSoporte = null;
+if ($existe) {
+    try {
+        $telefonoSoporte = obtenerTelefonoSoporte(getPDO());
+    } catch (PDOException $e) {
+        error_log('Error al obtener el teléfono de soporte: ' . $e->getMessage());
+    }
+}
 $urlEstado = 'puertaAccionada.php?estado=1&id=' . (int) $idLocal;
 if ($esHuesped && $autorizado) {
     $urlEstado = 'puertaAccionada.php?estado=1&confirmacion=' . rawurlencode($confirmacion);
@@ -83,8 +94,12 @@ $mensajeContacto = rawurlencode(
     '", ubicado en ' . ($local['direccion_local'] ?? '') .
     ', después de 30 segundos. ¿Me pueden ayudar?'
 );
-$urlAnfitrion = 'https://wa.me/' . ANFITRION_WHATSAPP . '?text=' . $mensajeContacto;
-$urlSoporte = 'https://wa.me/' . PROVEEDOR_WHATSAPP . '?text=' . $mensajeContacto;
+$urlAnfitrion = $telefonoAnfitrion !== null
+    ? 'https://wa.me/' . $telefonoAnfitrion . '?text=' . $mensajeContacto
+    : null;
+$urlSoporte = $telefonoSoporte !== null
+    ? 'https://wa.me/' . $telefonoSoporte . '?text=' . $mensajeContacto
+    : null;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -129,8 +144,16 @@ $urlSoporte = 'https://wa.me/' . PROVEEDOR_WHATSAPP . '?text=' . $mensajeContact
                 <strong>Tiempo restante: <span id="segundosRestantes">30</span> <span id="unidadTiempo">segundos</span></strong>
             </p>
             <div class="contactos-error" id="contactosError" hidden>
-                <a class="btn-contacto btn-anfitrion" href="<?= $h($urlAnfitrion) ?>" target="_blank" rel="noopener">Contactar al anfitrión</a>
-                <a class="btn-contacto btn-soporte" href="<?= $h($urlSoporte) ?>" target="_blank" rel="noopener">Contactar a soporte</a>
+                <?php if ($urlAnfitrion !== null): ?>
+                    <a class="btn-contacto btn-anfitrion" href="<?= $h($urlAnfitrion) ?>" target="_blank" rel="noopener">Contactar al anfitrión</a>
+                <?php else: ?>
+                    <p class="contacto-no-disponible">El teléfono del anfitrión no está disponible.</p>
+                <?php endif; ?>
+                <?php if ($urlSoporte !== null): ?>
+                    <a class="btn-contacto btn-soporte" href="<?= $h($urlSoporte) ?>" target="_blank" rel="noopener">Contactar a soporte</a>
+                <?php else: ?>
+                    <p class="contacto-no-disponible">El teléfono de soporte no está disponible.</p>
+                <?php endif; ?>
             </div>
             <?php if (!$esHuesped): ?>
                 <a class="volver" href="<?= $h($urlVolver) ?>">Volver al local</a>
@@ -168,7 +191,7 @@ $urlSoporte = 'https://wa.me/' . PROVEEDOR_WHATSAPP . '?text=' . $mensajeContact
                 clearInterval(timerCuentaRegresiva);
                 cuentaRegresiva.hidden = true;
                 if (exito) {
-                    mostrar('ok', '😊', 'La orden fue ejecutada con éxito');
+                    mostrar('ok', '😊', 'La orden de apertura fue ejecutada con éxito');
                 } else {
                     mostrar('fallo', '😞', 'No se confirmó la apertura de la puerta en 30 segundos.');
                     contactosError.hidden = false;

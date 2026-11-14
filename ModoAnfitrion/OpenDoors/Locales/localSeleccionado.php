@@ -15,12 +15,12 @@ $local = null;
 function cargarLocal(int $idLocal, int $idCuenta): ?array
 {
     $stmt = getPDO()->prepare(
-        'SELECT l.id_local, l.nombre_local, l.direccion_local, e.nombre_empresa,
-                l.accionar, l.habilitado, l.eliminado, l.id_empresa
+        'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, e.nombreEmpresa AS nombre_empresa,
+                l.accionar, l.habilitado, l.eliminado, l.idEmpresa AS id_empresa
          FROM locales l
-         INNER JOIN empresas e ON e.id_empresa = l.id_empresa
-         INNER JOIN cuentas c ON c.id_empresa = l.id_empresa
-         WHERE l.id_local = ? AND c.id_cuenta = ? AND l.eliminado = 0'
+         INNER JOIN empresas e ON e.idEmpresa = l.idEmpresa
+         INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa
+         WHERE l.idLocal = ? AND c.idCuenta = ? AND l.eliminado = 0'
     );
     $stmt->execute([$idLocal, $idCuenta]);
     return $stmt->fetch() ?: null;
@@ -40,13 +40,13 @@ try {
                 $mensaje = 'El local está deshabilitado.';
                 $esError = true;
             } else {
-                $stmt = getPDO()->prepare('UPDATE locales SET accionar = 1 WHERE id_local = ? AND id_empresa = ?');
+                $stmt = getPDO()->prepare('UPDATE locales SET accionar = 1 WHERE idLocal = ? AND idEmpresa = ?');
                 $stmt->execute([$local['id_local'], $local['id_empresa']]);
                 header('Location: ../puertaAccionada.php?id=' . $local['id_local'] . ($embed ? '&embed=1' : ''));
                 exit;
             }
         } elseif (($_POST['accion'] ?? '') === 'anular_apertura') {
-            $stmt = getPDO()->prepare('UPDATE locales SET accionar = 0 WHERE id_local = ? AND id_empresa = ? AND accionar = 1');
+            $stmt = getPDO()->prepare('UPDATE locales SET accionar = 0 WHERE idLocal = ? AND idEmpresa = ? AND accionar = 1');
             $stmt->execute([$local['id_local'], $local['id_empresa']]);
             if ($stmt->rowCount() > 0) {
                 $mensaje = 'La apertura de puerta fue anulada.';

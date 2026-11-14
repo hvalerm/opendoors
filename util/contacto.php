@@ -1,5 +1,16 @@
 <?php
-// Datos de contacto del proveedor del servicio (solo dígitos, con código de país).
-const PROVEEDOR_TELEFONO = '51920715669';
-const PROVEEDOR_WHATSAPP = '51920715669';
-const ANFITRION_WHATSAPP = '51993044808';
+function obtenerTelefonoSoporte(PDO $pdo): ?string
+{
+    $telefono = $pdo->query('SELECT telefonoContacto FROM soporte WHERE idSoporte = 1')->fetchColumn();
+    return normalizarTelefonoContacto($telefono);
+}
+
+function normalizarTelefonoContacto(mixed $telefono): ?string
+{
+    if (!is_string($telefono)) {
+        return null;
+    }
+
+    $digitos = preg_replace('/\D+/', '', $telefono);
+    return is_string($digitos) && $digitos !== '' && $digitos !== '51000000000' ? $digitos : null;
+}

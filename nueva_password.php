@@ -18,7 +18,7 @@ $error = '';
 try {
     $pdo = getPDO();
     // Solo se puede cambiar la contraseña con un código ya verificado y vigente
-    $q = $pdo->prepare('SELECT 1 FROM recuperacion_password WHERE id_cuenta = ? AND verificado = 1 AND expira > NOW()');
+    $q = $pdo->prepare('SELECT 1 FROM recuperacion_password WHERE idCuenta = ? AND verificado = 1 AND expira > NOW()');
     $q->execute([$idCuenta]);
     if (!$q->fetchColumn()) {
         unset($_SESSION['rec_cuenta']);
@@ -40,14 +40,14 @@ try {
         } else {
             $pdo->beginTransaction();
             // Consumir el código y cambiar la contraseña van juntos; el código solo sirve una vez
-            $d = $pdo->prepare('DELETE FROM recuperacion_password WHERE id_cuenta = ? AND verificado = 1 AND expira > NOW()');
+            $d = $pdo->prepare('DELETE FROM recuperacion_password WHERE idCuenta = ? AND verificado = 1 AND expira > NOW()');
             $d->execute([$idCuenta]);
             if ($d->rowCount() !== 1) {
                 $pdo->rollBack();
                 unset($_SESSION['rec_cuenta']);
                 recRedirigir('recuperar_password.php?vencido=1');
             }
-            $pdo->prepare('UPDATE cuentas SET pwd = ? WHERE id_cuenta = ?')
+            $pdo->prepare('UPDATE cuentas SET pwd = ? WHERE idCuenta = ?')
                 ->execute([password_hash($p1, PASSWORD_ARGON2ID), $idCuenta]);
             $pdo->commit();
 

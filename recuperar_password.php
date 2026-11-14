@@ -27,12 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo = getPDO();
-            $q = $pdo->prepare('SELECT id_cuenta FROM cuentas WHERE correo_cuenta = ? AND Habilitado = 1');
+            $q = $pdo->prepare(
+                'SELECT c.idCuenta FROM cuentas c
+                 WHERE c.correoCuenta = ? AND c.habilitado = 1
+                   AND EXISTS (SELECT 1 FROM empresas_cuentas ec WHERE ec.idCuenta = c.idCuenta)'
+            );
             $q->execute([$correo]);
             $idCuenta = $q->fetchColumn();
 
             if ($idCuenta !== false) {
-                $q = $pdo->prepare('SELECT TIMESTAMPDIFF(SECOND, ultimo_envio, NOW()) FROM recuperacion_password WHERE id_cuenta = ?');
+                $q = $pdo->prepare('SELECT TIMESTAMPDIFF(SECOND, ultimoEnvio, NOW()) FROM recuperacion_password WHERE idCuenta = ?');
                 $q->execute([$idCuenta]);
                 $desdeUltimo = $q->fetchColumn();
 
@@ -40,10 +44,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($desdeUltimo === false || (int) $desdeUltimo >= REC_ESPERA_SEGUNDOS) {
                     $codigo = str_pad((string) random_int(0, 9999999999), 10, '0', STR_PAD_LEFT);
                     $pdo->prepare(
-                        'INSERT INTO recuperacion_password (id_cuenta, codigo_hash, expira, intentos, verificado, ultimo_envio)
+                        'INSERT INTO recuperacion_password (idCuenta, codigoHash, expira, intentos, verificado, ultimoEnvio)
                          VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ' . REC_CODIGO_MINUTOS . ' MINUTE), 0, 0, NOW())
-                         ON DUPLICATE KEY UPDATE codigo_hash = VALUES(codigo_hash), expira = VALUES(expira),
-                             intentos = 0, verificado = 0, ultimo_envio = NOW()'
+                         ON DUPLICATE KEY UPDATE codigoHash = VALUES(codigoHash), expira = VALUES(expira),
+                             intentos = 0, verificado = 0, ultimoEnvio = NOW()'
                     )->execute([$idCuenta, password_hash($codigo, PASSWORD_ARGON2ID)]);
 
                     $enviado = enviarCorreo(
@@ -54,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         . "Si no lo solicitaste, ignora este mensaje: tu contraseña no cambiará.\n"
                     );
                     if (!$enviado) {
-                        $pdo->prepare('DELETE FROM recuperacion_password WHERE id_cuenta = ?')->execute([$idCuenta]);
+                        $pdo->prepare('DELETE FROM recuperacion_password WHERE idCuenta = ?')->execute([$idCuenta]);
                         error_log('Recuperar contraseña: no se pudo enviar el correo a la cuenta ' . $idCuenta);
                     }
                 }

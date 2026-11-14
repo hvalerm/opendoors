@@ -37,11 +37,11 @@ try {
     $pdo = getPDO();
     if ($idLocal) {
         $stmt = $pdo->prepare(
-            'SELECT l.id_local, l.id_empresa, l.nombre_local, l.direccion_local, e.nombre_empresa, l.habilitado
+            'SELECT l.idLocal AS id_local, l.idEmpresa AS id_empresa, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, e.nombreEmpresa AS nombre_empresa, l.habilitado
              FROM locales l
-             INNER JOIN empresas e ON e.id_empresa = l.id_empresa
-             INNER JOIN cuentas c ON c.id_empresa = l.id_empresa
-             WHERE l.id_local = ? AND c.id_cuenta = ? AND l.eliminado = 0'
+             INNER JOIN empresas e ON e.idEmpresa = l.idEmpresa
+             INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa
+             WHERE l.idLocal = ? AND c.idCuenta = ? AND l.eliminado = 0'
         );
         $stmt->execute([$idLocal, $_SESSION['usuario_id']]);
         $local = $stmt->fetch() ?: null;
@@ -58,7 +58,7 @@ try {
             $error = 'La fecha "Activo hasta" debe ser posterior a "Activo desde".';
         } else {
             $ins = $pdo->prepare(
-                'INSERT INTO accesos (activo_desde, activo_hasta, id_local, id_empresa, token) VALUES (?, ?, ?, ?, ?)'
+                'INSERT INTO accesos (activoDesde, activoHasta, idLocal, idEmpresa, token) VALUES (?, ?, ?, ?, ?)'
             );
             for ($intento = 0; $intento < 5 && !$creado; $intento++) {
                 $token = generarToken();

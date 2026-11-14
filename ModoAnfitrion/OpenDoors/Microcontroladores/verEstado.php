@@ -11,15 +11,15 @@ $error = '';
 // Solo dispositivos de apertura de la empresa de la cuenta con sesión iniciada
 try {
     $stmt = getPDO()->prepare(
-        'SELECT m.id_microcontrolador, l.nombre_local, e.nombre_empresa,
+        'SELECT m.idMicrocontrolador AS id_microcontrolador, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
                 m.ultimaConsulta, m.ultimaApertura, m.habilitado,
                 TIMESTAMPDIFF(SECOND, m.ultimaConsulta, NOW()) AS segundos_sin_consulta
          FROM microcontroladores m
-         INNER JOIN locales l ON l.id_local = m.id_local AND l.id_empresa = m.id_empresa
-         INNER JOIN empresas e ON e.id_empresa = m.id_empresa
-         INNER JOIN cuentas c ON c.id_empresa = m.id_empresa
-         WHERE c.id_cuenta = ?
-         ORDER BY m.id_microcontrolador'
+         INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
+         INNER JOIN empresas e ON e.idEmpresa = m.idEmpresa
+         INNER JOIN empresas_cuentas c ON c.idEmpresa = m.idEmpresa
+         WHERE c.idCuenta = ?
+         ORDER BY m.idMicrocontrolador'
     );
     $stmt->execute([$_SESSION['usuario_id']]);
     $unidades = $stmt->fetchAll();

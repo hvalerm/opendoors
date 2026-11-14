@@ -37,10 +37,10 @@ try {
     $pdo = getPDO();
     $pdo->beginTransaction();
     $stmt = $pdo->prepare(
-        'SELECT m.id_local, m.id_empresa, m.habilitado, l.accionar
+        'SELECT m.idLocal AS id_local, m.idEmpresa AS id_empresa, m.habilitado, l.accionar
          FROM microcontroladores m
-         INNER JOIN locales l ON l.id_local = m.id_local AND l.id_empresa = m.id_empresa
-         WHERE m.id_microcontrolador = ? AND l.eliminado = 0
+         INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
+         WHERE m.idMicrocontrolador = ? AND l.eliminado = 0
          FOR UPDATE'
     );
     $stmt->execute([$idMicrocontrolador]);
@@ -57,13 +57,12 @@ try {
 
     $accionar = (int) $micro['accionar'];
 
-    $pdo->prepare('UPDATE microcontroladores SET ultimaConsulta = NOW() WHERE id_microcontrolador = ?')
+    $pdo->prepare('UPDATE microcontroladores SET ultimaConsulta = NOW() WHERE idMicrocontrolador = ?')
         ->execute([$idMicrocontrolador]);
 
     if ($accionar === 1) {
-        $pdo->prepare('UPDATE microcontroladores SET cantidadAperturas = cantidadAperturas + 1 WHERE id_microcontrolador = ?')
-            ->execute([$idMicrocontrolador]);
-        $pdo->prepare('UPDATE locales SET accionar = 0 WHERE id_local = ? AND id_empresa = ?')
+        // El trigger de locales contabiliza la apertura al emitir la orden.
+        $pdo->prepare('UPDATE locales SET accionar = 0 WHERE idLocal = ? AND idEmpresa = ?')
             ->execute([$micro['id_local'], $micro['id_empresa']]);
     }
 

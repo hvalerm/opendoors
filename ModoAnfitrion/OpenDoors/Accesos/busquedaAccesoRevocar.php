@@ -11,15 +11,15 @@ $error = '';
 // Solo accesos de la empresa de la cuenta con sesión iniciada
 try {
     $stmt = getPDO()->prepare(
-        'SELECT a.id_acceso, a.activo_desde, a.activo_hasta, l.nombre_local, e.nombre_empresa,
+        'SELECT a.idAcceso AS id_acceso, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
                 a.token, a.ejecutado, a.habilitado,
-                (NOW() BETWEEN a.activo_desde AND a.activo_hasta) AS en_rango
+                (NOW() BETWEEN a.activoDesde AND a.activoHasta AND a.habilitado = 1 AND a.ejecutado = 0) AS en_rango
          FROM accesos a
-         INNER JOIN locales l ON l.id_local = a.id_local AND l.id_empresa = a.id_empresa
-         INNER JOIN empresas e ON e.id_empresa = a.id_empresa
-         INNER JOIN cuentas c ON c.id_empresa = a.id_empresa
-         WHERE c.id_cuenta = ?
-         ORDER BY a.id_acceso DESC'
+         INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
+         INNER JOIN empresas e ON e.idEmpresa = a.idEmpresa
+         INNER JOIN empresas_cuentas c ON c.idEmpresa = a.idEmpresa
+         WHERE c.idCuenta = ?
+         ORDER BY a.idAcceso DESC'
     );
     $stmt->execute([$_SESSION['usuario_id']]);
     $accesos = $stmt->fetchAll();

@@ -17,13 +17,11 @@ $porLocal = [];
 
 try {
     $pdo = getPDO();
-    $q = $pdo->prepare('SELECT id_empresa FROM cuentas WHERE id_cuenta = ?');
-    $q->execute([$_SESSION['usuario_id']]);
-    $idEmpresa = (int) $q->fetchColumn();
+    $idEmpresa = (int) $_SESSION['empresa_id'];
 
     // Locales
     $q = $pdo->prepare('SELECT COUNT(*) AS total, COALESCE(SUM(habilitado = 1), 0) AS ok, COALESCE(SUM(accionar = 1), 0) AS pend
-                        FROM locales WHERE id_empresa = ? AND eliminado = 0');
+                        FROM locales WHERE idEmpresa = ? AND eliminado = 0');
     $q->execute([$idEmpresa]);
     $r = $q->fetch();
     $k['locales'] = (int) $r['total'];
@@ -32,11 +30,11 @@ try {
 
     // Accesos por situación
     $q = $pdo->prepare(
-        'SELECT COALESCE(SUM(habilitado = 1 AND ejecutado = 0 AND NOW() BETWEEN activo_desde AND activo_hasta), 0) AS vigentes,
-                COALESCE(SUM(habilitado = 1 AND ejecutado = 0 AND activo_desde > NOW()), 0) AS proximos,
+        'SELECT COALESCE(SUM(habilitado = 1 AND ejecutado = 0 AND NOW() BETWEEN activoDesde AND activoHasta), 0) AS vigentes,
+                COALESCE(SUM(habilitado = 1 AND ejecutado = 0 AND activoDesde > NOW()), 0) AS proximos,
                 COALESCE(SUM(ejecutado = 1), 0) AS usados,
                 COALESCE(SUM(habilitado = 0 AND ejecutado = 0), 0) AS revocados
-         FROM accesos WHERE id_empresa = ?'
+         FROM accesos WHERE idEmpresa = ?'
     );
     $q->execute([$idEmpresa]);
     $r = $q->fetch();
@@ -46,22 +44,22 @@ try {
 
     // Próximas llegadas y accesos vigentes sin usar
     $q = $pdo->prepare(
-        'SELECT l.nombre_local, a.activo_desde, a.activo_hasta, (a.activo_desde > NOW()) AS futuro
+        'SELECT l.nombreLocal AS nombre_local, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, (a.activoDesde > NOW()) AS futuro
          FROM accesos a
-         INNER JOIN locales l ON l.id_local = a.id_local AND l.id_empresa = a.id_empresa
-         WHERE a.id_empresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activo_hasta >= NOW()
-         ORDER BY a.activo_desde LIMIT 5'
+         INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
+         WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta >= NOW()
+         ORDER BY a.activoDesde LIMIT 5'
     );
     $q->execute([$idEmpresa]);
     $proximos = $q->fetchAll();
 
     // Accesos vencidos que nunca se usaron
     $q = $pdo->prepare(
-        'SELECT l.nombre_local, a.activo_desde, a.activo_hasta
+        'SELECT l.nombreLocal AS nombre_local, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta
          FROM accesos a
-         INNER JOIN locales l ON l.id_local = a.id_local AND l.id_empresa = a.id_empresa
-         WHERE a.id_empresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activo_hasta < NOW()
-         ORDER BY a.activo_hasta DESC'
+         INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
+         WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta < NOW()
+         ORDER BY a.activoHasta DESC'
     );
     $q->execute([$idEmpresa]);
     $noUsados = $q->fetchAll();
@@ -70,11 +68,11 @@ try {
 
     // Dispositivos y aperturas por local
     $q = $pdo->prepare(
-        'SELECT l.nombre_local, m.id_microcontrolador, m.habilitado, m.cantidadAperturas,
+        'SELECT l.nombreLocal AS nombre_local, m.idMicrocontrolador AS id_microcontrolador, m.habilitado, m.cantidadAperturas,
                 TIMESTAMPDIFF(SECOND, m.ultimaConsulta, NOW()) AS seg
          FROM microcontroladores m
-         INNER JOIN locales l ON l.id_local = m.id_local AND l.id_empresa = m.id_empresa
-         WHERE m.id_empresa = ? ORDER BY m.cantidadAperturas DESC, l.nombre_local'
+         INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
+         WHERE m.idEmpresa = ? ORDER BY m.cantidadAperturas DESC, l.nombreLocal'
     );
     $q->execute([$idEmpresa]);
     foreach ($q->fetchAll() as $d) {
@@ -91,9 +89,9 @@ try {
 
     // Locales habilitados sin dispositivo
     $q = $pdo->prepare(
-        'SELECT l.nombre_local FROM locales l
-         WHERE l.id_empresa = ? AND l.eliminado = 0 AND l.habilitado = 1
-           AND NOT EXISTS (SELECT 1 FROM microcontroladores m WHERE m.id_local = l.id_local AND m.id_empresa = l.id_empresa)'
+        'SELECT l.nombreLocal AS nombre_local FROM locales l
+         WHERE l.idEmpresa = ? AND l.eliminado = 0 AND l.habilitado = 1
+           AND NOT EXISTS (SELECT 1 FROM microcontroladores m WHERE m.idLocal = l.idLocal AND m.idEmpresa = l.idEmpresa)'
     );
     $q->execute([$idEmpresa]);
     foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $n) {

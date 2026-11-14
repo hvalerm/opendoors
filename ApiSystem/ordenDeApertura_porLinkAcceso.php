@@ -33,9 +33,9 @@ try {
     // Paso 2: comparar el token con accesos.token y obtener los datos del acceso y su local
     // (el acceso no debe estar ejecutado y el local no debe estar eliminado)
     $stmt = $pdo->prepare(
-        'SELECT a.id_acceso, a.id_local, a.id_empresa, a.activo_desde, a.activo_hasta, a.habilitado, l.accionar
+        'SELECT a.idAcceso AS id_acceso, a.idLocal AS id_local, a.idEmpresa AS id_empresa, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, a.habilitado, l.accionar
          FROM accesos a
-         INNER JOIN locales l ON l.id_local = a.id_local AND l.id_empresa = a.id_empresa
+         INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
          WHERE a.token = ? AND a.ejecutado = 0 AND l.eliminado = 0'
     );
     $stmt->execute([$token]);
@@ -57,14 +57,14 @@ try {
     // Paso 5: emitir la orden de apertura (accionar = 1 en el local) y marcar el acceso como ejecutado
     $pdo->beginTransaction();
 
-    $marca = $pdo->prepare('UPDATE accesos SET ejecutado = 1 WHERE id_acceso = ? AND ejecutado = 0');
+    $marca = $pdo->prepare('UPDATE accesos SET ejecutado = 1 WHERE idAcceso = ? AND ejecutado = 0');
     $marca->execute([$acceso['id_acceso']]);
     if ($marca->rowCount() !== 1) {
         $pdo->rollBack();
         responder(404, false, 'Acceso no encontrado.');
     }
 
-    $upd = $pdo->prepare('UPDATE locales SET accionar = 1 WHERE id_local = ? AND id_empresa = ?');
+    $upd = $pdo->prepare('UPDATE locales SET accionar = 1 WHERE idLocal = ? AND idEmpresa = ?');
     $upd->execute([$acceso['id_local'], $acceso['id_empresa']]);
 
     $pdo->commit();
