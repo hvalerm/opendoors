@@ -17,7 +17,7 @@ header('X-Robots-Tag: noindex, nofollow');
 try {
     $pdo = getPDO();
     $stmt = $pdo->prepare(
-        'SELECT idEmpresa, nombreEmpresa, duenoEmpresa, telefonoContacto, inicio
+        'SELECT idEmpresa, duenoEmpresa, inicio
          FROM empresas WHERE idEmpresa = ?'
     );
     $stmt->execute([$idEmpresa]);
@@ -39,8 +39,8 @@ if (empty($_SESSION['startup_csrf'])) {
 
 $h = fn($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $datos = [
-    'nombreEmpresa' => $empresa['nombreEmpresa'],
-    'telefonoContacto' => $empresa['telefonoContacto'],
+    'nombreEmpresa' => '',
+    'telefonoContacto' => '',
     'nombreCuenta' => '',
     'correoCuenta' => '',
     'ingreso' => 'manual',

@@ -164,10 +164,14 @@ echo json_encode($_SESSION);
     }
     $response = $request($get);
     comprobarStartup($response['status'] === 200
-        && str_contains($response['body'], '&lt;Empresa &amp; nueva&gt;')
         && str_contains($response['body'], '&lt;Dueno &amp; cliente&gt;')
         && str_contains($response['body'], 'value="manual" checked'),
-        'No muestra la bienvenida, los datos escapados o la eleccion de ingreso.');
+        'No muestra la bienvenida, el dueno escapado o la eleccion de ingreso.');
+    comprobarStartup(str_contains($response['body'], 'name="nombreEmpresa" value=""')
+        && str_contains($response['body'], 'name="telefonoContacto" value=""')
+        && !str_contains($response['body'], '&lt;Empresa &amp; nueva&gt;')
+        && !str_contains($response['body'], '+51000000000'),
+        'El formulario inicial no debe cargar el nombre ni el telefono registrados.');
     $post['csrf'] = $csrf($response);
     comprobarStartup((int) $pdo->query('SELECT inicio FROM empresas WHERE idEmpresa = 1')->fetchColumn() === 1,
         'La consulta no debe completar la configuracion.');
@@ -186,6 +190,9 @@ echo json_encode($_SESSION);
         comprobarStartup(!str_contains($response['body'], 'value="ClaveSegura123!"'),
             'Vuelve a mostrar la contrasena en el formulario.');
     }
+    comprobarStartup(str_contains($response['body'], 'name="nombreEmpresa" value="Empresa actualizada"')
+        && str_contains($response['body'], 'name="telefonoContacto" value="+51 999 888 777"'),
+        'Un error de validacion debe conservar el nombre y el telefono ingresados.');
     comprobarStartup((int) $pdo->query('SELECT COUNT(*) FROM cuentas')->fetchColumn() === 0,
         'Los formularios invalidos no deben crear cuentas.');
     $cookiesAnteriores = $cookies;
