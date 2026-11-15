@@ -38,6 +38,9 @@ $menu = [
         ['Dispositivos', [
             ['Ver estado', null, 'OpenDoors/Microcontroladores/verEstado.php'], ['Ver actividad', null, 'OpenDoors/Microcontroladores/verActividad.php'],
         ], null, 'dispositivos-de-apertura', 'M6 6h12v12H6zM9 9v6h6V9zM7 3h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2zM7 18h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2z'],
+        ['Soporte', [
+            ['Contacto'], ['Enviar Correo'],
+        ], null, 'soporte', 'M12 2a10 10 0 0 0-10 10v6h6v-8H4a8 8 0 0 1 16 0h-4v8h4a4 4 0 0 1-4 4h-4v2h4a6 6 0 0 0 6-6v-6A10 10 0 0 0 12 2z'],
     ]],
 ];
 
@@ -258,6 +261,12 @@ if (!isset($validas[$actual])) {
                                     <ul>
                                         <li><b>Ver estado</b> — <span>Mira cuáles están conectados (Activo) o caídos (Inactivo).</span></li>
                                         <li><b>Ver actividad</b> — <span>Cuenta cuántas veces se ha abierto cada puerta.</span></li>
+                                    </ul>
+                                </li>
+                                <li>🎧 <b>Soporte</b> — <span>Estamos aquí para ayudarte.</span>
+                                    <ul>
+                                        <li><b>Contacto</b> — <span>Encuentra cómo comunicarte con nosotros.</span></li>
+                                        <li><b>Enviar Correo</b> — <span>Escríbenos para solicitar ayuda.</span></li>
                                     </ul>
                                 </li>
                             </ul>
