@@ -145,6 +145,7 @@ foreach ($menu as $entrada) {
         . '<div class="sub"><ul>' . renderItems($hijos, $clave, [$titulo], 1, $validas, $actual, $h) . '</ul></div></div>';
 }
 
+$validas['configuracion-cuenta'] = ['Configuración de cuenta'];
 if (!isset($validas[$actual])) {
     $actual = '';
 }
@@ -200,6 +201,8 @@ if (!isset($validas[$actual])) {
         .sep { height: 1px; margin: 6px 12px 6px 46px; background: rgba(255,255,255,.2); }
 
         .user { padding: 14px 16px; border-top: 1px solid rgba(255,255,255,.1); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .user .item-btn { padding: 6px 8px; }
+        .user > .item-btn { margin-top: 6px; }
 
         .main { margin-left: 260px; transition: margin-left .25s ease; }
         .topbar { display: flex; align-items: center; gap: 14px; padding: 14px 24px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
@@ -253,9 +256,10 @@ if (!isset($validas[$actual])) {
         </nav>
         <div class="user">
             <?= $h($usuario['nombre']) ?>
-            <form method="post" action="../logout.php" style="margin-top:6px">
+            <a href="?seccion=configuracion-cuenta" class="item-btn<?= $actual === 'configuracion-cuenta' ? ' active' : '' ?>"<?= $actual === 'configuracion-cuenta' ? ' aria-current="page"' : '' ?>>Configuración de cuenta</a>
+            <form method="post" action="../logout.php">
                 <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf'] ?? '') ?>">
-                <button type="submit" class="item-btn" style="padding:6px 8px;font-size:.85rem">Cerrar sesión</button>
+                <button type="submit" class="item-btn">Cerrar sesión</button>
             </form>
         </div>
     </aside>

@@ -406,6 +406,14 @@ recFin();
         && !str_contains($response['body'], '<span class="label">GESTALO</span>')
         && str_contains($response['body'], '<span class="label">Soporte</span>'),
         'Muestra modulos de otra empresa o esconde soporte sin modulos asignados.');
+    $config = strpos($response['body'], 'href="?seccion=configuracion-cuenta"');
+    $logout = strpos($response['body'], 'action="../logout.php"');
+    comprobarStartup($config !== false && $logout !== false && $config < $logout,
+        'La configuracion de cuenta no aparece antes de cerrar sesion.');
+    $response = $request(['seccion' => 'configuracion-cuenta'], $panel);
+    comprobarStartup($response['status'] === 200
+        && str_contains($response['body'], '<h2>Configuración de cuenta</h2>'),
+        'El enlace no abre la seccion de configuracion de cuenta.');
     $pdo->exec('INSERT INTO empresas_modulos VALUES (3, 2), (3, 3)');
     $response = $request([], $panel);
     comprobarStartup(str_contains($response['body'], '<span class="label">GESTALO</span>')
