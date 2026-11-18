@@ -107,7 +107,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Resumen | OpenDoors</title>
+    <title>Resumen | <?= $h($nombreWeb) ?></title>
     <link rel="icon" type="image/png" href="../../../img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }

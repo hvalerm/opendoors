@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
+require $root . '/util/DatosWeb.php';
 $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'opendoors_startup_' . bin2hex(random_bytes(6));
 mkdir($tmp);
 mkdir($tmp . '/Startup');
@@ -31,10 +32,23 @@ function cifrarStartup(string $value): string
 }
 
 try {
-    foreach (['Startup/startup.php', 'Startup/configuracionInicial.php', 'util/enc.php',
-        'util/verificar.php', 'util/seguridad.php', 'util/recuperar_comun.php'] as $file) {
+    foreach (['Startup/startup.php', 'Startup/configuracionInicial.php', 'accesoPuerta.php', 'util/enc.php',
+        'util/verificar.php', 'util/seguridad.php', 'util/recuperar_comun.php', 'util/DatosWeb.php',
+        'ModoAnfitrion/vistaAnfitrion.php',
+        'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal.php',
+        'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php'] as $file) {
+        if (!is_dir(dirname($tmp . '/' . $file))) {
+            mkdir(dirname($tmp . '/' . $file), 0777, true);
+        }
         copy($root . '/' . $file, $tmp . '/' . $file);
     }
+    file_put_contents($tmp . '/util/DatosWeb.php', str_replace(
+        [var_export($nombreWeb, true), var_export($urlBase, true),
+            var_export($rutaApi, true), var_export($rutaAccesoPuerta, true)],
+        ["'Puertas & <Prueba>'", "'https://puertas.example.test/instalacion'",
+            "'servicios'", "'entrada.php'"],
+        file_get_contents($tmp . '/util/DatosWeb.php')
+    ));
     file_put_contents($tmp . '/util/db.php', '<?php
 require_once __DIR__ . "/seguridad.php";
 function getPDO(): PDO {
@@ -59,6 +73,15 @@ iniciarSesionSegura();
 header("Content-Type: application/json");
 echo json_encode($_SESSION);
 ');
+    file_put_contents($tmp . '/protegida.php', '<?php
+require __DIR__ . "/util/verificar.php";
+requerirSesion();
+');
+    file_put_contents($tmp . '/recuperacion.php', '<?php
+require __DIR__ . "/util/recuperar_comun.php";
+recInicio("Recuperar", "Prueba");
+recFin();
+');
     $pdo = new PDO('sqlite:' . $tmp . '/test.sqlite', null, null, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     ]);
@@ -82,6 +105,20 @@ echo json_encode($_SESSION);
     $pdo->exec('CREATE TABLE empresas_cuentas (idEmpresa INTEGER REFERENCES empresas(idEmpresa),
         idCuenta INTEGER REFERENCES cuentas(idCuenta), idCargo INTEGER REFERENCES cargos(idCargo),
         PRIMARY KEY (idEmpresa, idCuenta))');
+    $pdo->exec('CREATE TABLE modulos (idModulo INTEGER PRIMARY KEY, nombreModulo TEXT NOT NULL)');
+    $pdo->exec('CREATE TABLE empresas_modulos (idEmpresa INTEGER REFERENCES empresas(idEmpresa),
+        idModulo INTEGER REFERENCES modulos(idModulo), PRIMARY KEY (idEmpresa, idModulo))');
+    $pdo->exec("INSERT INTO modulos VALUES (1, 'OpenDoors'), (2, 'GESTALO'),
+        (3, 'Otro & <modulo>')");
+    $pdo->exec('INSERT INTO empresas_modulos VALUES (1, 1), (1, 2)');
+    $pdo->exec('CREATE TABLE locales (idLocal INTEGER PRIMARY KEY, idEmpresa INTEGER,
+        nombreLocal TEXT, direccionLocal TEXT, eliminado INTEGER DEFAULT 0, habilitado INTEGER DEFAULT 1)');
+    $pdo->exec('CREATE TABLE accesos (idAcceso INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT UNIQUE, idLocal INTEGER, idEmpresa INTEGER,
+        activoDesde TEXT, activoHasta TEXT, ejecutado INTEGER DEFAULT 0, habilitado INTEGER DEFAULT 1)');
+    $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
+        VALUES (1, 1, 'Local de prueba', 'Direccion de prueba')");
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
+        VALUES ('TokenPrueba', 1, 1, '2000-01-01 00:00:00', '2099-12-31 23:59:59')");
 
     $socket = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
     if ($socket === false) {
@@ -148,10 +185,24 @@ echo json_encode($_SESSION);
     };
     $get = ['id' => cifrarStartup('1')];
     $post = [
-        'nombreEmpresa' => 'Empresa actualizada', 'telefonoContacto' => '+51 999 888 777',
-        'nombreCuenta' => 'Nuevo anfitrion', 'correoCuenta' => 'anfitrion@example.test',
+        'nombreEmpresa' => 'Empresa actualizada', 'paisTelefono' => 'PE', 'telefonoContacto' => '999 888 777',
+        'nombreCuenta' => 'Nombre manipulado', 'correoCuenta' => 'anfitrion@example.test',
         'pwd' => 'ClaveSegura123!', 'ingreso' => 'manual',
     ];
+    $response = $request([], 'protegida.php');
+    comprobarStartup($response['status'] === 302
+        && $response['location'] === 'https://puertas.example.test/instalacion/login.php?expirada=1',
+        'El inicio de sesion no usa la URL base configurada.');
+    $response = $request(['token' => 'TokenPrueba'], 'accesoPuerta.php');
+    comprobarStartup($response['status'] === 200
+        && str_contains($response['body'], '<title>Acceso | Puertas &amp; &lt;Prueba&gt;</title>')
+        && str_contains($response['body'], 'action="https://puertas.example.test/instalacion/servicios/ordenDeApertura_porLinkAcceso.php"')
+        && str_contains($response['body'], 'fetch(' . json_encode('https://puertas.example.test/instalacion/entrada.php')),
+        'El acceso publico no aplica el nombre, la URL base o las rutas configuradas.');
+    $response = $request([], 'recuperacion.php');
+    comprobarStartup($response['status'] === 200
+        && str_contains($response['body'], '<title>Recuperar | Puertas &amp; &lt;Prueba&gt;</title>'),
+        'La pantalla comun de recuperacion no usa el nombre configurado.');
     foreach ([
         [], ['id' => ['1']], ['id' => '1'], ['id' => str_repeat('g', 1000)],
         ['id' => str_repeat('0', 1000)], ['id' => cifrarStartup('abc')],
@@ -165,13 +216,28 @@ echo json_encode($_SESSION);
     $response = $request($get);
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '&lt;Dueno &amp; cliente&gt;')
+        && str_contains($response['body'], 'name="nombreCuenta" value="&lt;Dueno &amp; cliente&gt;" readonly')
+        && str_contains($response['body'], 'bienvenida a Puertas &amp; &lt;Prueba&gt;.')
         && str_contains($response['body'], 'value="manual" checked'),
         'No muestra la bienvenida, el dueno escapado o la eleccion de ingreso.');
     comprobarStartup(str_contains($response['body'], 'name="nombreEmpresa" value=""')
         && str_contains($response['body'], 'name="telefonoContacto" value=""')
+        && str_contains($response['body'], 'name="paisTelefono"')
+        && str_contains($response['body'], 'Perú (+51)')
+        && str_contains($response['body'], 'value="otro"')
         && !str_contains($response['body'], '&lt;Empresa &amp; nueva&gt;')
         && !str_contains($response['body'], '+51000000000'),
         'El formulario inicial no debe cargar el nombre ni el telefono registrados.');
+    foreach (['   ', str_repeat('a', 101)] as $nombreInvalido) {
+        $stmt = $pdo->prepare('UPDATE empresas SET duenoEmpresa = ? WHERE idEmpresa = 4');
+        $stmt->execute([$nombreInvalido]);
+        $fallo = $request(['id' => cifrarStartup('4')]);
+        comprobarStartup($fallo['status'] === 500
+            && str_contains($fallo['body'], 'Contacta al administrador.'),
+            'No informa que el nombre del dueno registrado es invalido.');
+    }
+    $stmt = null;
+    $pdo->exec("UPDATE empresas SET duenoEmpresa = 'Dueno' WHERE idEmpresa = 4");
     $post['csrf'] = $csrf($response);
     comprobarStartup((int) $pdo->query('SELECT inicio FROM empresas WHERE idEmpresa = 1')->fetchColumn() === 1,
         'La consulta no debe completar la configuracion.');
@@ -179,8 +245,12 @@ echo json_encode($_SESSION);
         'No rechaza un CSRF incorrecto.');
     foreach ([
         ['nombreEmpresa' => ''], ['nombreEmpresa' => str_repeat('a', 51)],
-        ['telefonoContacto' => 'abc'], ['nombreCuenta' => ['invalido']],
-        ['nombreCuenta' => str_repeat('a', 101)], ['correoCuenta' => 'no-es-correo'],
+        ['paisTelefono' => ''], ['paisTelefono' => 'XX'], ['paisTelefono' => ['PE']],
+        ['paisTelefono' => 'otro'], ['paisTelefono' => 'otro', 'prefijoOtro' => ['+51']],
+        ['paisTelefono' => 'otro', 'prefijoOtro' => '51'],
+        ['paisTelefono' => 'otro', 'prefijoOtro' => '+012'], ['paisTelefono' => 'otro', 'prefijoOtro' => '+1234'],
+        ['telefonoContacto' => 'abc'], ['telefonoContacto' => '+51 999 888 777'],
+        ['telefonoContacto' => str_repeat('9', 28)], ['correoCuenta' => 'no-es-correo'],
         ['correoCuenta' => str_repeat('a', 40) . '@example.test'],
         ['pwd' => 'corta'], ['pwd' => str_repeat('a', 201)], ['pwd' => ['invalido']],
         ['ingreso' => 'otro'],
@@ -191,8 +261,17 @@ echo json_encode($_SESSION);
             'Vuelve a mostrar la contrasena en el formulario.');
     }
     comprobarStartup(str_contains($response['body'], 'name="nombreEmpresa" value="Empresa actualizada"')
-        && str_contains($response['body'], 'name="telefonoContacto" value="+51 999 888 777"'),
-        'Un error de validacion debe conservar el nombre y el telefono ingresados.');
+        && str_contains($response['body'], 'name="telefonoContacto" value="999 888 777"')
+        && str_contains($response['body'], 'value="PE" selected'),
+        'Un error de validacion debe conservar el nombre, el pais y el telefono ingresados.');
+    $response = $request($get, post: array_replace($post, [
+        'paisTelefono' => 'otro', 'prefijoOtro' => '+44', 'nombreEmpresa' => '',
+    ]));
+    comprobarStartup($response['status'] === 422
+        && str_contains($response['body'], 'value="otro" selected')
+        && str_contains($response['body'], 'name="prefijoOtro" value="+44"')
+        && str_contains($response['body'], 'name="nombreCuenta" value="&lt;Dueno &amp; cliente&gt;" readonly'),
+        'Un error de validacion debe conservar el prefijo personalizado.');
     comprobarStartup((int) $pdo->query('SELECT COUNT(*) FROM cuentas')->fetchColumn() === 0,
         'Los formularios invalidos no deben crear cuentas.');
     $cookiesAnteriores = $cookies;
@@ -206,9 +285,9 @@ echo json_encode($_SESSION);
     $empresa = $pdo->query('SELECT * FROM empresas WHERE idEmpresa = 1')->fetch(PDO::FETCH_ASSOC);
     $cuenta = $pdo->query('SELECT * FROM cuentas')->fetch(PDO::FETCH_ASSOC);
     comprobarStartup($empresa['nombreEmpresa'] === $post['nombreEmpresa']
-        && $empresa['telefonoContacto'] === $post['telefonoContacto'] && (int) $empresa['inicio'] === 0,
+        && $empresa['telefonoContacto'] === '+51 ' . $post['telefonoContacto'] && (int) $empresa['inicio'] === 0,
         'No actualiza la empresa y consume el enlace.');
-    comprobarStartup($cuenta['nombreCuenta'] === $post['nombreCuenta']
+    comprobarStartup($cuenta['nombreCuenta'] === '<Dueno & cliente>'
         && $cuenta['correoCuenta'] === $post['correoCuenta']
         && $cuenta['pwd'] !== $post['pwd'] && password_verify($post['pwd'], $cuenta['pwd']),
         'No crea la cuenta con una contrasena protegida.');
@@ -232,16 +311,88 @@ echo json_encode($_SESSION);
         'Un correo duplicado deja la empresa configurada.');
     $post['correoCuenta'] = 'automatico@example.test';
     $post['ingreso'] = 'automatico';
+    $post['paisTelefono'] = 'otro';
+    $post['prefijoOtro'] = '+44';
+    unset($post['nombreCuenta']);
     $idSesionAnterior = $cookies['PHPSESSID'];
     $response = $request($getAuto, post: $post);
     comprobarStartup($response['status'] === 303 && $response['location'] === '../ModoAnfitrion/vistaAnfitrion.php',
         'No dirige al panel cuando se elige ingreso automatico.');
+    comprobarStartup($pdo->query('SELECT telefonoContacto FROM empresas WHERE idEmpresa = 3')->fetchColumn() === '+44 999 888 777',
+        'No guarda el telefono con el prefijo personalizado.');
     $sesion = json_decode($request([], 'sesion.php')['body'], true);
-    comprobarStartup((int) $sesion['empresa_id'] === 3 && $sesion['nombre'] === $post['nombreCuenta']
+    comprobarStartup((int) $sesion['empresa_id'] === 3 && $sesion['nombre'] === 'Dueno'
         && (int) $sesion['usuario_id'] > 0 && isset($sesion['ultima_actividad'])
         && $sesion['huella'] === hash('sha256', 'OpenDoorsStartupTest')
         && $cookies['PHPSESSID'] !== $idSesionAnterior && !isset($sesion['startup_csrf']),
         'No establece una sesion segura para el nuevo anfitrion.');
+
+    $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
+        VALUES (3, 3, 'Local del anfitrion', 'Direccion del anfitrion')");
+    $panel = 'ModoAnfitrion/vistaAnfitrion.php';
+    $response = $request([], $panel);
+    comprobarStartup($response['status'] === 200
+        && !str_contains($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>')
+        && !str_contains($response['body'], '<span class="label">GESTALO</span>')
+        && str_contains($response['body'], '<span class="label">Soporte</span>'),
+        'Muestra modulos de otra empresa o esconde soporte sin modulos asignados.');
+    $pdo->exec('INSERT INTO empresas_modulos VALUES (3, 2), (3, 3)');
+    $response = $request([], $panel);
+    comprobarStartup(str_contains($response['body'], '<span class="label">GESTALO</span>')
+        && str_contains($response['body'], '<span class="label">Otro &amp; &lt;modulo&gt;</span>')
+        && !str_contains($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>'),
+        'No muestra exclusivamente los modulos asignados o no escapa sus nombres.');
+    $response = $request(['seccion' => 'modulo-2'], $panel);
+    comprobarStartup(str_contains($response['body'], '<h2>GESTALO</h2>')
+        && str_contains($response['body'], 'Sección en construcción.'),
+        'El modulo sin pagina no muestra su seccion en construccion.');
+    $response = $request(['seccion' => 'puertas-prueba/dashboard'], $panel);
+    comprobarStartup(!str_contains($response['body'], '<iframe'),
+        'Muestra una seccion del menu OpenDoors sin el modulo asignado.');
+    $pdo->exec('INSERT INTO empresas_modulos VALUES (3, 1)');
+    $response = $request([], $panel);
+    $posOpenDoors = strpos($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>');
+    $posGestalo = strpos($response['body'], '<span class="label">GESTALO</span>');
+    comprobarStartup($posOpenDoors !== false && $posGestalo !== false && $posOpenDoors < $posGestalo
+        && str_contains($response['body'], '<span class="label">Dashboard</span>')
+        && str_contains($response['body'], '<span class="label">Local del anfitrion</span>'),
+        'No muestra OpenDoors con sus opciones antes de los demas modulos.');
+    $response = $request(['seccion' => 'puertas-prueba/dashboard'], $panel);
+    comprobarStartup(str_contains($response['body'], 'OpenDoors/Dashboard/resumen.php?embed=1'),
+        'La seccion de OpenDoors asignada no carga su pagina.');
+    $pdo->exec('DELETE FROM empresas_modulos WHERE idEmpresa = 3 AND idModulo IN (1, 2)');
+    $response = $request(['seccion' => 'modulo-2'], $panel);
+    comprobarStartup(!str_contains($response['body'], '<span class="label">GESTALO</span>')
+        && !str_contains($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>')
+        && !str_contains($response['body'], '<h2>GESTALO</h2>')
+        && str_contains($response['body'], '<span class="label">Otro &amp; &lt;modulo&gt;</span>'),
+        'La revocacion de modulos no se refleja inmediatamente.');
+    $pdo->exec('DROP TABLE empresas_modulos');
+    $response = $request([], $panel);
+    comprobarStartup($response['status'] === 503
+        && str_contains($response['body'], 'No se pudieron cargar los módulos.'),
+        'Un error al consultar los modulos no debe ocultarse como una lista vacia.');
+
+    $crearAcceso = 'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal.php';
+    $response = $request(['id' => '3'], $crearAcceso);
+    $response = $request(['id' => '3'], $crearAcceso, post: [
+        'csrf' => $csrf($response),
+        'activo_desde' => date('Y-m-d\TH:i', time() - 3600),
+        'activo_hasta' => date('Y-m-d\TH:i', time() + 86400),
+    ]);
+    $nuevoAcceso = $pdo->query('SELECT idAcceso, token FROM accesos WHERE idEmpresa = 3')->fetch(PDO::FETCH_ASSOC);
+    comprobarStartup($response['status'] === 200 && $nuevoAcceso !== false,
+        'No crea el acceso de prueba.');
+    $enlaceEsperado = 'https://puertas.example.test/instalacion/entrada.php?token=' . $nuevoAcceso['token'];
+    comprobarStartup(str_contains($response['body'], $enlaceEsperado)
+        && str_contains($response['body'], rawurlencode($enlaceEsperado)),
+        'El enlace creado o compartido por WhatsApp no usa la configuracion central.');
+    $response = $request(['id' => (string) $nuevoAcceso['idAcceso']],
+        'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php');
+    comprobarStartup($response['status'] === 200
+        && str_contains($response['body'], $enlaceEsperado)
+        && str_contains($response['body'], rawurlencode($enlaceEsperado)),
+        'El detalle del acceso no usa el enlace configurado.');
 
     foreach ([5, 6] as $idEmpresa) {
         $getInhabilitada = ['id' => cifrarStartup((string) $idEmpresa)];

@@ -104,7 +104,7 @@ if ($acceso) {
         error_log('Error en vetanaDelAcceso (locales): ' . $e->getMessage());
     }
 }
-$link = $acceso ? 'https://opendoors.onrender.com/accesoPuerta.php?token=' . $acceso['token'] : '';
+$link = $acceso ? $urlAccesoPuerta . '?token=' . rawurlencode($acceso['token']) : '';
 $valDesde = $desde ?? ($acceso ? date('Y-m-d\TH:i', strtotime($acceso['activo_desde'])) : '');
 $valHasta = $hasta ?? ($acceso ? date('Y-m-d\TH:i', strtotime($acceso['activo_hasta'])) : '');
 ?>

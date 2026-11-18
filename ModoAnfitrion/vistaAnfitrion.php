@@ -5,31 +5,58 @@ requerirSesion();
 $usuario = usuarioActual();
 $h = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
-// Locales de la empresa a la que pertenece la cuenta (sin los eliminados)
-$itemsLocales = [];
 try {
     require_once __DIR__ . '/../util/db.php';
     $stmt = getPDO()->prepare(
-        'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local
-         FROM locales l
-         INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa
-         WHERE c.idCuenta = ? AND l.eliminado = 0
-         ORDER BY l.nombreLocal, l.idLocal'
+        'SELECT m.idModulo, m.nombreModulo
+         FROM empresas_modulos em
+         INNER JOIN modulos m ON m.idModulo = em.idModulo
+         WHERE em.idEmpresa = ?
+         ORDER BY m.nombreModulo, m.idModulo'
     );
-    $stmt->execute([$usuario['id']]);
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $local) {
-        $itemsLocales[] = [$local['nombre_local'], null, 'OpenDoors/Locales/localSeleccionado.php?id=' . $local['id_local'], 'local-' . $local['id_local']];
-    }
-} catch (Throwable $e) {
-    error_log('No se pudieron cargar los locales: ' . $e->getMessage());
+    $stmt->execute([(int) $_SESSION['empresa_id']]);
+    $modulos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log('No se pudieron cargar los módulos de la empresa: ' . $e->getMessage());
+    http_response_code(503);
+    exit('No se pudieron cargar los módulos. Inténtalo más tarde.');
 }
-if (!$itemsLocales) {
-    $itemsLocales[] = ['Sin locales'];
+
+$tieneOpenDoors = false;
+foreach ($modulos as $modulo) {
+    if (strcasecmp(trim($modulo['nombreModulo']), 'OpenDoors') === 0) {
+        $tieneOpenDoors = true;
+        break;
+    }
+}
+
+// Locales de la empresa a la que pertenece la cuenta (sin los eliminados)
+$itemsLocales = [];
+if ($tieneOpenDoors) {
+    try {
+        $stmt = getPDO()->prepare(
+            'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local
+             FROM locales l
+             INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa
+             WHERE c.idCuenta = ? AND l.eliminado = 0
+             ORDER BY l.nombreLocal, l.idLocal'
+        );
+        $stmt->execute([$usuario['id']]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $local) {
+            $itemsLocales[] = [$local['nombre_local'], null, 'OpenDoors/Locales/localSeleccionado.php?id=' . $local['id_local'], 'local-' . $local['id_local']];
+        }
+    } catch (Throwable $e) {
+        error_log('No se pudieron cargar los locales: ' . $e->getMessage());
+    }
+    if (!$itemsLocales) {
+        $itemsLocales[] = ['Sin locales'];
+    }
 }
 
 // Estructura del menú: [título, ícono, [hijos]]. Hijo: [título, [hijos], página, clave] u hoja [título]; '-' es un separador.
-$menu = [
-    ['OpenDoors', 'M5 3h14v18H5zm9 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2z', [
+$menu = [];
+if ($tieneOpenDoors) {
+    $menu[] = [$nombreWeb, 'M5 3h14v18H5zm9 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2z', [
         ['Dashboard', null, 'OpenDoors/Dashboard/resumen.php', 'dashboard', 'M3 3h8v10H3zm10 0h8v6h-8zM3 15h8v6H3zm10-4h8v10h-8z'],
         ['Locales', $itemsLocales, null, 'locales', 'M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z'],
         ['Accesos', [
@@ -38,11 +65,17 @@ $menu = [
         ['Dispositivos', [
             ['Ver estado', null, 'OpenDoors/Microcontroladores/verEstado.php'], ['Ver actividad', null, 'OpenDoors/Microcontroladores/verActividad.php'],
         ], null, 'dispositivos-de-apertura', 'M6 6h12v12H6zM9 9v6h6V9zM7 3h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2zM7 18h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2z'],
-    ]],
-    ['Soporte', 'M12 2a10 10 0 0 0-10 10v6h6v-8H4a8 8 0 0 1 16 0h-4v8h4a4 4 0 0 1-4 4h-4v2h4a6 6 0 0 0 6-6v-6A10 10 0 0 0 12 2z', [
-        ['Contacto'], ['Enviar Correo'],
-    ]],
-];
+    ]];
+}
+foreach ($modulos as $modulo) {
+    if (strcasecmp(trim($modulo['nombreModulo']), 'OpenDoors') !== 0) {
+        $menu[] = [$modulo['nombreModulo'], 'M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z',
+            [], null, 'modulo-' . (int) $modulo['idModulo']];
+    }
+}
+$menu[] = ['Soporte', 'M12 2a10 10 0 0 0-10 10v6h6v-8H4a8 8 0 0 1 16 0h-4v8h4a4 4 0 0 1-4 4h-4v2h4a6 6 0 0 0 6-6v-6A10 10 0 0 0 12 2z', [
+    ['Contacto'], ['Enviar Correo'],
+]];
 
 function slug(string $t): string
 {
@@ -92,7 +125,7 @@ $navHtml = '';
 foreach ($menu as $entrada) {
     [$titulo, $icono, $hijos] = $entrada;
     $pagina = $entrada[3] ?? null;
-    $clave = slug($titulo);
+    $clave = $entrada[4] ?? slug($titulo);
     if (!$hijos) {
         // Menú de acceso directo, sin submenús
         $validas[$clave] = [$titulo];
@@ -246,7 +279,8 @@ if (!isset($validas[$actual])) {
                     <h2>Bienvenido, <?= $h($usuario['nombre']) ?></h2>
                     <p>Selecciona una opción del menú lateral.</p>
                     <ul class="guia">
-                        <li>🚪 <b>OpenDoors</b> — <span>Administra tu alojamiento desde un solo lugar.</span>
+                        <?php if ($tieneOpenDoors): ?>
+                        <li>🚪 <b><?= $h($nombreWeb) ?></b> — <span>Administra tu alojamiento desde un solo lugar.</span>
                             <ul>
                                 <li>📊 <b>Dashboard</b> — <span>Lo importante de tu negocio de un vistazo.</span></li>
                                 <li>🏠 <b>Locales</b> — <span>Mira los datos y abre cada local desde aquí.</span></li>
@@ -257,6 +291,7 @@ if (!isset($validas[$actual])) {
                                         <li><b>Revocar</b> — <span>Cancela un acceso antes de que se use.</span></li>
                                     </ul>
                                 </li>
+                                <?php endif; ?>
                                 <li>📟 <b>Dispositivos</b> — <span>Los equipos que abren tus puertas.</span>
                                     <ul>
                                         <li><b>Ver estado</b> — <span>Mira cuáles están conectados (Activo) o caídos (Inactivo).</span></li>

@@ -33,18 +33,51 @@ if (!$empresa || (int) $empresa['inicio'] !== 1) {
     exit('Solicitud no encontrada');
 }
 
+$nombreAnfitrion = trim($empresa['duenoEmpresa']);
+if ($nombreAnfitrion === '' || !mb_check_encoding($nombreAnfitrion, 'UTF-8')
+    || mb_strlen($nombreAnfitrion, 'UTF-8') > 100) {
+    error_log('Nombre de dueño no válido en Startup/configuracionInicial para la empresa ' . $idEmpresa);
+    http_response_code(500);
+    exit('El nombre del anfitrion no es valido. Contacta al administrador.');
+}
+
 if (empty($_SESSION['startup_csrf'])) {
     $_SESSION['startup_csrf'] = bin2hex(random_bytes(32));
 }
 
 $h = fn($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+$paisesTelefono = [
+    'AR' => ['Argentina', '+54'],
+    'BO' => ['Bolivia', '+591'],
+    'BR' => ['Brasil', '+55'],
+    'CA' => ['Canadá', '+1'],
+    'CL' => ['Chile', '+56'],
+    'CO' => ['Colombia', '+57'],
+    'CR' => ['Costa Rica', '+506'],
+    'CU' => ['Cuba', '+53'],
+    'EC' => ['Ecuador', '+593'],
+    'SV' => ['El Salvador', '+503'],
+    'ES' => ['España', '+34'],
+    'US' => ['Estados Unidos', '+1'],
+    'GT' => ['Guatemala', '+502'],
+    'HN' => ['Honduras', '+504'],
+    'MX' => ['México', '+52'],
+    'NI' => ['Nicaragua', '+505'],
+    'PA' => ['Panamá', '+507'],
+    'PY' => ['Paraguay', '+595'],
+    'PE' => ['Perú', '+51'],
+    'DO' => ['República Dominicana', '+1'],
+    'UY' => ['Uruguay', '+598'],
+    'VE' => ['Venezuela', '+58'],
+];
 $datos = [
     'nombreEmpresa' => '',
+    'paisTelefono' => '',
     'telefonoContacto' => '',
-    'nombreCuenta' => '',
     'correoCuenta' => '',
     'ingreso' => 'manual',
 ];
+$prefijoOtro = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -56,6 +89,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $datos[$campo] = trim($_POST[$campo]);
         }
     }
+    if (isset($_POST['prefijoOtro'])) {
+        if (!is_string($_POST['prefijoOtro']) || !mb_check_encoding($_POST['prefijoOtro'], 'UTF-8')) {
+            $entradaValida = false;
+        } else {
+            $prefijoOtro = trim($_POST['prefijoOtro']);
+        }
+    }
+    $prefijo = $datos['paisTelefono'] === 'otro'
+        ? $prefijoOtro
+        : ($paisesTelefono[$datos['paisTelefono']][1] ?? '');
+    $telefonoCompleto = $prefijo . ' ' . $datos['telefonoContacto'];
     $password = $_POST['pwd'] ?? null;
     $csrf = $_POST['csrf'] ?? null;
     if (!is_string($csrf) || !hash_equals($_SESSION['startup_csrf'], $csrf)) {
@@ -65,10 +109,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Completa todos los campos con datos validos.';
     } elseif ($datos['nombreEmpresa'] === '' || mb_strlen($datos['nombreEmpresa'], 'UTF-8') > 50) {
         $error = 'El nombre de la empresa es obligatorio y admite hasta 50 caracteres.';
-    } elseif (!preg_match('/^\+?[0-9][0-9 ()-]{5,29}$/D', $datos['telefonoContacto'])) {
-        $error = 'Ingresa un telefono de contacto valido, de 6 a 30 caracteres.';
-    } elseif ($datos['nombreCuenta'] === '' || mb_strlen($datos['nombreCuenta'], 'UTF-8') > 100) {
-        $error = 'El nombre del anfitrion es obligatorio y admite hasta 100 caracteres.';
+    } elseif (!preg_match('/^\+[1-9][0-9]{0,2}$/D', $prefijo)) {
+        $error = 'Selecciona un pais o ingresa un prefijo internacional valido, por ejemplo +51.';
+    } elseif (!preg_match('/^[0-9][0-9 ()-]{5,29}$/D', $datos['telefonoContacto'])
+        || strlen($telefonoCompleto) > 30) {
+        $error = 'Ingresa un telefono valido sin prefijo. El numero completo admite hasta 30 caracteres.';
     } elseif (strlen($datos['correoCuenta']) > 50 || !filter_var($datos['correoCuenta'], FILTER_VALIDATE_EMAIL)) {
         $error = 'Ingresa un correo valido de hasta 50 caracteres.';
     } elseif (mb_strlen($password, 'UTF-8') < REC_PASSWORD_MIN || strlen($password) > REC_PASSWORD_MAX) {
@@ -84,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'UPDATE empresas SET nombreEmpresa = ?, telefonoContacto = ?, inicio = 0
                  WHERE idEmpresa = ? AND inicio = 1'
             );
-            $stmt->execute([$datos['nombreEmpresa'], $datos['telefonoContacto'], $idEmpresa]);
+            $stmt->execute([$datos['nombreEmpresa'], $telefonoCompleto, $idEmpresa]);
             if ($stmt->rowCount() !== 1) {
                 $pdo->rollBack();
                 http_response_code(404);
@@ -97,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new DomainException('Ese correo ya tiene una cuenta. Usa un correo diferente para el nuevo anfitrion.');
             }
             $pdo->prepare('INSERT INTO cuentas (nombreCuenta, correoCuenta, pwd) VALUES (?, ?, ?)')
-                ->execute([$datos['nombreCuenta'], $datos['correoCuenta'], $hash]);
+                ->execute([$nombreAnfitrion, $datos['correoCuenta'], $hash]);
             $idCuenta = (int) $pdo->lastInsertId();
             $pdo->prepare('INSERT INTO empresas_cuentas (idEmpresa, idCuenta, idCargo) VALUES (?, ?, 1)')
                 ->execute([$idEmpresa, $idCuenta]);
@@ -129,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($datos['ingreso'] === 'automatico') {
                 $_SESSION['usuario_id'] = $idCuenta;
                 $_SESSION['empresa_id'] = $idEmpresa;
-                $_SESSION['nombre'] = $datos['nombreCuenta'];
+                $_SESSION['nombre'] = $nombreAnfitrion;
                 $_SESSION['ultima_actividad'] = time();
                 $_SESSION['huella'] = hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? '');
                 header('Location: ../ModoAnfitrion/vistaAnfitrion.php', true, 303);
@@ -149,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Configuraci&oacute;n inicial | OpenDoors</title>
+    <title>Configuraci&oacute;n inicial | <?= $h($nombreWeb) ?></title>
     <link rel="icon" type="image/png" href="../img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -163,8 +208,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         legend { font-weight: 700; color: #203a43; padding: 0 8px; }
         .field + .field { margin-top: 16px; }
         label { display: block; font-size: .9rem; font-weight: 600; color: #34444f; margin-bottom: 6px; }
-        input:not([type=radio]) { width: 100%; padding: 12px 14px; border: 1px solid #b9c9d1; border-radius: 8px; font: inherit; }
-        input:focus-visible, button:focus-visible { outline: 3px solid #3a8fb7; outline-offset: 3px; }
+        input:not([type=radio]), select { width: 100%; padding: 12px 14px; border: 1px solid #b9c9d1; border-radius: 8px; font: inherit; }
+        input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid #3a8fb7; outline-offset: 3px; }
         .ayuda { font-size: .85rem; margin-top: 7px; }
         .opcion { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; font-weight: 400; line-height: 1.4; }
         .opcion input { margin-top: 4px; flex-shrink: 0; }
@@ -179,7 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <header class="bienvenida">
             <div class="saludo" aria-hidden="true">&#128075;</div>
             <h1>&iexcl;Qu&eacute; alegr&iacute;a tenerte aqu&iacute;, <?= $h($empresa['duenoEmpresa']) ?>!</h1>
-            <p>Te damos la bienvenida a OpenDoors. Vamos a preparar tu empresa para que recibas a tus invitados con tranquilidad. &iexcl;Solo falta este peque&ntilde;o paso!</p>
+            <p>Te damos la bienvenida a <?= $h($nombreWeb) ?>. Vamos a preparar tu empresa para que recibas a tus invitados con tranquilidad. &iexcl;Solo falta este peque&ntilde;o paso!</p>
         </header>
         <?php if ($error !== ''): ?>
             <div class="error" role="alert"><?= $h($error) ?></div>
@@ -193,15 +238,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <input type="text" id="nombreEmpresa" name="nombreEmpresa" value="<?= $h($datos['nombreEmpresa']) ?>" maxlength="50" autocomplete="organization" required>
                 </div>
                 <div class="field">
+                    <label for="paisTelefono">Pa&iacute;s del tel&eacute;fono</label>
+                    <select id="paisTelefono" name="paisTelefono" autocomplete="country" required>
+                        <option value="">Selecciona un pa&iacute;s</option>
+                        <?php foreach ($paisesTelefono as $codigo => [$pais, $prefijoPais]): ?>
+                            <option value="<?= $h($codigo) ?>" <?= $datos['paisTelefono'] === $codigo ? 'selected' : '' ?>><?= $h($pais . ' (' . $prefijoPais . ')') ?></option>
+                        <?php endforeach; ?>
+                        <option value="otro" <?= $datos['paisTelefono'] === 'otro' ? 'selected' : '' ?>>Otro prefijo</option>
+                    </select>
+                </div>
+                <div class="field" id="campoPrefijoOtro">
+                    <label for="prefijoOtro">Otro prefijo internacional</label>
+                    <input type="tel" id="prefijoOtro" name="prefijoOtro" value="<?= $h($prefijoOtro) ?>" maxlength="4" pattern="\+[1-9][0-9]{0,2}" placeholder="+51" aria-describedby="ayudaPrefijo">
+                    <p class="ayuda" id="ayudaPrefijo">Compl&eacute;talo solo si seleccionaste &laquo;Otro prefijo&raquo;.</p>
+                </div>
+                <div class="field">
                     <label for="telefonoContacto">Tel&eacute;fono de contacto</label>
-                    <input type="tel" id="telefonoContacto" name="telefonoContacto" value="<?= $h($datos['telefonoContacto']) ?>" minlength="6" maxlength="30" pattern="\+?[0-9][0-9 \(\)\-]{5,29}" autocomplete="tel" required>
+                    <input type="tel" id="telefonoContacto" name="telefonoContacto" value="<?= $h($datos['telefonoContacto']) ?>" minlength="6" maxlength="30" pattern="[0-9][0-9 \(\)\-]{5,29}" autocomplete="tel-national" aria-describedby="ayudaTelefono" required>
+                    <p class="ayuda" id="ayudaTelefono">Ingresa el n&uacute;mero sin el prefijo del pa&iacute;s, incluyendo el c&oacute;digo de &aacute;rea si corresponde.</p>
                 </div>
             </fieldset>
             <fieldset>
                 <legend>Datos del anfitri&oacute;n</legend>
                 <div class="field">
                     <label for="nombreCuenta">Nombre del anfitri&oacute;n</label>
-                    <input type="text" id="nombreCuenta" name="nombreCuenta" value="<?= $h($datos['nombreCuenta']) ?>" maxlength="100" autocomplete="name" required>
+                    <input type="text" id="nombreCuenta" name="nombreCuenta" value="<?= $h($nombreAnfitrion) ?>" readonly>
                 </div>
                 <div class="field">
                     <label for="correoCuenta">Correo del anfitri&oacute;n</label>
@@ -227,5 +288,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit">&#128640; &iexcl;Listo, vamos a comenzar!</button>
         </form>
     </main>
+    <script>
+        const paisTelefono = document.getElementById('paisTelefono');
+        const campoPrefijoOtro = document.getElementById('campoPrefijoOtro');
+        const prefijoOtro = document.getElementById('prefijoOtro');
+        function actualizarPrefijoOtro() {
+            const otro = paisTelefono.value === 'otro';
+            campoPrefijoOtro.hidden = !otro;
+            prefijoOtro.disabled = !otro;
+            prefijoOtro.required = otro;
+        }
+        paisTelefono.addEventListener('change', actualizarPrefijoOtro);
+        actualizarPrefijoOtro();
+    </script>
 </body>
 </html>

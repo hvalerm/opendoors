@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $enviado = enviarCorreo(
                         $correo,
                         'Código para recuperar tu contraseña',
-                        "Tu código de recuperación de OpenDoors es: $codigo\n\n"
+                        "Tu código de recuperación de $nombreWeb es: $codigo\n\n"
                         . 'Es válido por ' . REC_CODIGO_MINUTOS . " minutos y solo puede usarse una vez.\n"
                         . "Si no lo solicitaste, ignora este mensaje: tu contraseña no cambiará.\n"
                     );

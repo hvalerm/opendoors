@@ -98,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Iniciar sesión | OpenDoors</title>
+    <title>Iniciar sesión | <?= htmlspecialchars($nombreWeb, ENT_QUOTES, 'UTF-8') ?></title>
     <link rel="icon" type="image/png" href="img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -173,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="logo" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12h-6v-7H9v7H3z"/></svg>
         </div>
-        <h1>OpenDoors</h1>
+        <h1><?= htmlspecialchars($nombreWeb, ENT_QUOTES, 'UTF-8') ?></h1>
         <p class="sub">Inicia sesión para continuar</p>
 
         <?php if (isset($_GET['cambiada'])): ?>
@@ -198,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
         <!-- <p style="text-align:center;margin-top:16px;font-size:.88rem;"><a href="recuperar_password.php" onclick="this.href='recuperar_password.php?correo='+encodeURIComponent(document.getElementById('usuario').value);" style="color:#2c6f94;text-decoration:none;">¿Olvidaste tu contraseña?</a></p> -->
          
-        <footer>&copy; <?= date('Y') ?> OpenDoors</footer>
+        <footer>&copy; <?= date('Y') ?> <?= htmlspecialchars($nombreWeb, ENT_QUOTES, 'UTF-8') ?></footer>
     </main>
 </body>
 </html>

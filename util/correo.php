@@ -3,6 +3,7 @@
 // Variables de entorno: RESEND_API_KEY (obligatoria) y RESEND_FROM (opcional).
 // Sin RESEND_FROM se usa onboarding@resend.dev, que solo entrega al correo dueño de la cuenta de Resend;
 // para enviar a cualquier destinatario hay que verificar un dominio en Resend y usar un remitente de ese dominio.
+require_once __DIR__ . '/DatosWeb.php';
 
 function smtpConfigurado(): bool
 {
@@ -11,8 +12,9 @@ function smtpConfigurado(): bool
 
 function enviarCorreo(string $para, string $asunto, string $texto): bool
 {
+    global $nombreWeb;
     $apiKey = (string) getenv('RESEND_API_KEY');
-    $desde = (string) (getenv('RESEND_FROM') ?: 'OpenDoors <onboarding@resend.dev>');
+    $desde = (string) (getenv('RESEND_FROM') ?: $nombreWeb . ' <onboarding@resend.dev>');
 
     // Evita inyección de cabeceras
     if (!filter_var($para, FILTER_VALIDATE_EMAIL) || $apiKey === '' || preg_match('/[\r\n]/', $asunto . $desde)) {

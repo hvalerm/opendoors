@@ -135,7 +135,7 @@ $urlVolver = '../Locales/localSeleccionado.php?id=' . (int) $idLocal . ($embed ?
                 <div class="ok">
                     Acceso creado correctamente.
                     <div class="token"><?= $h($creado['token']) ?></div>
-                    <?php $link = 'https://opendoors.onrender.com/accesoPuerta.php?token=' . $creado['token']; ?>
+                    <?php $link = $urlAccesoPuerta . '?token=' . rawurlencode($creado['token']); ?>
                     <div class="linkfila">
                         <div class="token" id="linkAcceso"><?= $h($link) ?></div>
                         <button type="button" class="btn" id="btnCopiar">Copiar link</button>

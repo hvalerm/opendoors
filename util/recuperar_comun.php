@@ -1,5 +1,6 @@
 <?php
 // Piezas comunes de las pantallas de recuperación de contraseña.
+require_once __DIR__ . '/DatosWeb.php';
 
 const REC_CODIGO_MINUTOS = 5;
 const REC_VERIFICADO_MINUTOS = 10;
@@ -34,13 +35,14 @@ function recRedirigir(string $url): never
 
 function recInicio(string $titulo, string $subtitulo, string $error = '', string $info = ''): void
 {
+    global $nombreWeb;
     ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= recEscapar($titulo) ?> | OpenDoors</title>
+    <title><?= recEscapar($titulo) ?> | <?= recEscapar($nombreWeb) ?></title>
     <link rel="icon" type="image/png" href="img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
