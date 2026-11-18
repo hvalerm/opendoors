@@ -53,7 +53,7 @@ try {
             $nuevo = $acceso['habilitado'] ? 0 : 1;
             $pdo->prepare('UPDATE accesos SET habilitado = ? WHERE idAcceso = ? AND idEmpresa = ?')
                 ->execute([$nuevo, $acceso['id_acceso'], $acceso['id_empresa']]);
-            $mensaje = $nuevo ? 'El acceso fue concedido nuevamente.' : 'El acceso fue revocado.';
+            $mensaje = $nuevo ? 'El acceso fue habilitado.' : 'El acceso fue deshabilitado.';
         } elseif ($accion === 'actualizar') {
             $desde = trim($_POST['activo_desde'] ?? '');
             $hasta = trim($_POST['activo_hasta'] ?? '');
@@ -176,7 +176,7 @@ $valHasta = $hasta ?? ($acceso ? date('Y-m-d\TH:i', strtotime($acceso['activo_ha
                 <div class="acciones">
                     <button type="submit" class="btn">Actualizar</button>
                     <button type="submit" class="btn <?= $acceso['habilitado'] ? 'peligro' : 'ok' ?>" name="accion" value="toggle" formnovalidate>
-                        <?= $acceso['habilitado'] ? 'Revocar acceso' : 'Conceder acceso' ?>
+                        <?= $acceso['habilitado'] ? 'Deshabilitar acceso' : 'Habilitar acceso' ?>
                     </button>
                 </div>
             </form>

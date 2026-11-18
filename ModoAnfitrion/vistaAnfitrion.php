@@ -60,7 +60,7 @@ if ($tieneOpenDoors) {
         ['Dashboard', null, 'OpenDoors/Dashboard/resumen.php', 'dashboard', 'M3 3h8v10H3zm10 0h8v6h-8zM3 15h8v6H3zm10-4h8v10h-8z'],
         ['Locales', $itemsLocales, null, 'locales', 'M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z'],
         ['Accesos', [
-            ['Crear', null, 'OpenDoors/Accesos/SeleccionarLocalAcceso.php'], ['Listar', null, 'OpenDoors/Accesos/listarAccesos.php'], ['Revocar', null, 'OpenDoors/Accesos/busquedaAccesoRevocar.php'],
+            ['Crear', null, 'OpenDoors/Accesos/SeleccionarLocalAcceso.php'], ['Listar', null, 'OpenDoors/Accesos/listarAccesos.php'], ['Habilitar/Deshabilitar', null, 'OpenDoors/Accesos/busquedaAccesoRevocar.php', 'revocar'],
         ], null, 'accesos', 'M12.65 10A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'],
         ['Dispositivos', [
             ['Ver estado', null, 'OpenDoors/Microcontroladores/verEstado.php'], ['Ver actividad', null, 'OpenDoors/Microcontroladores/verActividad.php'],
@@ -288,7 +288,7 @@ if (!isset($validas[$actual])) {
                                     <ul>
                                         <li><b>Crear</b> — <span>Genera un enlace de acceso para un huésped.</span></li>
                                         <li><b>Listar</b> — <span>Consulta los accesos y si ya se usaron.</span></li>
-                                        <li><b>Revocar</b> — <span>Cancela un acceso antes de que se use.</span></li>
+                                        <li><b>Habilitar/Deshabilitar</b> — <span>Controla si un acceso está habilitado para usarse.</span></li>
                                     </ul>
                                 </li>
                                 <?php endif; ?>

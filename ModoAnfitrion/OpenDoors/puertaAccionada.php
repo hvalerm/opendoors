@@ -128,6 +128,9 @@ $urlSoporte = $telefonoSoporte !== null
         .btn-soporte { background: #25d366; }
         .volver { display: inline-block; margin-top: 26px; color: #2c5364; font-weight: 600; text-decoration: none; }
         .volver:hover { text-decoration: underline; }
+        .cerrar { margin-top: 26px; padding: 13px 18px; border: 0; border-radius: 8px; background: #2c5364; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+        .cerrar[hidden] { display: none; }
+        .aviso-cierre { margin-top: 12px; color: #52616b; }
     </style>
 </head>
 <body>
@@ -155,7 +158,10 @@ $urlSoporte = $telefonoSoporte !== null
                     <p class="contacto-no-disponible">El teléfono de soporte no está disponible.</p>
                 <?php endif; ?>
             </div>
-            <?php if (!$esHuesped): ?>
+            <?php if ($esHuesped): ?>
+                <button type="button" class="cerrar" id="cerrarVentana" hidden>Cerrar ventana</button>
+                <p class="aviso-cierre" id="avisoCierre" role="status" hidden>Tu navegador no permite cerrar esta ventana automáticamente. Ciérrala desde el navegador.</p>
+            <?php else: ?>
                 <a class="volver" href="<?= $h($urlVolver) ?>">Volver al local</a>
             <?php endif; ?>
         <?php endif; ?>
@@ -177,6 +183,14 @@ $urlSoporte = $telefonoSoporte !== null
             var limite = Date.now() + ESPERA_MAX_MS;
             var finalizado = false;
             var timerCuentaRegresiva;
+            <?php if ($esHuesped): ?>
+            var cerrarVentana = document.getElementById('cerrarVentana');
+            var avisoCierre = document.getElementById('avisoCierre');
+            cerrarVentana.addEventListener('click', function () {
+                window.close();
+                setTimeout(function () { avisoCierre.hidden = false; }, 300);
+            });
+            <?php endif; ?>
 
             function mostrar(clase, cara, mensaje) {
                 estado.className = 'estado ' + clase;
@@ -192,6 +206,9 @@ $urlSoporte = $telefonoSoporte !== null
                 cuentaRegresiva.hidden = true;
                 if (exito) {
                     mostrar('ok', '😊', 'La orden de apertura fue ejecutada con éxito');
+                    <?php if ($esHuesped): ?>
+                    cerrarVentana.hidden = false;
+                    <?php endif; ?>
                 } else {
                     mostrar('fallo', '😞', 'No se confirmó la apertura de la puerta en 30 segundos.');
                     contactosError.hidden = false;

@@ -50,14 +50,18 @@ $activo = fn($seg) => $seg !== null && (int) $seg <= 15;
         .filtros input, .filtros select { width: 100%; padding: 9px 10px; border: 1px solid #cfd8de; border-radius: 8px; font: inherit; background: #fff; }
         .filtros input:focus, .filtros select:focus { outline: 2px solid #3a8fb7; border-color: transparent; }
         .contador { font-size: .85rem; color: #6b7a86; margin: 10px 0 14px; }
-        .tabla { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e1e8ec; white-space: nowrap; }
-        th { color: #6b7a86; font-weight: 600; background: #f7f9fa; }
+        .tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+        .tarjeta { min-width: 0; aspect-ratio: 1 / 1; background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.1); border-left: 5px solid #c0392b; }
+        .tarjeta.activo { border-left-color: #1e8e3e; }
+        .tarjeta h2 { font-size: 1.05rem; margin-bottom: 12px; overflow-wrap: anywhere; }
+        .tarjeta dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .tarjeta dt { color: #6b7a86; font-size: .8rem; }
+        .tarjeta dd { margin-top: 2px; font-size: .95rem; overflow-wrap: anywhere; }
         .vacio { text-align: center; color: #6b7a86; padding: 20px 0; }
         .estado-activo { color: #1e8e3e; font-weight: 700; }
         .estado-inactivo { color: #c0392b; font-weight: 700; }
         [hidden] { display: none !important; }
+        @media (max-width: 480px) { body { padding: 12px; } .panel { padding: 18px; } }
     </style>
 </head>
 <body>
@@ -79,29 +83,20 @@ $activo = fn($seg) => $seg !== null && (int) $seg <= 15;
                     <select id="f-habilitado" data-col="6" data-exacto="1"><option value="">Todos</option><option>Sí</option><option>No</option></select></div>
             </div>
             <p class="contador" id="contador" aria-live="polite"></p>
-            <div class="tabla">
-                <table>
-                    <thead>
-                        <tr><th>ID</th><th>Local</th><th>Empresa</th><th>Última consulta</th><th>Última apertura</th><th>Estado</th><th>Habilitado</th></tr>
-                    </thead>
-                    <tbody id="cuerpo">
-                        <?php foreach ($unidades as $u): ?>
-                            <tr>
-                                <td><?= (int) $u['id_microcontrolador'] ?></td>
-                                <td><?= $h($u['nombre_local']) ?></td>
-                                <td><?= $h($u['nombre_empresa']) ?></td>
-                                <td><?= $h($fmt($u['ultimaConsulta'])) ?></td>
-                                <td><?= $h($fmt($u['ultimaApertura'])) ?></td>
-                                <?php if ($activo($u['segundos_sin_consulta'])): ?>
-                                    <td class="estado-activo">Activo</td>
-                                <?php else: ?>
-                                    <td class="estado-inactivo">Inactivo</td>
-                                <?php endif; ?>
-                                <td><?= $si($u['habilitado']) ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <div class="tarjetas">
+                <?php foreach ($unidades as $u): $estaActivo = $activo($u['segundos_sin_consulta']); ?>
+                    <article class="tarjeta<?= $estaActivo ? ' activo' : '' ?>">
+                        <h2>Microcontrolador #<span data-col="0"><?= (int) $u['id_microcontrolador'] ?></span></h2>
+                        <dl>
+                            <div><dt>Estado</dt><dd class="<?= $estaActivo ? 'estado-activo' : 'estado-inactivo' ?>" data-col="5"><?= $estaActivo ? 'Activo' : 'Inactivo' ?></dd></div>
+                            <div><dt>Habilitado</dt><dd data-col="6"><?= $si($u['habilitado']) ?></dd></div>
+                            <div><dt>Local</dt><dd data-col="1"><?= $h($u['nombre_local']) ?></dd></div>
+                            <div><dt>Empresa</dt><dd data-col="2"><?= $h($u['nombre_empresa']) ?></dd></div>
+                            <div><dt>Última consulta</dt><dd><?= $h($fmt($u['ultimaConsulta']) ?: '—') ?></dd></div>
+                            <div><dt>Última apertura</dt><dd><?= $h($fmt($u['ultimaApertura']) ?: '—') ?></dd></div>
+                        </dl>
+                    </article>
+                <?php endforeach; ?>
             </div>
             <p class="vacio" id="sinResultados" hidden>Ninguna unidad de control coincide con los filtros.</p>
         <?php endif; ?>
@@ -110,7 +105,7 @@ $activo = fn($seg) => $seg !== null && (int) $seg <= 15;
     <?php if ($unidades): ?>
     <script>
         (function () {
-            var filas = Array.prototype.slice.call(document.querySelectorAll('#cuerpo tr'));
+            var tarjetas = Array.prototype.slice.call(document.querySelectorAll('.tarjetas .tarjeta'));
             var campos = Array.prototype.slice.call(document.querySelectorAll('.filtros [data-col]'));
             var contador = document.getElementById('contador');
             var sinResultados = document.getElementById('sinResultados');
@@ -120,10 +115,14 @@ $activo = fn($seg) => $seg !== null && (int) $seg <= 15;
                 return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
             }
 
-            var datos = filas.map(function (tr) {
+            var datos = tarjetas.map(function (tarjeta) {
+                var celdas = {};
+                tarjeta.querySelectorAll('[data-col]').forEach(function (elemento) {
+                    celdas[elemento.dataset.col] = norm(elemento.textContent);
+                });
                 return {
-                    tr: tr,
-                    celdas: Array.prototype.map.call(tr.cells, function (td) { return norm(td.textContent); })
+                    tarjeta: tarjeta,
+                    celdas: celdas
                 };
             });
 
@@ -136,7 +135,7 @@ $activo = fn($seg) => $seg !== null && (int) $seg <= 15;
                     var ok = activos.every(function (f) {
                         return f.exacto ? x.celdas[f.col] === f.v : x.celdas[f.col].indexOf(f.v) !== -1;
                     });
-                    x.tr.hidden = !ok;
+                    x.tarjeta.hidden = !ok;
                     if (ok) visibles++;
                 });
                 sinResultados.hidden = visibles !== 0;

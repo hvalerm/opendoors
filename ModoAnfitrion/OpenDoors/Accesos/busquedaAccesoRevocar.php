@@ -36,7 +36,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Revocar accesos | Administrar Alojamiento</title>
+    <title>Habilitar/Deshabilitar accesos | Administrar Alojamiento</title>
     <link rel="icon" type="image/png" href="../../../img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -64,7 +64,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
 </head>
 <body>
     <section class="panel">
-        <h1>Revocar accesos</h1>
+        <h1>Habilitar/Deshabilitar accesos</h1>
 
         <?php if ($error): ?>
             <p class="vacio"><?= $h($error) ?></p>
@@ -103,7 +103,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                                 <td><?= $si($a['ejecutado']) ?></td>
                                 <td><?= $si($a['habilitado']) ?></td>
                                 <td class="<?= $a['en_rango'] ? 'si' : 'no' ?>"><?= $si($a['en_rango']) ?></td>
-                                <td><a class="btn-fila <?= $a['habilitado'] ? 'revocar' : 'conceder' ?>" href="revocarAcceso.php?id=<?= (int) $a['id_acceso'] ?>&amp;origen=busqueda<?= $embed ? '&amp;embed=1' : '' ?>"><?= $a['habilitado'] ? 'Revocar' : 'Conceder' ?></a></td>
+                                <td><a class="btn-fila <?= $a['habilitado'] ? 'revocar' : 'conceder' ?>" href="revocarAcceso.php?id=<?= (int) $a['id_acceso'] ?>&amp;origen=busqueda<?= $embed ? '&amp;embed=1' : '' ?>"><?= $a['habilitado'] ? 'Deshabilitar' : 'Habilitar' ?></a></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

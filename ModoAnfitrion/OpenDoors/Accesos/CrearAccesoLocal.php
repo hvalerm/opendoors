@@ -134,7 +134,6 @@ $urlVolver = '../Locales/localSeleccionado.php?id=' . (int) $idLocal . ($embed ?
             <?php if ($creado): ?>
                 <div class="ok">
                     Acceso creado correctamente.
-                    <div class="token"><?= $h($creado['token']) ?></div>
                     <?php $link = $urlAccesoPuerta . '?token=' . rawurlencode($creado['token']); ?>
                     <div class="linkfila">
                         <div class="token" id="linkAcceso"><?= $h($link) ?></div>

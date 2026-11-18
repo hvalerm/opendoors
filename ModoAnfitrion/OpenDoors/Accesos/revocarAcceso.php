@@ -61,7 +61,7 @@ $fmt = fn($f) => $f ? date('d/m/Y H:i', strtotime($f)) : '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Revocar acceso | Administrar Alojamiento</title>
+    <title>Habilitar/Deshabilitar acceso | Administrar Alojamiento</title>
     <link rel="icon" type="image/png" href="../../../img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -106,9 +106,9 @@ $fmt = fn($f) => $f ? date('d/m/Y H:i', strtotime($f)) : '';
                 <?php if ($embed): ?><input type="hidden" name="embed" value="1"><?php endif; ?>
                 <?php if ($origen): ?><input type="hidden" name="origen" value="busqueda"><?php endif; ?>
                 <?php if ($acceso['habilitado']): ?>
-                    <button type="submit" class="btn peligro">Revocar acceso</button>
+                    <button type="submit" class="btn peligro">Deshabilitar acceso</button>
                 <?php else: ?>
-                    <button type="submit" class="btn ok">Conceder acceso</button>
+                    <button type="submit" class="btn ok">Habilitar acceso</button>
                 <?php endif; ?>
                 <a class="btn enlace" href="<?= $h($urlLista) ?>">Volver a la lista</a>
             </form>
