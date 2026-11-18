@@ -48,6 +48,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
         .filtros input, .filtros select { width: 100%; padding: 9px 10px; border: 1px solid #cfd8de; border-radius: 8px; font: inherit; background: #fff; }
         .filtros input:focus, .filtros select:focus { outline: 2px solid #3a8fb7; border-color: transparent; }
         .contador { font-size: .85rem; color: #6b7a86; margin: 10px 0 14px; }
+        .instruccion { color: #52616b; margin-bottom: 12px; }
         .tabla { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: .9rem; }
         th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e1e8ec; white-space: nowrap; }
@@ -86,6 +87,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                     <select id="f-enrango" data-col="8" data-exacto="1"><option value="">Todos</option><option>Sí</option><option>No</option></select></div>
             </div>
             <p class="contador" id="contador" aria-live="polite"></p>
+            <p class="instruccion">Seleccione un acceso para editarlo</p>
             <div class="tabla">
                 <table>
                     <thead>

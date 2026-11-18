@@ -39,6 +39,7 @@ try {
         'ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php',
         'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal.php',
         'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php',
+        'ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php',
         'ModoAnfitrion/OpenDoors/Accesos/busquedaAccesoRevocar.php',
         'ModoAnfitrion/OpenDoors/Accesos/revocarAcceso.php'] as $file) {
         if (!is_dir(dirname($tmp . '/' . $file))) {
@@ -62,6 +63,8 @@ try {
     ));
     $vistaAccesos = $tmp . '/ModoAnfitrion/OpenDoors/Accesos/busquedaAccesoRevocar.php';
     file_put_contents($vistaAccesos, str_replace('NOW()', 'datetime("now")', file_get_contents($vistaAccesos)));
+    $vistaListado = $tmp . '/ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php';
+    file_put_contents($vistaListado, str_replace('NOW()', 'datetime("now")', file_get_contents($vistaListado)));
     file_put_contents($tmp . '/util/db.php', '<?php
 require_once __DIR__ . "/seguridad.php";
 function getPDO(): PDO {
@@ -422,12 +425,16 @@ recFin();
     $posGestalo = strpos($response['body'], '<span class="label">GESTALO</span>');
     comprobarStartup($posOpenDoors !== false && $posGestalo !== false && $posOpenDoors < $posGestalo
         && str_contains($response['body'], '<span class="label">Dashboard</span>')
+        && str_contains($response['body'], '<span class="label">Listar (y editar)</span>')
         && str_contains($response['body'], '<span class="label">Habilitar/Deshabilitar</span>')
         && str_contains($response['body'], '<span class="label">Local del anfitrion</span>'),
         'No muestra OpenDoors con sus opciones antes de los demas modulos.');
     $response = $request(['seccion' => 'puertas-prueba/accesos/revocar'], $panel);
     comprobarStartup(str_contains($response['body'], 'OpenDoors/Accesos/busquedaAccesoRevocar.php?embed=1'),
         'El menu de habilitacion no conserva la ruta de la seccion.');
+    $response = $request(['seccion' => 'puertas-prueba/accesos/listar'], $panel);
+    comprobarStartup(str_contains($response['body'], 'OpenDoors/Accesos/listarAccesos.php?embed=1'),
+        'El menu de listado no conserva la ruta de la seccion.');
     $response = $request(['seccion' => 'puertas-prueba/dashboard'], $panel);
     comprobarStartup(str_contains($response['body'], 'OpenDoors/Dashboard/resumen.php?embed=1'),
         'La seccion de OpenDoors asignada no carga su pagina.');
@@ -462,6 +469,12 @@ recFin();
         && str_contains($response['body'], 'id="btnCopiar"')
         && str_contains($response['body'], 'id="linkAcceso">' . $enlaceEsperado . '</div>'),
         'La confirmacion muestra el token separado o no permite copiar el enlace.');
+    $listado = $request([], 'ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php');
+    $instruccion = strpos($listado['body'], 'Seleccione un acceso para editarlo');
+    $tabla = strpos($listado['body'], '<table>');
+    comprobarStartup($instruccion !== false && $tabla !== false && $instruccion < $tabla
+        && str_contains($listado['body'], 'vetanaDelAcceso.php?id=' . $nuevoAcceso['idAcceso']),
+        'El listado no indica como editar un acceso antes de la tabla.');
     $response = $request(['id' => (string) $nuevoAcceso['idAcceso']],
         'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php');
     comprobarStartup($response['status'] === 200
