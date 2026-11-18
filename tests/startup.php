@@ -42,12 +42,13 @@ try {
         }
         copy($root . '/' . $file, $tmp . '/' . $file);
     }
+    $datosWeb = preg_replace('/^\$urlBase\s*=\s*[^;]+;/m',
+        "\$urlBase = 'https://puertas.example.test/instalacion/';",
+        file_get_contents($tmp . '/util/DatosWeb.php'), 1);
     file_put_contents($tmp . '/util/DatosWeb.php', str_replace(
-        [var_export($nombreWeb, true), var_export($urlBase, true),
-            var_export($rutaApi, true), var_export($rutaAccesoPuerta, true)],
-        ["'Puertas & <Prueba>'", "'https://puertas.example.test/instalacion'",
-            "'servicios'", "'entrada.php'"],
-        file_get_contents($tmp . '/util/DatosWeb.php')
+        [var_export($nombreWeb, true), var_export($rutaApi, true), var_export($rutaAccesoPuerta, true)],
+        ["'Puertas & <Prueba>'", "'servicios'", "'entrada.php'"],
+        $datosWeb
     ));
     file_put_contents($tmp . '/util/db.php', '<?php
 require_once __DIR__ . "/seguridad.php";
@@ -196,9 +197,19 @@ recFin();
     $response = $request(['token' => 'TokenPrueba'], 'accesoPuerta.php');
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '<title>Acceso | Puertas &amp; &lt;Prueba&gt;</title>')
-        && str_contains($response['body'], 'action="https://puertas.example.test/instalacion/servicios/ordenDeApertura_porLinkAcceso.php"')
-        && str_contains($response['body'], 'fetch(' . json_encode('https://puertas.example.test/instalacion/entrada.php')),
-        'El acceso publico no aplica el nombre, la URL base o las rutas configuradas.');
+        && str_contains($response['body'], 'action="/instalacion/servicios/ordenDeApertura_porLinkAcceso.php"')
+        && str_contains($response['body'], 'new URL(window.location.href)')
+        && str_contains($response['body'], "urlValidacion.search = '';")
+        && str_contains($response['body'], 'fetch(urlValidacion,'),
+        'El acceso publico no aplica el nombre o las rutas configuradas en el mismo sitio.');
+    $response = $request([], 'accesoPuerta.php', '', ['accion' => 'validar', 'token' => 'TokenPrueba']);
+    comprobarStartup(json_decode($response['body'], true) === ['valido' => true, 'mensaje' => ''],
+        'La validacion no reconoce un acceso vigente.');
+    $pdo->exec("UPDATE accesos SET ejecutado = 1 WHERE token = 'TokenPrueba'");
+    $response = $request([], 'accesoPuerta.php', '', ['accion' => 'validar', 'token' => 'TokenPrueba']);
+    comprobarStartup(json_decode($response['body'], true) === ['valido' => false, 'mensaje' => 'Acceso usado.'],
+        'La validacion no detecta un acceso ya usado.');
+    $pdo->exec("UPDATE accesos SET ejecutado = 0 WHERE token = 'TokenPrueba'");
     $response = $request([], 'recuperacion.php');
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '<title>Recuperar | Puertas &amp; &lt;Prueba&gt;</title>'),

@@ -104,7 +104,7 @@ $fmt = fn($f) => (new DateTime($f))->format('d/m/Y H:i');
             </div>
             <div class="unico">La apertura es de un único uso: una vez ejecutada, este enlace no podrá volver a utilizarse.</div>
 
-            <form method="post" action="<?= $h($urlApiOrdenApertura) ?>" id="formAbrir">
+            <form method="post" action="<?= $h(parse_url($urlApiOrdenApertura, PHP_URL_PATH)) ?>" id="formAbrir">
                 <input type="hidden" name="token" value="<?= $h($token) ?>">
                 <input type="hidden" name="confirmar" value="1">
                 <button type="submit" class="btn" id="btnAbrir">Abrir puerta</button>
@@ -133,7 +133,10 @@ $fmt = fn($f) => (new DateTime($f))->format('d/m/Y H:i');
                 try {
                     // Re-valida el acceso justo antes de abrir: pudo ser usado, revocado o vencer
                     // mientras la página estaba abierta
-                    var res = await fetch(<?= json_encode($urlAccesoPuerta, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>, {
+                    var urlValidacion = new URL(window.location.href);
+                    urlValidacion.search = '';
+                    urlValidacion.hash = '';
+                    var res = await fetch(urlValidacion, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: new URLSearchParams({ accion: 'validar', token: form.token.value })
