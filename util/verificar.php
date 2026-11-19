@@ -47,7 +47,7 @@ function iniciarSesionSegura(): void
     }
 }
 
-function haySesionActiva(): bool
+function haySesionActiva(bool $registrarActividad = true): bool
 {
     iniciarSesionSegura();
 
@@ -60,7 +60,9 @@ function haySesionActiva(): bool
         cerrarSesion();
         return false;
     }
-    $_SESSION['ultima_actividad'] = $ahora;
+    if ($registrarActividad) {
+        $_SESSION['ultima_actividad'] = $ahora;
+    }
 
     // Evita el robo de sesión cambiando de navegador
     $huella = hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? '');

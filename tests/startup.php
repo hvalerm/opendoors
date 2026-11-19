@@ -34,7 +34,8 @@ function cifrarStartup(string $value): string
 try {
     foreach (['Startup/startup.php', 'Startup/configuracionInicial.php', 'accesoPuerta.php', 'util/enc.php',
         'util/verificar.php', 'util/seguridad.php', 'util/recuperar_comun.php', 'util/DatosWeb.php', 'util/contacto.php',
-        'ApiSystem/ordenDeApertura_porLinkAcceso.php',
+        'util/api_dispositivo.php', 'ApiSystem/api_board.php', 'ApiSystem/api_microcontrolador.php',
+        'ApiSystem/api_restore.php', 'ApiSystem/ordenDeApertura_porLinkAcceso.php',
         'ModoAnfitrion/vistaAnfitrion.php', 'ModoAnfitrion/OpenDoors/puertaAccionada.php',
         'ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php',
         'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal.php',
@@ -65,6 +66,10 @@ try {
     file_put_contents($vistaAccesos, str_replace('NOW()', 'datetime("now")', file_get_contents($vistaAccesos)));
     $vistaListado = $tmp . '/ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php';
     file_put_contents($vistaListado, str_replace('NOW()', 'datetime("now")', file_get_contents($vistaListado)));
+    $apiDispositivo = $tmp . '/util/api_dispositivo.php';
+    file_put_contents($apiDispositivo, str_replace(
+        ['FOR UPDATE', 'NOW()'], ['', 'CURRENT_TIMESTAMP'], file_get_contents($apiDispositivo)
+    ));
     file_put_contents($tmp . '/util/db.php', '<?php
 require_once __DIR__ . "/seguridad.php";
 function getPDO(): PDO {
@@ -243,6 +248,34 @@ recFin();
     $response = $request(['confirmacion' => 'invalida'], 'ModoAnfitrion/OpenDoors/puertaAccionada.php');
     comprobarStartup(!str_contains($response['body'], 'id="cerrarVentana"'),
         'Una confirmacion invalida muestra el boton de cierre.');
+    $pdo->exec('INSERT INTO microcontroladores (idMicrocontrolador, idLocal, idEmpresa, habilitado) VALUES (10, 1, 1, 1)');
+    $credencial = ['cifrado' => cifrarStartup('10')];
+    $consulta = 'ApiSystem/api_microcontrolador.php';
+    $restore = 'ApiSystem/api_restore.php';
+    $orden = fn() => (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 1')->fetchColumn();
+    $ultimaConsulta = fn() => $pdo->query('SELECT ultimaConsulta FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn();
+    $response = $request($credencial, $consulta);
+    comprobarStartup($response['status'] === 200 && json_decode($response['body'], true) === ['ok' => true, 'accionar' => 1]
+        && $orden() === 1 && $ultimaConsulta() !== null, 'La consulta consume la orden o no actualiza la ultima consulta.');
+    $response = $request($credencial, $consulta);
+    comprobarStartup(json_decode($response['body'], true) === ['ok' => true, 'accionar' => 1],
+        'Una segunda consulta debe seguir mostrando la orden pendiente.');
+    $pdo->exec("UPDATE microcontroladores SET habilitado = 0, ultimaConsulta = '2020-01-01 00:00:00' WHERE idMicrocontrolador = 10");
+    comprobarStartup($request([], $restore, post: $credencial)['status'] === 403 && $orden() === 1,
+        'Un dispositivo deshabilitado pudo restablecer la orden.');
+    $pdo->exec('UPDATE microcontroladores SET habilitado = 1 WHERE idMicrocontrolador = 10');
+    comprobarStartup($request($credencial, $restore)['status'] === 405 && $orden() === 1,
+        'El restablecimiento no debe aceptar GET.');
+    $response = $request([], $restore, post: $credencial);
+    comprobarStartup($response['status'] === 200 && json_decode($response['body'], true) === ['ok' => true, 'accionar' => 0]
+        && $orden() === 0 && $ultimaConsulta() === '2020-01-01 00:00:00',
+        'Restablecer no limpia la orden o modifica la ultima consulta.');
+    $pdo->exec('UPDATE locales SET accionar = 1 WHERE idLocal = 1');
+    $response = $request($credencial, 'ApiSystem/api_board.php');
+    comprobarStartup(json_decode($response['body'], true) === ['ok' => true, 'accionar' => 1] && $orden() === 0,
+        'La API anterior ya no consume la orden al consultarla.');
+    unset($orden, $ultimaConsulta);
+    $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador = 10');
     $pdo->exec("UPDATE accesos SET ejecutado = 0 WHERE token = 'TokenPrueba'");
     $pdo->exec('UPDATE locales SET accionar = 0 WHERE idLocal = 1');
     $response = $request([], 'recuperacion.php');
@@ -399,6 +432,25 @@ recFin();
         && str_contains($response['body'], '02/01/2025 03:04:05')
         && str_contains($response['body'], '<dt>Última apertura</dt><dd>—</dd>'),
         'Las tarjetas no muestran correctamente los dispositivos de la empresa.');
+    $sinSesion = $cookies;
+    $cookies = [];
+    comprobarStartup($request(['datos' => '1'], $vistaDispositivos)['status'] === 401,
+        'La actualizacion automatica no debe devolver datos sin sesion.');
+    $cookies = $sinSesion;
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now', '-16 seconds') WHERE idMicrocontrolador = 101");
+    $actualizacion = $request(['datos' => '1'], $vistaDispositivos);
+    $fragmento = json_decode($actualizacion['body'], true)['tarjetas'] ?? '';
+    comprobarStartup($actualizacion['status'] === 200
+        && substr_count($fragmento, 'data-col="5">Inactivo</dd>') === 2
+        && !str_contains($fragmento, '<!DOCTYPE')
+        && !str_contains($fragmento, 'data-col="0">103</span>'),
+        'La actualizacion no refleja la desconexion o devuelve contenido ajeno a las tarjetas de la empresa.');
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now') WHERE idMicrocontrolador = 102");
+    $actualizacion = $request(['datos' => '1'], $vistaDispositivos);
+    $fragmento = json_decode($actualizacion['body'], true)['tarjetas'] ?? '';
+    comprobarStartup($actualizacion['status'] === 200
+        && substr_count($fragmento, 'data-col="5">Activo</dd>') === 1,
+        'La actualizacion no refleja la reconexion del dispositivo.');
     $panel = 'ModoAnfitrion/vistaAnfitrion.php';
     $response = $request([], $panel);
     comprobarStartup($response['status'] === 200

@@ -10,12 +10,16 @@ $urlBase = 'https://p-lzag.onrender.com/';
 // Deben coincidir con las rutas publicadas por el servidor; cambiarlas no mueve los archivos.
 $rutaApi = 'ApiSystem';
 $rutaApiBoard = $rutaApi . '/api_board.php';
+$rutaApiMicrocontrolador = $rutaApi . '/api_microcontrolador.php';
+$rutaApiRestore = $rutaApi . '/api_restore.php';
 $rutaApiOrdenApertura = $rutaApi . '/ordenDeApertura_porLinkAcceso.php';
 $rutaAccesoPuerta = 'accesoPuerta.php';
 
 $urlBase = rtrim($urlBase, '/');
 $urlApi = $urlBase . '/' . $rutaApi;
 $urlApiBoard = $urlBase . '/' . $rutaApiBoard;
+$urlApiMicrocontrolador = $urlBase . '/' . $rutaApiMicrocontrolador;
+$urlApiRestore = $urlBase . '/' . $rutaApiRestore;
 $urlApiOrdenApertura = $urlBase . '/' . $rutaApiOrdenApertura;
 $urlAccesoPuerta = $urlBase . '/' . $rutaAccesoPuerta;
 $urlLogin = $urlBase . '/login.php';

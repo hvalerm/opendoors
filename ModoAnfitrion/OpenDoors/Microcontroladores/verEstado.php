@@ -1,7 +1,18 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
 require_once __DIR__ . '/../../../util/db.php';
-requerirSesion();
+$soloDatos = ($_GET['datos'] ?? '') === '1';
+if ($soloDatos) {
+    header('Cache-Control: no-store');
+    if (!haySesionActiva(false)) {
+        http_response_code(401);
+        exit;
+    }
+} else {
+    requerirSesion();
+}
+$idCuenta = (int) $_SESSION['usuario_id'];
+session_write_close();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);
@@ -21,17 +32,41 @@ try {
          WHERE c.idCuenta = ?
          ORDER BY m.idMicrocontrolador'
     );
-    $stmt->execute([$_SESSION['usuario_id']]);
+    $stmt->execute([$idCuenta]);
     $unidades = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en verEstado: ' . $e->getMessage());
     $error = 'No se pudieron cargar los dispositivos de apertura.';
+    if ($soloDatos) {
+        http_response_code(500);
+        exit;
+    }
 }
 
 $fmt = fn($f) => $f ? date('d/m/Y H:i:s', strtotime($f)) : '';
 $si = fn($v) => $v ? 'Sí' : 'No';
 // Activo si la última consulta fue hace 15 segundos o menos (según la hora de la BD)
 $activo = fn($seg) => $seg !== null && (int) $seg <= 15;
+ob_start();
+foreach ($unidades as $u): $estaActivo = $activo($u['segundos_sin_consulta']); ?>
+    <article class="tarjeta<?= $estaActivo ? ' activo' : '' ?>">
+        <h2>Microcontrolador #<span data-col="0"><?= (int) $u['id_microcontrolador'] ?></span></h2>
+        <dl>
+            <div><dt>Estado</dt><dd class="<?= $estaActivo ? 'estado-activo' : 'estado-inactivo' ?>" data-col="5"><?= $estaActivo ? 'Activo' : 'Inactivo' ?></dd></div>
+            <div><dt>Habilitado</dt><dd data-col="6"><?= $si($u['habilitado']) ?></dd></div>
+            <div><dt>Local</dt><dd data-col="1"><?= $h($u['nombre_local']) ?></dd></div>
+            <div><dt>Empresa</dt><dd data-col="2"><?= $h($u['nombre_empresa']) ?></dd></div>
+            <div><dt>Última consulta</dt><dd><?= $h($fmt($u['ultimaConsulta']) ?: '—') ?></dd></div>
+            <div><dt>Última apertura</dt><dd><?= $h($fmt($u['ultimaApertura']) ?: '—') ?></dd></div>
+        </dl>
+    </article>
+<?php endforeach;
+$tarjetas = ob_get_clean();
+if ($soloDatos) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['tarjetas' => $tarjetas], JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -68,12 +103,9 @@ $activo = fn($seg) => $seg !== null && (int) $seg <= 15;
     <section class="panel">
         <h1>Dispositivos de apertura</h1>
 
-        <?php if ($error): ?>
-            <p class="vacio"><?= $h($error) ?></p>
-        <?php elseif (!$unidades): ?>
-            <p class="vacio">Tu empresa no tiene dispositivos de apertura registrados.</p>
-        <?php else: ?>
-            <div class="filtros">
+            <p class="vacio" id="avisoEstado" role="status"<?= $error ? '' : ' hidden' ?>><?= $h($error) ?></p>
+            <p class="vacio" id="sinDispositivos"<?= $unidades || $error ? ' hidden' : '' ?>>Tu empresa no tiene dispositivos de apertura registrados.</p>
+            <div class="filtros" id="filtrosEstado"<?= $unidades ? '' : ' hidden' ?>>
                 <div><label for="f-id">ID</label><input type="search" id="f-id" data-col="0" autocomplete="off"></div>
                 <div><label for="f-local">Local</label><input type="search" id="f-local" data-col="1" autocomplete="off"></div>
                 <div><label for="f-empresa">Empresa</label><input type="search" id="f-empresa" data-col="2" autocomplete="off"></div>
@@ -82,72 +114,91 @@ $activo = fn($seg) => $seg !== null && (int) $seg <= 15;
                 <div><label for="f-habilitado">Habilitado</label>
                     <select id="f-habilitado" data-col="6" data-exacto="1"><option value="">Todos</option><option>Sí</option><option>No</option></select></div>
             </div>
-            <p class="contador" id="contador" aria-live="polite"></p>
-            <div class="tarjetas">
-                <?php foreach ($unidades as $u): $estaActivo = $activo($u['segundos_sin_consulta']); ?>
-                    <article class="tarjeta<?= $estaActivo ? ' activo' : '' ?>">
-                        <h2>Microcontrolador #<span data-col="0"><?= (int) $u['id_microcontrolador'] ?></span></h2>
-                        <dl>
-                            <div><dt>Estado</dt><dd class="<?= $estaActivo ? 'estado-activo' : 'estado-inactivo' ?>" data-col="5"><?= $estaActivo ? 'Activo' : 'Inactivo' ?></dd></div>
-                            <div><dt>Habilitado</dt><dd data-col="6"><?= $si($u['habilitado']) ?></dd></div>
-                            <div><dt>Local</dt><dd data-col="1"><?= $h($u['nombre_local']) ?></dd></div>
-                            <div><dt>Empresa</dt><dd data-col="2"><?= $h($u['nombre_empresa']) ?></dd></div>
-                            <div><dt>Última consulta</dt><dd><?= $h($fmt($u['ultimaConsulta']) ?: '—') ?></dd></div>
-                            <div><dt>Última apertura</dt><dd><?= $h($fmt($u['ultimaApertura']) ?: '—') ?></dd></div>
-                        </dl>
-                    </article>
-                <?php endforeach; ?>
-            </div>
+            <p class="contador" id="contador" aria-live="polite"<?= $unidades ? '' : ' hidden' ?>></p>
+            <div class="tarjetas" id="tarjetasEstado"><?= $tarjetas ?></div>
             <p class="vacio" id="sinResultados" hidden>Ninguna unidad de control coincide con los filtros.</p>
-        <?php endif; ?>
     </section>
 
-    <?php if ($unidades): ?>
     <script>
         (function () {
-            var tarjetas = Array.prototype.slice.call(document.querySelectorAll('.tarjetas .tarjeta'));
+            var tarjetas = document.getElementById('tarjetasEstado');
             var campos = Array.prototype.slice.call(document.querySelectorAll('.filtros [data-col]'));
             var contador = document.getElementById('contador');
             var sinResultados = document.getElementById('sinResultados');
+            var sinDispositivos = document.getElementById('sinDispositivos');
+            var filtros = document.getElementById('filtrosEstado');
+            var aviso = document.getElementById('avisoEstado');
+            var url = new URL(window.location.href);
+            url.searchParams.set('datos', '1');
+            url.hash = '';
+            var consultando = false;
+            var ultimoHtml = tarjetas.innerHTML;
 
             // Minúsculas y sin acentos para que "si" y "Sí" coincidan
             function norm(s) {
                 return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
             }
 
-            var datos = tarjetas.map(function (tarjeta) {
-                var celdas = {};
-                tarjeta.querySelectorAll('[data-col]').forEach(function (elemento) {
-                    celdas[elemento.dataset.col] = norm(elemento.textContent);
-                });
-                return {
-                    tarjeta: tarjeta,
-                    celdas: celdas
-                };
-            });
-
             function filtrar() {
                 var activos = campos.map(function (c) {
                     return { col: +c.dataset.col, v: norm(c.value), exacto: !!c.dataset.exacto };
                 }).filter(function (f) { return f.v !== ''; });
                 var visibles = 0;
-                datos.forEach(function (x) {
+                var datos = tarjetas.querySelectorAll('.tarjeta');
+                datos.forEach(function (tarjeta) {
                     var ok = activos.every(function (f) {
-                        return f.exacto ? x.celdas[f.col] === f.v : x.celdas[f.col].indexOf(f.v) !== -1;
+                        var valor = norm(tarjeta.querySelector('[data-col="' + f.col + '"]').textContent);
+                        return f.exacto ? valor === f.v : valor.includes(f.v);
                     });
-                    x.tarjeta.hidden = !ok;
+                    tarjeta.hidden = !ok;
                     if (ok) visibles++;
                 });
-                sinResultados.hidden = visibles !== 0;
-                contador.textContent = visibles + ' de ' + datos.length + ' dispositivos de apertura';
+                filtros.hidden = contador.hidden = datos.length === 0;
+                sinDispositivos.hidden = datos.length !== 0 || !aviso.hidden;
+                sinResultados.hidden = datos.length === 0 || visibles !== 0;
+                var texto = visibles + ' de ' + datos.length + ' dispositivos de apertura';
+                if (contador.textContent !== texto) contador.textContent = texto;
+            }
+
+            async function actualizarEstado() {
+                if (consultando) return;
+                consultando = true;
+                try {
+                    var respuesta = await fetch(url, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(10000) });
+                    if (respuesta.status === 401) {
+                        clearInterval(intervalo);
+                        aviso.textContent = 'Tu sesión ha expirado. Vuelve a iniciar sesión para actualizar los dispositivos.';
+                        aviso.hidden = false;
+                        filtrar();
+                        return;
+                    }
+                    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
+                    var datos = await respuesta.json();
+                    if (typeof datos?.tarjetas !== 'string') throw new Error('Respuesta inesperada');
+                    var html = datos.tarjetas;
+                    var cambio = html !== ultimoHtml || !aviso.hidden;
+                    if (html !== ultimoHtml) {
+                        tarjetas.innerHTML = html;
+                        ultimoHtml = html;
+                    }
+                    aviso.hidden = true;
+                    if (cambio) filtrar();
+                } catch (error) {
+                    var mensaje = 'No se pudo actualizar el estado de los dispositivos. Reintentando…';
+                    if (aviso.textContent !== mensaje) aviso.textContent = mensaje;
+                    aviso.hidden = false;
+                    sinDispositivos.hidden = true;
+                } finally {
+                    consultando = false;
+                }
             }
 
             campos.forEach(function (c) {
                 c.addEventListener(c.tagName === 'SELECT' ? 'change' : 'input', filtrar);
             });
             filtrar();
+            var intervalo = setInterval(actualizarEstado, 1000);
         })();
     </script>
-    <?php endif; ?>
 </body>
 </html>
