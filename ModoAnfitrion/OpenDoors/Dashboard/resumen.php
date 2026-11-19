@@ -69,7 +69,7 @@ try {
     // Dispositivos y aperturas por local
     $q = $pdo->prepare(
         'SELECT l.nombreLocal AS nombre_local, m.idMicrocontrolador AS id_microcontrolador, m.habilitado, m.cantidadAperturas,
-                TIMESTAMPDIFF(SECOND, m.ultimaConsulta, NOW()) AS seg
+                TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP()) AS seg
          FROM microcontroladores m
          INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
          WHERE m.idEmpresa = ? ORDER BY m.cantidadAperturas DESC, l.nombreLocal'
@@ -78,8 +78,8 @@ try {
     foreach ($q->fetchAll() as $d) {
         $k['disp']++;
         $k['aperturas'] += (int) $d['cantidadAperturas'];
-        $activo = $d['seg'] !== null && (int) $d['seg'] <= 15;
-        if ($activo) {
+        $d['activo'] = $d['seg'] !== null && (int) $d['seg'] >= 0 && (int) $d['seg'] <= 15;
+        if ($d['activo']) {
             $k['disp_activos']++;
         } elseif ($d['habilitado']) {
             $alertas[] = 'El dispositivo de «' . $d['nombre_local'] . '» no responde. Revisa que esté encendido y con internet.';
@@ -195,7 +195,7 @@ try {
                         <table>
                             <thead><tr><th>Local</th><th>Estado</th><th class="num">Aperturas</th></tr></thead>
                             <tbody>
-                            <?php foreach ($porLocal as $d): $act = $d['seg'] !== null && (int) $d['seg'] <= 15; ?>
+                            <?php foreach ($porLocal as $d): $act = $d['activo']; ?>
                                 <tr>
                                     <td><?= $h($d['nombre_local']) ?></td>
                                     <td class="<?= $act ? 'a' : 'i' ?>"><?= $act ? 'Activo' : 'Inactivo' ?></td>

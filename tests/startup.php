@@ -58,7 +58,7 @@ try {
     ));
     $vistaDispositivos = $tmp . '/ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php';
     file_put_contents($vistaDispositivos, str_replace(
-        'TIMESTAMPDIFF(SECOND, m.ultimaConsulta, NOW())',
+        'TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP())',
         'CAST(strftime("%s", "now") - strftime("%s", m.ultimaConsulta) AS INTEGER)',
         file_get_contents($vistaDispositivos)
     ));
@@ -68,7 +68,7 @@ try {
     file_put_contents($vistaListado, str_replace('NOW()', 'datetime("now")', file_get_contents($vistaListado)));
     $apiDispositivo = $tmp . '/util/api_dispositivo.php';
     file_put_contents($apiDispositivo, str_replace(
-        ['FOR UPDATE', 'NOW()'], ['', 'CURRENT_TIMESTAMP'], file_get_contents($apiDispositivo)
+        ['FOR UPDATE', 'UTC_TIMESTAMP()'], ['', 'CURRENT_TIMESTAMP'], file_get_contents($apiDispositivo)
     ));
     file_put_contents($tmp . '/util/db.php', '<?php
 require_once __DIR__ . "/seguridad.php";
@@ -259,7 +259,9 @@ recFin();
     $ultimaConsulta = fn() => $pdo->query('SELECT ultimaConsulta FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn();
     $response = $request($credencial, $consulta);
     comprobarStartup($response['status'] === 200 && json_decode($response['body'], true) === ['ok' => true, 'accionar' => 1]
-        && $orden() === 1 && $ultimaConsulta() !== null, 'La consulta consume la orden o no actualiza la ultima consulta.');
+        && $orden() === 1
+        && abs(time() - strtotime($ultimaConsulta() . ' UTC')) <= 5,
+        'La consulta consume la orden o no guarda la ultima consulta en UTC.');
     $response = $request($credencial, $consulta);
     comprobarStartup(json_decode($response['body'], true) === ['ok' => true, 'accionar' => 1],
         'Una segunda consulta debe seguir mostrando la orden pendiente.');
@@ -440,11 +442,13 @@ recFin();
     comprobarStartup($request(['datos' => '1'], $vistaDispositivos)['status'] === 401,
         'La actualizacion automatica no debe devolver datos sin sesion.');
     $cookies = $sinSesion;
-    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now', '-16 seconds') WHERE idMicrocontrolador = 101");
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = '2025-01-02 12:00:00' WHERE idMicrocontrolador = 101");
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now', '+5 hours') WHERE idMicrocontrolador = 102");
     $actualizacion = $request(['datos' => '1'], $vistaDispositivos);
     $fragmento = json_decode($actualizacion['body'], true)['tarjetas'] ?? '';
     comprobarStartup($actualizacion['status'] === 200
         && substr_count($fragmento, 'data-col="5">Inactivo</dd>') === 2
+        && str_contains($fragmento, 'datetime="2025-01-02T12:00:00Z">2025-01-02 12:00:00 UTC</time>')
         && !str_contains($fragmento, '<!DOCTYPE')
         && !str_contains($fragmento, 'data-col="0">103</span>'),
         'La actualizacion no refleja la desconexion o devuelve contenido ajeno a las tarjetas de la empresa.');

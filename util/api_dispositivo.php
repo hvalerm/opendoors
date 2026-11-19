@@ -71,7 +71,7 @@ function atenderDispositivo(OperacionDispositivo $operacion): void
 
         $accionar = (int) $micro['accionar'];
         if (!$restablecer) {
-            $pdo->prepare('UPDATE microcontroladores SET ultimaConsulta = NOW() WHERE idMicrocontrolador = ?')
+            $pdo->prepare('UPDATE microcontroladores SET ultimaConsulta = UTC_TIMESTAMP() WHERE idMicrocontrolador = ?')
                 ->execute([$idMicrocontrolador]);
         }
         if ($operacion !== OperacionDispositivo::Consulta && $accionar === 1) {

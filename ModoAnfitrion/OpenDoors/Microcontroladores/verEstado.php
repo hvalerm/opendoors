@@ -24,7 +24,7 @@ try {
     $stmt = getPDO()->prepare(
         'SELECT m.idMicrocontrolador AS id_microcontrolador, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
                 m.ultimaConsulta, m.ultimaApertura, m.habilitado,
-                TIMESTAMPDIFF(SECOND, m.ultimaConsulta, NOW()) AS segundos_sin_consulta
+                TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP()) AS segundos_sin_consulta
          FROM microcontroladores m
          INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
          INNER JOIN empresas e ON e.idEmpresa = m.idEmpresa
@@ -45,10 +45,13 @@ try {
 
 $fmt = fn($f) => $f ? date('d/m/Y H:i:s', strtotime($f)) : '';
 $si = fn($v) => $v ? 'Sí' : 'No';
-// Activo si la última consulta fue hace 15 segundos o menos (según la hora de la BD)
-$activo = fn($seg) => $seg !== null && (int) $seg <= 15;
+// ultimaConsulta es un DATETIME en UTC. Los valores futuros no indican actividad.
+$activo = fn($seg) => $seg !== null && (int) $seg >= 0 && (int) $seg <= 15;
 ob_start();
-foreach ($unidades as $u): $estaActivo = $activo($u['segundos_sin_consulta']); ?>
+foreach ($unidades as $u):
+    $estaActivo = $activo($u['segundos_sin_consulta']);
+    $ultimaConsultaUtc = $u['ultimaConsulta'];
+?>
     <article class="tarjeta<?= $estaActivo ? ' activo' : '' ?>">
         <h2>Microcontrolador #<span data-col="0"><?= (int) $u['id_microcontrolador'] ?></span></h2>
         <dl>
@@ -56,7 +59,9 @@ foreach ($unidades as $u): $estaActivo = $activo($u['segundos_sin_consulta']); ?
             <div><dt>Habilitado</dt><dd data-col="6"><?= $si($u['habilitado']) ?></dd></div>
             <div><dt>Local</dt><dd data-col="1"><?= $h($u['nombre_local']) ?></dd></div>
             <div><dt>Empresa</dt><dd data-col="2"><?= $h($u['nombre_empresa']) ?></dd></div>
-            <div><dt>Última consulta</dt><dd><?= $h($fmt($u['ultimaConsulta']) ?: '—') ?></dd></div>
+            <div><dt>Última consulta</dt><dd><?php if ($ultimaConsultaUtc): ?>
+                <time class="consulta-utc" datetime="<?= $h(str_replace(' ', 'T', $ultimaConsultaUtc) . 'Z') ?>"><?= $h($ultimaConsultaUtc) ?> UTC</time>
+            <?php else: ?>—<?php endif; ?></dd></div>
             <div><dt>Última apertura</dt><dd><?= $h($fmt($u['ultimaApertura']) ?: '—') ?></dd></div>
         </dl>
     </article>
@@ -133,6 +138,18 @@ if ($soloDatos) {
             url.hash = '';
             var consultando = false;
             var ultimoHtml = tarjetas.innerHTML;
+            var formatoConsulta = new Intl.DateTimeFormat('es', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+                timeZoneName: 'shortOffset'
+            });
+
+            function mostrarConsultasEnHoraLocal() {
+                tarjetas.querySelectorAll('time.consulta-utc').forEach(function (elemento) {
+                    var fecha = new Date(elemento.dateTime);
+                    if (!Number.isNaN(fecha.getTime())) elemento.textContent = formatoConsulta.format(fecha);
+                });
+            }
 
             // Minúsculas y sin acentos para que "si" y "Sí" coincidan
             function norm(s) {
@@ -180,6 +197,7 @@ if ($soloDatos) {
                     if (html !== ultimoHtml) {
                         tarjetas.innerHTML = html;
                         ultimoHtml = html;
+                        mostrarConsultasEnHoraLocal();
                     }
                     aviso.hidden = true;
                     if (cambio) filtrar();
@@ -196,6 +214,7 @@ if ($soloDatos) {
             campos.forEach(function (c) {
                 c.addEventListener(c.tagName === 'SELECT' ? 'change' : 'input', filtrar);
             });
+            mostrarConsultasEnHoraLocal();
             filtrar();
             var intervalo = setInterval(actualizarEstado, 1000);
         })();
