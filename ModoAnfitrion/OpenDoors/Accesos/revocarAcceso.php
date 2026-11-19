@@ -31,7 +31,7 @@ function cargarAcceso(PDO $pdo, int $idAcceso, int $idCuenta): ?array
 }
 
 $origen = ($_GET['origen'] ?? $_POST['origen'] ?? '') === 'busqueda' ? 'busqueda' : '';
-$urlLista = ($origen ? 'busquedaAccesoRevocar.php' : 'listarAccesos.php') . ($embed ? '?embed=1' : '');
+$urlLista = ($origen ? 'busquedaAccesoRevocar' : 'listarAccesos') . ($embed ? '?embed=1' : '');
 
 try {
     $pdo = getPDO();
@@ -100,7 +100,7 @@ $fmt = fn($f) => $f ? date('d/m/Y H:i', strtotime($f)) : '';
                 <dt>Ejecutado</dt><dd><?= $acceso['ejecutado'] ? 'Sí' : 'No' ?></dd>
                 <dt>Habilitado</dt><dd><?= $acceso['habilitado'] ? 'Sí' : 'No' ?></dd>
             </dl>
-            <form method="post" action="revocarAcceso.php" class="acciones">
+            <form method="post" action="revocarAcceso" class="acciones">
                 <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
                 <input type="hidden" name="id" value="<?= (int) $acceso['id_acceso'] ?>">
                 <?php if ($embed): ?><input type="hidden" name="embed" value="1"><?php endif; ?>

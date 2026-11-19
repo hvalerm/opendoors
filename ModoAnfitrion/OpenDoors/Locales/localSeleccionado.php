@@ -42,7 +42,7 @@ try {
             } else {
                 $stmt = getPDO()->prepare('UPDATE locales SET accionar = 1 WHERE idLocal = ? AND idEmpresa = ?');
                 $stmt->execute([$local['id_local'], $local['id_empresa']]);
-                header('Location: ../puertaAccionada.php?id=' . $local['id_local'] . ($embed ? '&embed=1' : ''));
+                header('Location: ../puertaAccionada?id=' . $local['id_local'] . ($embed ? '&embed=1' : ''));
                 exit;
             }
         } elseif (($_POST['accion'] ?? '') === 'anular_apertura') {
@@ -117,7 +117,7 @@ try {
                     <input type="hidden" name="accion" value="anular_apertura">
                     <button type="submit" class="btn peligro" <?= (int) $local['accionar'] === 1 ? '' : 'disabled' ?>>Anular apertura de puerta</button>
                 </form>
-                <a class="btn secundario" href="../Accesos/CrearAccesoLocal.php?id=<?= (int) $local['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">Crear Acceso</a>
+                <a class="btn secundario" href="../Accesos/CrearAccesoLocal?id=<?= (int) $local['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">Crear Acceso</a>
             </div>
         <?php endif; ?>
     </section>

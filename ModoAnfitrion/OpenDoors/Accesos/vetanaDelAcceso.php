@@ -93,7 +93,7 @@ try {
     $error = 'Ocurrió un error al actualizar el acceso.';
 }
 
-$urlLista = 'listarAccesos.php' . ($embed ? '?embed=1' : '');
+$urlLista = 'listarAccesos' . ($embed ? '?embed=1' : '');
 $locales = [];
 if ($acceso) {
     try {
@@ -150,7 +150,7 @@ $valHasta = $hasta ?? ($acceso ? date('Y-m-d\TH:i', strtotime($acceso['activo_ha
             <?php if ($error): ?><div class="error"><?= $h($error) ?></div><?php endif; ?>
             <?php if ($mensaje): ?><div class="exito"><?= $h($mensaje) ?></div><?php endif; ?>
 
-            <form method="post" action="vetanaDelAcceso.php">
+            <form method="post" action="vetanaDelAcceso">
                 <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
                 <input type="hidden" name="id" value="<?= (int) $acceso['id_acceso'] ?>">
                 <input type="hidden" name="accion" value="actualizar">

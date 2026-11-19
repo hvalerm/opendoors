@@ -6,5 +6,5 @@ iniciarSesionSegura();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf'] ?? '')) {
     cerrarSesion();
 }
-header('Location: login.php');
+header('Location: login');
 exit;

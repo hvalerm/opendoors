@@ -6,7 +6,7 @@ require_once __DIR__ . '/util/intentos_login.php';
 iniciarSesionSegura();
 
 if (haySesionActiva()) {
-    header('Location: ModoAnfitrion/vistaAnfitrion.php');
+    header('Location: ModoAnfitrion/vistaAnfitrion');
     exit;
 }
 
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'empresa' => $row['nombre_empresa'],
                         'fecha'   => $row['licencia_expira'],
                     ];
-                    header('Location: licencia_expirada.php');
+                    header('Location: licencia_expirada');
                     exit;
                 }
                 session_regenerate_id(true);
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['nombre'] = $row['nombre'];
                 $_SESSION['ultima_actividad'] = time();
                 $_SESSION['huella'] = hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? '');
-                header('Location: ModoAnfitrion/vistaAnfitrion.php');
+                header('Location: ModoAnfitrion/vistaAnfitrion');
                 exit;
             }
             $error = 'Usuario o contraseña incorrectos.';
@@ -183,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="error" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
         <?php endif; ?>
 
-        <form method="post" action="login.php" autocomplete="on">
+        <form method="post" action="login" autocomplete="on">
             <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf'], ENT_QUOTES, 'UTF-8') ?>">
             <div class="field">
                 <label for="usuario">Usuario</label>
@@ -196,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <button type="submit" class="submit">Ingresar</button>
         </form>
-        <!-- <p style="text-align:center;margin-top:16px;font-size:.88rem;"><a href="recuperar_password.php" onclick="this.href='recuperar_password.php?correo='+encodeURIComponent(document.getElementById('usuario').value);" style="color:#2c6f94;text-decoration:none;">¿Olvidaste tu contraseña?</a></p> -->
+        <!-- <p style="text-align:center;margin-top:16px;font-size:.88rem;"><a href="recuperar_password" onclick="this.href='recuperar_password?correo='+encodeURIComponent(document.getElementById('usuario').value);" style="color:#2c6f94;text-decoration:none;">¿Olvidaste tu contraseña?</a></p> -->
          
         <footer>&copy; <?= date('Y') ?> <?= htmlspecialchars($nombreWeb, ENT_QUOTES, 'UTF-8') ?></footer>
     </main>

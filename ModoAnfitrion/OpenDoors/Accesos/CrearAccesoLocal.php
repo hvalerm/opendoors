@@ -85,7 +85,7 @@ try {
     $error = 'Ocurrió un error al guardar el acceso.';
 }
 $q = $embed ? '?embed=1' : '';
-$urlVolver = '../Locales/localSeleccionado.php?id=' . (int) $idLocal . ($embed ? '&embed=1' : '');
+$urlVolver = '../Locales/localSeleccionado?id=' . (int) $idLocal . ($embed ? '&embed=1' : '');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -121,7 +121,7 @@ $urlVolver = '../Locales/localSeleccionado.php?id=' . (int) $idLocal . ($embed ?
         <?php if (!$local): ?>
             <h1>Local no encontrado</h1>
             <p>El local no existe o no pertenece a tu empresa.</p>
-            <div class="acciones" style="margin-top:18px"><a class="btn enlace" href="SeleccionarLocalAcceso.php<?= $h($q) ?>">Volver a la lista</a></div>
+            <div class="acciones" style="margin-top:18px"><a class="btn enlace" href="SeleccionarLocalAcceso<?= $h($q) ?>">Volver a la lista</a></div>
         <?php else: ?>
             <h1>Crear acceso</h1>
             <dl>
@@ -142,13 +142,13 @@ $urlVolver = '../Locales/localSeleccionado.php?id=' . (int) $idLocal . ($embed ?
                     </div>
                 </div>
                 <div class="acciones">
-                    <a class="btn" href="CrearAccesoLocal.php?id=<?= (int) $local['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">Crear otro acceso</a>
+                    <a class="btn" href="CrearAccesoLocal?id=<?= (int) $local['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">Crear otro acceso</a>
                     <a class="btn enlace" href="<?= $h($urlVolver) ?>">Volver al local</a>
                 </div>
             <?php else: ?>
                 <h2>Datos del acceso</h2>
                 <?php if ($error): ?><div class="error"><?= $h($error) ?></div><?php endif; ?>
-                <form method="post" action="CrearAccesoLocal.php">
+                <form method="post" action="CrearAccesoLocal">
                     <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
                     <input type="hidden" name="id" value="<?= (int) $local['id_local'] ?>">
                     <?php if ($embed): ?><input type="hidden" name="embed" value="1"><?php endif; ?>

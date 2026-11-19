@@ -103,7 +103,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                                 <td><?= $si($a['ejecutado']) ?></td>
                                 <td><?= $si($a['habilitado']) ?></td>
                                 <td class="<?= $a['en_rango'] ? 'si' : 'no' ?>"><?= $si($a['en_rango']) ?></td>
-                                <td><a class="btn-fila <?= $a['habilitado'] ? 'revocar' : 'conceder' ?>" href="revocarAcceso.php?id=<?= (int) $a['id_acceso'] ?>&amp;origen=busqueda<?= $embed ? '&amp;embed=1' : '' ?>"><?= $a['habilitado'] ? 'Deshabilitar' : 'Habilitar' ?></a></td>
+                                <td><a class="btn-fila <?= $a['habilitado'] ? 'revocar' : 'conceder' ?>" href="revocarAcceso?id=<?= (int) $a['id_acceso'] ?>&amp;origen=busqueda<?= $embed ? '&amp;embed=1' : '' ?>"><?= $a['habilitado'] ? 'Deshabilitar' : 'Habilitar' ?></a></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

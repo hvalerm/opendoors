@@ -6,11 +6,11 @@ require_once __DIR__ . '/util/recuperar_comun.php';
 
 iniciarSesionSegura();
 if (haySesionActiva()) {
-    recRedirigir('ModoAnfitrion/vistaAnfitrion.php');
+    recRedirigir('ModoAnfitrion/vistaAnfitrion');
 }
 $idCuenta = (int) ($_SESSION['rec_cuenta'] ?? 0);
 if ($idCuenta <= 0) {
-    recRedirigir('recuperar_password.php');
+    recRedirigir('recuperar_password');
 }
 
 $error = '';
@@ -22,7 +22,7 @@ try {
     $q->execute([$idCuenta]);
     if (!$q->fetchColumn()) {
         unset($_SESSION['rec_cuenta']);
-        recRedirigir('recuperar_password.php?vencido=1');
+        recRedirigir('recuperar_password?vencido=1');
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -45,7 +45,7 @@ try {
             if ($d->rowCount() !== 1) {
                 $pdo->rollBack();
                 unset($_SESSION['rec_cuenta']);
-                recRedirigir('recuperar_password.php?vencido=1');
+                recRedirigir('recuperar_password?vencido=1');
             }
             $pdo->prepare('UPDATE cuentas SET pwd = ? WHERE idCuenta = ?')
                 ->execute([password_hash($p1, PASSWORD_ARGON2ID), $idCuenta]);
@@ -59,7 +59,7 @@ try {
             }
             unset($_SESSION['rec_cuenta'], $_SESSION['rec_correo'], $_SESSION['rec_ultimo_envio']);
             session_regenerate_id(true);
-            recRedirigir('login.php?cambiada=1');
+            recRedirigir('login?cambiada=1');
         }
     }
 } catch (PDOException $e) {
@@ -72,7 +72,7 @@ try {
 
 recInicio('Nueva contraseña', 'Escribe tu nueva contraseña dos veces para confirmarla.', $error);
 ?>
-        <form method="post" action="nueva_password.php" autocomplete="off">
+        <form method="post" action="nueva_password" autocomplete="off">
             <input type="hidden" name="csrf" value="<?= recEscapar(recCsrf()) ?>">
             <div class="field">
                 <label for="password">Nueva contraseña</label>

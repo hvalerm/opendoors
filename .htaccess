@@ -1,0 +1,7 @@
+RewriteEngine On
+
+# Alias internos: conservan los enlaces antiguos, el método HTTP y los datos de la petición.
+RewriteRule ^(index|login|logout|licencia_expirada|accesoPuerta|recuperar_password|verificar_codigo|nueva_password)$ $1.php [END]
+RewriteRule ^(Startup/startup|ModoAnfitrion/vistaAnfitrion)$ $1.php [END]
+RewriteRule ^(ModoAnfitrion/OpenDoors/(?:puertaAccionada|Dashboard/resumen|Locales/localSeleccionado|Microcontroladores/(?:verEstado|verActividad)|Accesos/(?:CrearAccesoLocal|SeleccionarLocalAcceso|busquedaAccesoRevocar|listarAccesos|localSeleccionado|revocarAcceso|vetanaDelAcceso)))$ $1.php [END]
+RewriteRule ^(ApiSystem/(?:api_board|api_microcontrolador|api_restore|ordenDeApertura_porLinkAcceso))$ $1.php [END]

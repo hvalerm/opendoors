@@ -9,11 +9,12 @@ $urlBase = 'https://p-lzag.onrender.com/';
 // Rutas relativas a la URL base, sin barra inicial.
 // Deben coincidir con las rutas publicadas por el servidor; cambiarlas no mueve los archivos.
 $rutaApi = 'ApiSystem';
-$rutaApiBoard = $rutaApi . '/api_board.php';
-$rutaApiMicrocontrolador = $rutaApi . '/api_microcontrolador.php';
-$rutaApiRestore = $rutaApi . '/api_restore.php';
-$rutaApiOrdenApertura = $rutaApi . '/ordenDeApertura_porLinkAcceso.php';
-$rutaAccesoPuerta = 'accesoPuerta.php';
+// Las URL nuevas no llevan extensión; las antiguas con .php siguen funcionando.
+$rutaApiBoard = $rutaApi . '/api_board';
+$rutaApiMicrocontrolador = $rutaApi . '/api_microcontrolador';
+$rutaApiRestore = $rutaApi . '/api_restore';
+$rutaApiOrdenApertura = $rutaApi . '/ordenDeApertura_porLinkAcceso';
+$rutaAccesoPuerta = 'accesoPuerta';
 
 $urlBase = rtrim($urlBase, '/');
 $urlApi = $urlBase . '/' . $rutaApi;
@@ -22,4 +23,4 @@ $urlApiMicrocontrolador = $urlBase . '/' . $rutaApiMicrocontrolador;
 $urlApiRestore = $urlBase . '/' . $rutaApiRestore;
 $urlApiOrdenApertura = $urlBase . '/' . $rutaApiOrdenApertura;
 $urlAccesoPuerta = $urlBase . '/' . $rutaAccesoPuerta;
-$urlLogin = $urlBase . '/login.php';
+$urlLogin = $urlBase . '/login';

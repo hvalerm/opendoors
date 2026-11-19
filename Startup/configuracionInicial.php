@@ -177,9 +177,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['nombre'] = $nombreAnfitrion;
                 $_SESSION['ultima_actividad'] = time();
                 $_SESSION['huella'] = hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? '');
-                header('Location: ../ModoAnfitrion/vistaAnfitrion.php', true, 303);
+                header('Location: ../ModoAnfitrion/vistaAnfitrion', true, 303);
             } else {
-                header('Location: ../login.php', true, 303);
+                header('Location: ../login', true, 303);
             }
             exit;
         }
@@ -229,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($error !== ''): ?>
             <div class="error" role="alert"><?= $h($error) ?></div>
         <?php endif; ?>
-        <form method="post" action="startup.php?id=<?= $h(rawurlencode($cifrado)) ?>">
+        <form method="post" action="startup?id=<?= $h(rawurlencode($cifrado)) ?>">
             <input type="hidden" name="csrf" value="<?= $h($_SESSION['startup_csrf']) ?>">
             <fieldset>
                 <legend>Datos de tu empresa</legend>

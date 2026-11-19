@@ -75,7 +75,7 @@ try {
             <ul id="lista">
                 <?php foreach ($locales as $l): ?>
                     <li data-nombre="<?= $h($l['nombre_local']) ?>" data-direccion="<?= $h($l['direccion_local']) ?>">
-                        <a href="localSeleccionado.php?id=<?= (int) $l['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">
+                        <a href="localSeleccionado?id=<?= (int) $l['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">
                             <div>
                                 <div class="nombre"><?= $h($l['nombre_local']) ?></div>
                                 <div class="dir"><?= $h($l['direccion_local']) ?></div>

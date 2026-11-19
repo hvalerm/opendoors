@@ -24,7 +24,7 @@ try {
 } catch (PDOException $e) {
     error_log('Error en Accesos/localSeleccionado: ' . $e->getMessage());
 }
-$urlLista = 'SeleccionarLocalAcceso.php' . ($embed ? '?embed=1' : '');
+$urlLista = 'SeleccionarLocalAcceso' . ($embed ? '?embed=1' : '');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -62,7 +62,7 @@ $urlLista = 'SeleccionarLocalAcceso.php' . ($embed ? '?embed=1' : '');
                 <dt>Habilitado</dt><dd><?= $local['habilitado'] ? 'Sí' : 'No' ?></dd>
             </dl>
             <div class="acciones">
-                <a class="btn" href="CrearAccesoLocal.php?id=<?= (int) $local['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">Crear Acceso de este local</a>
+                <a class="btn" href="CrearAccesoLocal?id=<?= (int) $local['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">Crear Acceso de este local</a>
                 <a class="btn enlace" href="<?= $h($urlLista) ?>">Volver a la lista</a>
             </div>
         <?php endif; ?>

@@ -111,7 +111,7 @@ try {
     $env = getenv();
     $env['OPENDOORS_ENC_KEY'] = 'clave-exclusiva-de-pruebas';
     $server = proc_open([PHP_BINARY, '-d', 'display_errors=1', '-d', 'session.save_path=' . $sessions,
-        '-S', $address, '-t', $app],
+        '-S', $address, '-t', $app, __DIR__ . '/router.php'],
         [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']], $pipes, $app, $env);
     if (!is_resource($server)) {
         throw new RuntimeException('No se pudo iniciar el servidor PHP de pruebas.');
@@ -183,8 +183,8 @@ try {
     $r = $login(5);
     comprobar($r['status'] === 200 && str_contains($r['body'], 'incorrectos'), 'Permite la cuenta deshabilitada.');
     comprobar(str_contains($login(6)['body'], 'deshabilitada'), 'Permite la empresa deshabilitada.');
-    comprobar($login(7)['location'] === 'licencia_expirada.php', 'No detecta la licencia vencida.');
-    comprobar($login(1)['location'] === 'ModoAnfitrion/vistaAnfitrion.php', 'Fallo en login con vinculo unico.');
+    comprobar($login(7)['location'] === 'licencia_expirada', 'No detecta la licencia vencida.');
+    comprobar($login(1)['location'] === 'ModoAnfitrion/vistaAnfitrion', 'Fallo en login con vinculo unico.');
 
     $pages = [
         'ModoAnfitrion/vistaAnfitrion.php',
@@ -273,13 +273,13 @@ try {
         VALUES (1, 'codigo-anterior', DATE_SUB(NOW(), INTERVAL 1 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE))");
     $r = $request('recuperar_password.php');
     $r = $request('recuperar_password.php', ['csrf' => $csrf($r), 'correo' => 'cuenta1@example.test']);
-    comprobar($r['location'] === 'verificar_codigo.php', 'No inicia la recuperacion.');
+    comprobar($r['location'] === 'verificar_codigo', 'No inicia la recuperacion.');
     comprobar(preg_match('/\b(\d{10})\b/', file_get_contents($mailFile), $m) === 1, 'No genera el codigo.');
     $r = $request('verificar_codigo.php', ['csrf' => $csrf($request('verificar_codigo.php')), 'codigo' => $m[1]]);
-    comprobar($r['location'] === 'nueva_password.php', 'No verifica el codigo.');
+    comprobar($r['location'] === 'nueva_password', 'No verifica el codigo.');
     $r = $request('nueva_password.php', ['csrf' => $csrf($request('nueva_password.php')),
         'password' => 'NuevaPrueba12345', 'password2' => 'NuevaPrueba12345']);
-    comprobar($r['location'] === 'login.php?cambiada=1', 'No actualiza la clave.');
+    comprobar($r['location'] === 'login?cambiada=1', 'No actualiza la clave.');
     comprobar($login(1, 'NuevaPrueba12345')['status'] === 302, 'No permite ingresar con la clave recuperada.');
     comprobar((int) $pdo->query('SELECT COUNT(*) FROM recuperacion_password')->fetchColumn() === 0, 'No consume el codigo.');
     comprobar((int) $pdo->query('SELECT COUNT(*) FROM logs_empresas_cuentas')->fetchColumn() > 0, 'No registra los vinculos.');

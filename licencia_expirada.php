@@ -6,7 +6,7 @@ require_once __DIR__ . '/util/contacto.php';
 iniciarSesionSegura();
 
 if (empty($_SESSION['licencia_expirada'])) {
-    header('Location: login.php');
+    header('Location: login');
     exit;
 }
 
@@ -55,7 +55,7 @@ try {
                 <p>El contacto de soporte no está disponible por el momento.</p>
             <?php endif; ?>
         </div>
-        <a class="volver" href="login.php">Volver al inicio de sesión</a>
+        <a class="volver" href="login">Volver al inicio de sesión</a>
     </section>
 </body>
 </html>

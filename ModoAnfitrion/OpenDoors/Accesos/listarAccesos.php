@@ -95,8 +95,8 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                     </thead>
                     <tbody id="cuerpo">
                         <?php foreach ($accesos as $a): ?>
-                            <tr class="fila" data-href="vetanaDelAcceso.php?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>" data-desde="<?= $h(date('Y-m-d', strtotime($a['activo_desde']))) ?>" data-hasta="<?= $h(date('Y-m-d', strtotime($a['activo_hasta']))) ?>">
-                                <td><a class="enlace-id" href="vetanaDelAcceso.php?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>"><?= (int) $a['id_acceso'] ?></a></td>
+                            <tr class="fila" data-href="vetanaDelAcceso?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>" data-desde="<?= $h(date('Y-m-d', strtotime($a['activo_desde']))) ?>" data-hasta="<?= $h(date('Y-m-d', strtotime($a['activo_hasta']))) ?>">
+                                <td><a class="enlace-id" href="vetanaDelAcceso?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>"><?= (int) $a['id_acceso'] ?></a></td>
                                 <td><?= $h($fmt($a['activo_desde'])) ?></td>
                                 <td><?= $h($fmt($a['activo_hasta'])) ?></td>
                                 <td><?= $h($a['nombre_local']) ?></td>

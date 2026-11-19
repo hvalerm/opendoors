@@ -5,11 +5,11 @@ require_once __DIR__ . '/util/recuperar_comun.php';
 
 iniciarSesionSegura();
 if (haySesionActiva()) {
-    recRedirigir('ModoAnfitrion/vistaAnfitrion.php');
+    recRedirigir('ModoAnfitrion/vistaAnfitrion');
 }
 $correo = (string) ($_SESSION['rec_correo'] ?? '');
 if ($correo === '') {
-    recRedirigir('recuperar_password.php');
+    recRedirigir('recuperar_password');
 }
 
 $error = '';
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($idCuenta !== false) {
                     $pdo->prepare('DELETE FROM recuperacion_password WHERE idCuenta = ? AND verificado = 0')->execute([$idCuenta]);
                 }
-                recRedirigir('recuperar_password.php?vencido=1');
+                recRedirigir('recuperar_password?vencido=1');
             }
 
             $q = $pdo->prepare('SELECT codigoHash AS codigo_hash, intentos FROM recuperacion_password WHERE idCuenta = ?');
@@ -61,13 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 )->execute([$idCuenta]);
                 session_regenerate_id(true);
                 $_SESSION['rec_cuenta'] = (int) $idCuenta;
-                recRedirigir('nueva_password.php');
+                recRedirigir('nueva_password');
             }
 
             $quedan = max(REC_MAX_INTENTOS - (int) ($fila['intentos'] ?? REC_MAX_INTENTOS), 0);
             if ($quedan === 0) {
                 $pdo->prepare('DELETE FROM recuperacion_password WHERE idCuenta = ?')->execute([$idCuenta]);
-                recRedirigir('recuperar_password.php?vencido=1');
+                recRedirigir('recuperar_password?vencido=1');
             }
             $error = 'Código incorrecto. Te ' . ($quedan === 1 ? 'queda 1 intento.' : 'quedan ' . $quedan . ' intentos.');
         } catch (PDOException $e) {
@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 recInicio('Ingresa el código', 'Si el correo está registrado, enviamos un código de 10 dígitos. Es válido por ' . REC_CODIGO_MINUTOS . ' minutos.', $error);
 ?>
-        <form method="post" action="verificar_codigo.php" autocomplete="off">
+        <form method="post" action="verificar_codigo" autocomplete="off">
             <input type="hidden" name="csrf" value="<?= recEscapar(recCsrf()) ?>">
             <div class="field">
                 <label for="codigo">Código de 10 dígitos</label>
@@ -87,5 +87,5 @@ recInicio('Ingresa el código', 'Si el correo está registrado, enviamos un cód
             </div>
             <button type="submit" class="submit">Verificar código</button>
         </form>
-        <a class="volver" href="recuperar_password.php">¿No llegó? Solicitar otro código</a>
+        <a class="volver" href="recuperar_password">¿No llegó? Solicitar otro código</a>
 <?php recFin();

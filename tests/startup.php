@@ -53,7 +53,7 @@ try {
         file_get_contents($tmp . '/util/DatosWeb.php'), 1);
     file_put_contents($tmp . '/util/DatosWeb.php', str_replace(
         [var_export($nombreWeb, true), var_export($rutaApi, true), var_export($rutaAccesoPuerta, true)],
-        ["'Puertas & <Prueba>'", "'servicios'", "'entrada.php'"],
+        ["'Puertas & <Prueba>'", "'servicios'", "'entrada'"],
         $datosWeb
     ));
     $vistaDispositivos = $tmp . '/ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php';
@@ -83,10 +83,11 @@ function getPDO(): PDO {
     }
     return $pdo;
 }');
+    copy(__DIR__ . '/router.php', $tmp . '/routerRutas.php');
     file_put_contents($tmp . '/router.php', '<?php
 putenv("OPENDOORS_ENC_KEY=clave-exclusiva-startup-test");
 if (($_SERVER["HTTP_X_STARTUP_TEST_MODE"] ?? "") === "sin-clave") putenv("OPENDOORS_ENC_KEY");
-return false;
+return require __DIR__ . "/routerRutas.php";
 ');
     file_put_contents($tmp . '/sesion.php', '<?php
 require __DIR__ . "/util/verificar.php";
@@ -171,7 +172,7 @@ recFin();
     }
     comprobarStartup($ready, 'El servidor de pruebas no responde.');
     $cookies = [];
-    $request = function (array $get, string $entry = 'Startup/startup.php', string $mode = '',
+    $request = function (array $get, string $entry = 'Startup/startup', string $mode = '',
         ?array $post = null) use ($address, &$cookies): array {
         $headers = ['User-Agent: OpenDoorsStartupTest', 'X-Startup-Test-Mode: ' . $mode];
         if ($cookies) {
@@ -216,12 +217,12 @@ recFin();
     ];
     $response = $request([], 'protegida.php');
     comprobarStartup($response['status'] === 302
-        && $response['location'] === 'https://puertas.example.test/instalacion/login.php?expirada=1',
+        && $response['location'] === 'https://puertas.example.test/instalacion/login?expirada=1',
         'El inicio de sesion no usa la URL base configurada.');
-    $response = $request(['token' => 'TokenPrueba'], 'accesoPuerta.php');
+    $response = $request(['token' => 'TokenPrueba'], 'accesoPuerta');
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '<title>Acceso | Puertas &amp; &lt;Prueba&gt;</title>')
-        && str_contains($response['body'], 'action="/instalacion/servicios/ordenDeApertura_porLinkAcceso.php"')
+        && str_contains($response['body'], 'action="/instalacion/servicios/ordenDeApertura_porLinkAcceso"')
         && str_contains($response['body'], 'new URL(window.location.href)')
         && str_contains($response['body'], "urlValidacion.search = '';")
         && str_contains($response['body'], 'fetch(urlValidacion,'),
@@ -234,13 +235,15 @@ recFin();
     comprobarStartup(json_decode($response['body'], true) === ['valido' => false, 'mensaje' => 'Acceso usado.'],
         'La validacion no detecta un acceso ya usado.');
     $pdo->exec("UPDATE accesos SET ejecutado = 0 WHERE token = 'TokenPrueba'");
-    $response = $request([], 'ApiSystem/ordenDeApertura_porLinkAcceso.php', '',
+    $response = $request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', '',
         ['token' => 'TokenPrueba', 'confirmar' => '1']);
     comprobarStartup($response['status'] === 303 && str_contains($response['location'], 'confirmacion='),
         'No genera la confirmacion de apertura para el huesped.');
     $confirmacion = [];
     parse_str((string) parse_url($response['location'], PHP_URL_QUERY), $confirmacion);
-    $response = $request($confirmacion, 'ModoAnfitrion/OpenDoors/puertaAccionada.php');
+    comprobarStartup(str_starts_with($response['location'], '../ModoAnfitrion/OpenDoors/puertaAccionada?'),
+        'La confirmacion se redirige a una ruta con extension.');
+    $response = $request($confirmacion, 'ModoAnfitrion/OpenDoors/puertaAccionada');
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], 'id="cerrarVentana" hidden')
         && str_contains($response['body'], 'id="avisoCierre" role="status" hidden'),
@@ -250,8 +253,8 @@ recFin();
         'Una confirmacion invalida muestra el boton de cierre.');
     $pdo->exec('INSERT INTO microcontroladores (idMicrocontrolador, idLocal, idEmpresa, habilitado) VALUES (10, 1, 1, 1)');
     $credencial = ['cifrado' => cifrarStartup('10')];
-    $consulta = 'ApiSystem/api_microcontrolador.php';
-    $restore = 'ApiSystem/api_restore.php';
+    $consulta = 'ApiSystem/api_microcontrolador';
+    $restore = 'ApiSystem/api_restore';
     $orden = fn() => (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 1')->fetchColumn();
     $ultimaConsulta = fn() => $pdo->query('SELECT ultimaConsulta FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn();
     $response = $request($credencial, $consulta);
@@ -359,7 +362,7 @@ recFin();
         'Acepta un CSRF procedente de otra sesion.');
     $cookies = $cookiesAnteriores;
     $response = $request($get, post: $post);
-    comprobarStartup($response['status'] === 303 && $response['location'] === '../login.php',
+    comprobarStartup($response['status'] === 303 && $response['location'] === '../login',
         'No dirige al login cuando se elige el ingreso manual.');
     $empresa = $pdo->query('SELECT * FROM empresas WHERE idEmpresa = 1')->fetch(PDO::FETCH_ASSOC);
     $cuenta = $pdo->query('SELECT * FROM cuentas')->fetch(PDO::FETCH_ASSOC);
@@ -395,7 +398,7 @@ recFin();
     unset($post['nombreCuenta']);
     $idSesionAnterior = $cookies['PHPSESSID'];
     $response = $request($getAuto, post: $post);
-    comprobarStartup($response['status'] === 303 && $response['location'] === '../ModoAnfitrion/vistaAnfitrion.php',
+    comprobarStartup($response['status'] === 303 && $response['location'] === '../ModoAnfitrion/vistaAnfitrion',
         'No dirige al panel cuando se elige ingreso automatico.');
     comprobarStartup($pdo->query('SELECT telefonoContacto FROM empresas WHERE idEmpresa = 3')->fetchColumn() === '+44 999 888 777',
         'No guarda el telefono con el prefijo personalizado.');
@@ -408,7 +411,7 @@ recFin();
 
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
         VALUES (3, 3, 'Local del anfitrion', 'Direccion del anfitrion')");
-    $vistaDispositivos = 'ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php';
+    $vistaDispositivos = 'ModoAnfitrion/OpenDoors/Microcontroladores/verEstado';
     $response = $request([], $vistaDispositivos);
     comprobarStartup(str_contains($response['body'], 'Tu empresa no tiene dispositivos de apertura registrados.'),
         'No informa cuando la empresa no tiene dispositivos.');
@@ -451,7 +454,7 @@ recFin();
     comprobarStartup($actualizacion['status'] === 200
         && substr_count($fragmento, 'data-col="5">Activo</dd>') === 1,
         'La actualizacion no refleja la reconexion del dispositivo.');
-    $panel = 'ModoAnfitrion/vistaAnfitrion.php';
+    $panel = 'ModoAnfitrion/vistaAnfitrion';
     $response = $request([], $panel);
     comprobarStartup($response['status'] === 200
         && !str_contains($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>')
@@ -459,7 +462,7 @@ recFin();
         && str_contains($response['body'], '<span class="label">Soporte</span>'),
         'Muestra modulos de otra empresa o esconde soporte sin modulos asignados.');
     $config = strpos($response['body'], 'href="?seccion=configuracion-cuenta"');
-    $logout = strpos($response['body'], 'action="../logout.php"');
+    $logout = strpos($response['body'], 'action="../logout"');
     comprobarStartup($config !== false && $logout !== false && $config < $logout,
         'La configuracion de cuenta no aparece antes de cerrar sesion.');
     $response = $request(['seccion' => 'configuracion-cuenta'], $panel);
@@ -490,13 +493,13 @@ recFin();
         && str_contains($response['body'], '<span class="label">Local del anfitrion</span>'),
         'No muestra OpenDoors con sus opciones antes de los demas modulos.');
     $response = $request(['seccion' => 'puertas-prueba/accesos/revocar'], $panel);
-    comprobarStartup(str_contains($response['body'], 'OpenDoors/Accesos/busquedaAccesoRevocar.php?embed=1'),
+    comprobarStartup(str_contains($response['body'], 'OpenDoors/Accesos/busquedaAccesoRevocar?embed=1'),
         'El menu de habilitacion no conserva la ruta de la seccion.');
     $response = $request(['seccion' => 'puertas-prueba/accesos/listar'], $panel);
-    comprobarStartup(str_contains($response['body'], 'OpenDoors/Accesos/listarAccesos.php?embed=1'),
+    comprobarStartup(str_contains($response['body'], 'OpenDoors/Accesos/listarAccesos?embed=1'),
         'El menu de listado no conserva la ruta de la seccion.');
     $response = $request(['seccion' => 'puertas-prueba/dashboard'], $panel);
-    comprobarStartup(str_contains($response['body'], 'OpenDoors/Dashboard/resumen.php?embed=1'),
+    comprobarStartup(str_contains($response['body'], 'OpenDoors/Dashboard/resumen?embed=1'),
         'La seccion de OpenDoors asignada no carga su pagina.');
     $pdo->exec('DELETE FROM empresas_modulos WHERE idEmpresa = 3 AND idModulo IN (1, 2)');
     $response = $request(['seccion' => 'modulo-2'], $panel);
@@ -511,7 +514,7 @@ recFin();
         && str_contains($response['body'], 'No se pudieron cargar los módulos.'),
         'Un error al consultar los modulos no debe ocultarse como una lista vacia.');
 
-    $crearAcceso = 'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal.php';
+    $crearAcceso = 'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal';
     $response = $request(['id' => '3'], $crearAcceso);
     $response = $request(['id' => '3'], $crearAcceso, post: [
         'csrf' => $csrf($response),
@@ -521,7 +524,7 @@ recFin();
     $nuevoAcceso = $pdo->query('SELECT idAcceso, token FROM accesos WHERE idEmpresa = 3')->fetch(PDO::FETCH_ASSOC);
     comprobarStartup($response['status'] === 200 && $nuevoAcceso !== false,
         'No crea el acceso de prueba.');
-    $enlaceEsperado = 'https://puertas.example.test/instalacion/entrada.php?token=' . $nuevoAcceso['token'];
+    $enlaceEsperado = 'https://puertas.example.test/instalacion/entrada?token=' . $nuevoAcceso['token'];
     comprobarStartup(str_contains($response['body'], $enlaceEsperado)
         && str_contains($response['body'], rawurlencode($enlaceEsperado)),
         'El enlace creado o compartido por WhatsApp no usa la configuracion central.');
@@ -529,11 +532,11 @@ recFin();
         && str_contains($response['body'], 'id="btnCopiar"')
         && str_contains($response['body'], 'id="linkAcceso">' . $enlaceEsperado . '</div>'),
         'La confirmacion muestra el token separado o no permite copiar el enlace.');
-    $listado = $request([], 'ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php');
+    $listado = $request([], 'ModoAnfitrion/OpenDoors/Accesos/listarAccesos');
     $instruccion = strpos($listado['body'], 'Seleccione un acceso para editarlo');
     $tabla = strpos($listado['body'], '<table>');
     comprobarStartup($instruccion !== false && $tabla !== false && $instruccion < $tabla
-        && str_contains($listado['body'], 'vetanaDelAcceso.php?id=' . $nuevoAcceso['idAcceso']),
+        && str_contains($listado['body'], 'vetanaDelAcceso?id=' . $nuevoAcceso['idAcceso']),
         'El listado no indica como editar un acceso antes de la tabla.');
     $response = $request(['id' => (string) $nuevoAcceso['idAcceso']],
         'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php');
@@ -547,13 +550,13 @@ recFin();
     $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta, habilitado)
         VALUES ('TokenDeshabilitado', 3, 3, '2000-01-01 00:00:00', '2099-12-31 23:59:59', 0)");
     $idDeshabilitado = (int) $pdo->lastInsertId();
-    $lista = 'ModoAnfitrion/OpenDoors/Accesos/busquedaAccesoRevocar.php';
+    $lista = 'ModoAnfitrion/OpenDoors/Accesos/busquedaAccesoRevocar';
     $response = $request(['embed' => '1'], $lista);
     comprobarStartup(str_contains($response['body'], 'Habilitar/Deshabilitar accesos')
-        && str_contains($response['body'], "revocarAcceso.php?id=$idAcceso&amp;origen=busqueda&amp;embed=1\">Deshabilitar</a>")
-        && str_contains($response['body'], "revocarAcceso.php?id=$idDeshabilitado&amp;origen=busqueda&amp;embed=1\">Habilitar</a>"),
+        && str_contains($response['body'], "revocarAcceso?id=$idAcceso&amp;origen=busqueda&amp;embed=1\">Deshabilitar</a>")
+        && str_contains($response['body'], "revocarAcceso?id=$idDeshabilitado&amp;origen=busqueda&amp;embed=1\">Habilitar</a>"),
         'La lista no muestra las acciones correspondientes al estado del acceso.');
-    $confirmar = 'ModoAnfitrion/OpenDoors/Accesos/revocarAcceso.php';
+    $confirmar = 'ModoAnfitrion/OpenDoors/Accesos/revocarAcceso';
     foreach ([[$idAcceso, 0, 'Deshabilitar'], [$idDeshabilitado, 1, 'Habilitar']] as [$id, $esperado, $accion]) {
         $response = $request(['id' => (string) $id, 'origen' => 'busqueda', 'embed' => '1'], $confirmar);
         comprobarStartup(str_contains($response['body'], "$accion acceso</button>"),
@@ -561,7 +564,7 @@ recFin();
         $response = $request([], $confirmar, post: [
             'id' => (string) $id, 'origen' => 'busqueda', 'embed' => '1', 'csrf' => $csrf($response),
         ]);
-        comprobarStartup($response['status'] === 302 && $response['location'] === 'busquedaAccesoRevocar.php?embed=1'
+        comprobarStartup($response['status'] === 302 && $response['location'] === 'busquedaAccesoRevocar?embed=1'
             && (int) $pdo->query("SELECT habilitado FROM accesos WHERE idAcceso = $id")->fetchColumn() === $esperado,
             'La accion no actualiza el estado o no vuelve a la lista.');
     }
@@ -590,7 +593,7 @@ recFin();
         'El fallo de vinculacion no revierte todos los cambios.');
     $pdo->exec('DROP TRIGGER fallo_vinculo');
     $response = $request($getFallo, post: $post);
-    comprobarStartup($response['status'] === 303 && $response['location'] === '../login.php',
+    comprobarStartup($response['status'] === 303 && $response['location'] === '../login',
         'No permite reintentar el guardado despues de un fallo.');
     $sesion = json_decode($request([], 'sesion.php')['body'], true);
     comprobarStartup(!isset($sesion['usuario_id']),

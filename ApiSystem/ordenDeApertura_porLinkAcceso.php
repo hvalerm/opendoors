@@ -76,7 +76,7 @@ try {
             'expira' => time() + 120,
         ];
         session_write_close();
-        header('Location: ../ModoAnfitrion/OpenDoors/puertaAccionada.php?confirmacion=' . $confirmacion, true, 303);
+        header('Location: ../ModoAnfitrion/OpenDoors/puertaAccionada?confirmacion=' . $confirmacion, true, 303);
         exit;
     }
 

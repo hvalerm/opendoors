@@ -84,11 +84,11 @@ if ($existe) {
         error_log('Error al obtener el teléfono de soporte: ' . $e->getMessage());
     }
 }
-$urlEstado = 'puertaAccionada.php?estado=1&id=' . (int) $idLocal;
+$urlEstado = 'puertaAccionada?estado=1&id=' . (int) $idLocal;
 if ($esHuesped && $autorizado) {
-    $urlEstado = 'puertaAccionada.php?estado=1&confirmacion=' . rawurlencode($confirmacion);
+    $urlEstado = 'puertaAccionada?estado=1&confirmacion=' . rawurlencode($confirmacion);
 }
-$urlVolver = 'Locales/localSeleccionado.php?id=' . (int) $idLocal . ($embed ? '&embed=1' : '');
+$urlVolver = 'Locales/localSeleccionado?id=' . (int) $idLocal . ($embed ? '&embed=1' : '');
 $mensajeContacto = rawurlencode(
     'Hola, no se confirmó la apertura de la puerta del local "' . ($local['nombre_local'] ?? '') .
     '", ubicado en ' . ($local['direccion_local'] ?? '') .

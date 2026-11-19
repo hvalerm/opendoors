@@ -79,7 +79,7 @@ function recInicio(string $titulo, string $subtitulo, string $error = '', string
 function recFin(): void
 {
     ?>
-        <a class="volver" href="login.php">Volver a iniciar sesión</a>
+        <a class="volver" href="login">Volver a iniciar sesión</a>
     </main>
 </body>
 </html>

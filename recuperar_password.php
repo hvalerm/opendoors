@@ -6,7 +6,7 @@ require_once __DIR__ . '/util/recuperar_comun.php';
 
 iniciarSesionSegura();
 if (haySesionActiva()) {
-    recRedirigir('ModoAnfitrion/vistaAnfitrion.php');
+    recRedirigir('ModoAnfitrion/vistaAnfitrion');
 }
 
 $error = isset($_GET['vencido']) ? 'El código venció o ya no es válido. Solicita uno nuevo.' : '';
@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Misma respuesta exista o no el correo, para no revelar qué cuentas están registradas
             $_SESSION['rec_correo'] = $correo;
             $_SESSION['rec_ultimo_envio'] = time();
-            recRedirigir('verificar_codigo.php');
+            recRedirigir('verificar_codigo');
         } catch (PDOException $e) {
             error_log('Error en recuperar_password: ' . $e->getMessage());
             $error = 'No se pudo procesar la solicitud. Inténtalo más tarde.';
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 recInicio('Recuperar contraseña', 'Ingresa tu correo registrado y te enviaremos un código de 10 dígitos.', $error);
 ?>
-        <form method="post" action="recuperar_password.php" autocomplete="on">
+        <form method="post" action="recuperar_password" autocomplete="on">
             <input type="hidden" name="csrf" value="<?= recEscapar(recCsrf()) ?>">
             <div class="field">
                 <label for="correo">Correo registrado</label>
