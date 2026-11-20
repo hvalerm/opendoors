@@ -1,13 +1,13 @@
 <?php
 require_once __DIR__ . '/comunLocales.php';
 requerirSesion();
-session_write_close();
 header('Cache-Control: no-store');
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $embed = isset($_GET['embed']);
 $locales = [];
 $error = '';
+$guardado = false;
 
 try {
     $pdo = getPDO();
@@ -17,12 +17,15 @@ try {
         $error = 'OpenDoors no está habilitado para tu empresa.';
     } else {
         $locales = datosLocalesConfiguracion($pdo, $idEmpresa);
+        $guardado = !empty($_SESSION['configuracion_local_guardado']);
+        unset($_SESSION['configuracion_local_guardado']);
     }
 } catch (PDOException $e) {
     error_log('Error al listar locales en Configuración: ' . $e->getMessage());
     http_response_code(503);
     $error = 'No se pudieron cargar los locales. Inténtalo más tarde.';
 }
+session_write_close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -36,6 +39,9 @@ try {
 <body<?= $embed ? ' class="embebida"' : '' ?>>
     <main class="panel">
         <h1>Configuración › OpenDoors › Locales</h1>
+        <?php if ($guardado): ?>
+            <p class="aviso" role="status">Cambios guardados.</p>
+        <?php endif; ?>
         <?php if ($error !== ''): ?>
             <p class="aviso error" role="alert"><?= $h($error) ?></p>
         <?php elseif (!$locales): ?>

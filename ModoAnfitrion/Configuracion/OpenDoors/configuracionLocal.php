@@ -9,7 +9,6 @@ $idLocal = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['
 $listaUrl = 'locales.php' . ($embed ? '?embed=1' : '');
 $local = null;
 $error = '';
-$guardado = false;
 $zonas = DateTimeZone::listIdentifiers();
 
 try {
@@ -60,14 +59,11 @@ try {
                     );
                     $stmt->execute([$local['nombreLocal'], $local['direccionLocal'], $local['zonaHoraria'],
                         $local['eliminado'], $idLocal, $idEmpresa]);
-                    $_SESSION['configuracion_local_guardado'] = $idLocal;
-                    header('Location: configuracionLocal.php?id=' . $idLocal . ($embed ? '&embed=1' : ''), true, 303);
+                    $_SESSION['configuracion_local_guardado'] = true;
+                    header('Location: ' . $listaUrl, true, 303);
                     exit;
                 }
             }
-        } elseif (($_SESSION['configuracion_local_guardado'] ?? null) === $idLocal) {
-            $guardado = true;
-            unset($_SESSION['configuracion_local_guardado']);
         }
     }
 } catch (PDOException $e) {
@@ -92,8 +88,6 @@ session_write_close();
         <h1>Configurar local</h1>
         <?php if ($error !== ''): ?>
             <p class="aviso error" role="alert"><?= $h($error) ?></p>
-        <?php elseif ($guardado): ?>
-            <p class="aviso" role="status">Cambios guardados.</p>
         <?php endif; ?>
         <?php if ($local): ?>
             <form method="post">

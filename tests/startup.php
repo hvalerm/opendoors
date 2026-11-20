@@ -619,22 +619,25 @@ recFin();
     $editadoConfig = $request($idConfig, $editarConfig);
     $lista = $request(['embed' => '1'], $listaConfig);
     comprobarStartup($guardadoConfig['status'] === 303
-        && $guardadoConfig['location'] === 'configuracionLocal.php?id=3&embed=1'
-        && str_contains($editadoConfig['body'], 'Cambios guardados.')
+        && $guardadoConfig['location'] === 'locales.php?embed=1'
+        && $lista['status'] === 200
+        && str_contains($lista['body'], '<p class="aviso" role="status">Cambios guardados.</p>')
+        && !str_contains($request(['embed' => '1'], $listaConfig)['body'], 'Cambios guardados.')
         && str_contains($lista['body'], 'class="tarjeta eliminado" href="configuracionLocal.php?id=3&amp;embed=1"')
         && str_contains($lista['body'], '<h2>Casa &amp; Mar</h2>')
         && str_contains($lista['body'], '<dt>Dirección</dt><dd>Calle 123</dd>')
         && str_contains($lista['body'], '<dt>Zona horaria</dt><dd>America/Lima</dd>')
         && str_contains($lista['body'], '<dt>Eliminado</dt><dd>Sí</dd>')
         && str_contains($editadoConfig['body'], '<option value="1" selected>Sí</option>'),
-        'Los cambios guardados no se reflejan en el formulario y en la tarjeta del local eliminado.');
-    $restauradoConfig = $request($idConfig, $editarConfig, post: [
+        'El guardado no vuelve al listado embebido o no refleja los cambios con una confirmación única.');
+    $restauradoConfig = $request(['id' => '3'], $editarConfig, post: [
         'csrf' => $csrf($editadoConfig), 'nombreLocal' => 'Local del anfitrion',
         'direccionLocal' => 'Direccion del anfitrion', 'zonaHoraria' => 'America/Guayaquil', 'eliminado' => '0',
     ]);
     comprobarStartup($restauradoConfig['status'] === 303
+        && $restauradoConfig['location'] === 'locales.php'
         && (int) $pdo->query('SELECT eliminado FROM locales WHERE idLocal = 3')->fetchColumn() === 0,
-        'No permite restaurar el local desde Configuración.');
+        'No permite restaurar el local o no vuelve al listado independiente.');
     $response = $request(['seccion' => 'configuracion/gestalo/locales'], $panel);
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '<h2>Configuración › GESTALO › Locales</h2>')
