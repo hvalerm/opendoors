@@ -512,6 +512,10 @@ recFin();
         && !str_contains($response['body'], '<span class="label">GESTALO</span>')
         && str_contains($response['body'], '<span class="label">Soporte</span>'),
         'Muestra modulos de otra empresa o esconde soporte sin modulos asignados.');
+    $configuracion = strpos($response['body'], '<span class="label">Configuración</span>');
+    $soporte = strpos($response['body'], '<span class="label">Soporte</span>');
+    comprobarStartup($configuracion !== false && $soporte !== false && $configuracion < $soporte,
+        'Configuración no aparece en el menú lateral antes de Soporte.');
     $config = strpos($response['body'], 'href="?seccion=configuracion-cuenta"');
     $logout = strpos($response['body'], 'action="../logout"');
     comprobarStartup($config !== false && $logout !== false && $config < $logout,
@@ -520,6 +524,11 @@ recFin();
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '<h2>Configuración de cuenta</h2>'),
         'El enlace no abre la seccion de configuracion de cuenta.');
+    $response = $request(['seccion' => 'configuracion'], $panel);
+    comprobarStartup($response['status'] === 200
+        && str_contains($response['body'], '<h2>Configuración</h2>')
+        && str_contains($response['body'], 'Sección en construcción.'),
+        'El enlace no abre la sección de Configuración.');
     $pdo->exec('INSERT INTO empresas_modulos VALUES (3, 2), (3, 3)');
     $response = $request([], $panel);
     comprobarStartup(str_contains($response['body'], '<span class="label">GESTALO</span>')
