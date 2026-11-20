@@ -154,7 +154,8 @@ foreach ($menu as $entrada) {
         continue;
     }
     $abierto = str_starts_with($actual, $clave . '/');
-    $navHtml .= '<div class="group' . ($abierto ? ' open' : '') . '"><button type="button" class="item-btn" aria-expanded="' . ($abierto ? 'true' : 'false') . '">'
+    $independiente = $clave === 'configuracion' ? ' data-acordeon-independiente' : '';
+    $navHtml .= '<div class="group' . ($abierto ? ' open' : '') . '"' . $independiente . '><button type="button" class="item-btn" aria-expanded="' . ($abierto ? 'true' : 'false') . '">'
         . '<svg class="ico" viewBox="0 0 24 24" fill-rule="evenodd"><path d="' . $h($icono) . '"/></svg>'
         . '<span class="label">' . $h($titulo) . '</span>'
         . '<svg class="arrow" viewBox="0 0 24 24"><path d="M8 5l8 7-8 7z"/></svg></button>'
@@ -346,9 +347,9 @@ if (!isset($validas[$actual])) {
             var esRaiz = grupo.parentElement.tagName === 'NAV';
             var movil = window.matchMedia('(max-width: 768px)').matches;
             if (esRaiz && !movil && body.classList.contains('collapsed')) body.classList.remove('collapsed');
-            if (!grupo.classList.contains('open')) {
+            if (!grupo.classList.contains('open') && !grupo.hasAttribute('data-acordeon-independiente')) {
                 Array.from(grupo.parentElement.children).forEach(function (g) {
-                    if (g === grupo || !g.classList.contains('group') || !g.classList.contains('open')) return;
+                    if (g === grupo || !g.matches('.group.open:not([data-acordeon-independiente])')) return;
                     g.classList.remove('open');
                     g.querySelector(':scope > .item-btn').setAttribute('aria-expanded', 'false');
                 });
