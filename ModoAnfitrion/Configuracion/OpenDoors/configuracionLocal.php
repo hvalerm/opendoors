@@ -145,11 +145,20 @@ session_write_close();
             function filtrar() {
                 const texto = normalizar(buscar.value);
                 let coincidencias = 0;
+                let ultimaCoincidencia;
                 for (const opcion of opciones) {
                     opcion.hidden = !normalizar(opcion.textContent).includes(texto);
-                    if (!opcion.hidden) coincidencias++;
+                    if (!opcion.hidden) {
+                        coincidencias++;
+                        ultimaCoincidencia = opcion;
+                    }
                 }
-                aviso.textContent = coincidencias ? '' : 'No se encontraron zonas horarias.';
+                if (texto && coincidencias === 1) {
+                    selector.value = ultimaCoincidencia.value;
+                    aviso.textContent = 'Zona horaria seleccionada: ' + ultimaCoincidencia.textContent + '.';
+                } else {
+                    aviso.textContent = coincidencias ? '' : 'No se encontraron zonas horarias.';
+                }
             }
 
             buscar.addEventListener('input', filtrar);
