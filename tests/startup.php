@@ -524,12 +524,13 @@ recFin();
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '<h2>Configuración de cuenta</h2>'),
         'El enlace no abre la seccion de configuracion de cuenta.');
-    $response = $request(['seccion' => 'configuracion'], $panel);
-    comprobarStartup($response['status'] === 200
-        && str_contains($response['body'], '<h2>Configuración</h2>')
-        && str_contains($response['body'], 'No hay módulos asignados a esta empresa.')
-        && !str_contains($response['body'], 'class="modulo-configuracion"'),
-        'Configuración no muestra correctamente que la empresa no tiene módulos.');
+    $sinModulos = $request([], $panel);
+    comprobarStartup(preg_match('~<button[^>]*aria-expanded="false"[^>]*>(?:(?!</button>).)*<span class="label">Configuración</span>(?:(?!</button>).)*</button>\s*<div class="sub"><ul><li class="sub-vacio">No hay módulos asignados a esta empresa\.~s', $sinModulos['body']) === 1
+        && !str_contains($sinModulos['body'], 'href="?seccion=configuracion"'),
+        'Configuración debe desplegarse sin navegar incluso cuando no hay módulos.');
+    $response = $request(['seccion' => 'configuracion/gestalo/locales'], $panel);
+    comprobarStartup(!str_contains($response['body'], '<h2>Configuración › GESTALO › Locales</h2>'),
+        'Abre la configuración de Locales sin tener GESTALO asignado.');
     $pdo->exec('INSERT INTO empresas_modulos VALUES (3, 2), (3, 3)');
     $response = $request([], $panel);
     comprobarStartup(str_contains($response['body'], '<span class="label">GESTALO</span>')
@@ -543,17 +544,35 @@ recFin();
     $response = $request(['seccion' => 'puertas-prueba/dashboard'], $panel);
     comprobarStartup(!str_contains($response['body'], '<iframe'),
         'Muestra una seccion del menu OpenDoors sin el modulo asignado.');
+    $response = $request(['seccion' => 'configuracion/opendoors/locales'], $panel);
+    comprobarStartup(!str_contains($response['body'], '<h2>Configuración › OpenDoors › Locales</h2>'),
+        'Abre la configuración de Locales sin tener OpenDoors asignado.');
     $pdo->exec('INSERT INTO empresas_modulos VALUES (3, 1)');
-    $response = $request(['seccion' => 'configuracion'], $panel);
-    preg_match_all('~<li class="modulo-configuracion">\s*(<img[^>]+>|<svg\b.*?</svg>)\s*<strong>([^<]*)</strong>~s', $response['body'], $tarjetas, PREG_SET_ORDER);
-    $imagenes = array_column($tarjetas, 1, 2);
+    $response = $request([], $panel);
+    preg_match('~<span class="label">Configuración</span>(.*?)<span class="label">Soporte</span>~s', $response['body'], $bloque);
+    $submenu = $bloque[1] ?? '';
+    preg_match('~<svg class="ico"[^>]*><path d="([^"]+)"/></svg><span class="label">Puertas &amp; &lt;Prueba&gt;</span>~', $response['body'], $iconoPrincipal);
+    preg_match('~<svg class="ico"[^>]*><path d="([^"]+)"/></svg><span class="label">OpenDoors</span>~', $submenu, $iconoConfiguracion);
+    comprobarStartup(isset($iconoPrincipal[1], $iconoConfiguracion[1]) && $iconoPrincipal[1] === $iconoConfiguracion[1],
+        'OpenDoors debe usar el mismo icono SVG en el menú principal y en Configuración.');
+    foreach (['OpenDoors' => 'opendoors', 'GESTALO' => 'gestalo'] as $nombre => $clave) {
+        comprobarStartup(preg_match('~<button[^>]*aria-expanded="false"[^>]*><svg class="ico"[^>]*><path d="[^"]+"/></svg><span class="label">' . $nombre
+            . '</span>(?:(?!</button>).)*</button><div class="sub"><ul><li><a href="\?seccion=configuracion/' . $clave
+            . '/locales"[^>]*><svg class="ico"[^>]*><path d="[^"]+"/></svg><span class="label">Locales</span>~s', $submenu) === 1,
+            'Configuración debe desplegar ' . $nombre . ' con su imagen y el submenú Locales con su icono.');
+    }
+    comprobarStartup(str_contains($submenu, 'href="?seccion=configuracion/modulo-3"')
+        && str_contains($submenu, '<span class="label">Otro &amp; &lt;modulo&gt;</span>'),
+        'Configuración también debe ofrecer los demás módulos asignados.');
+    $response = $request(['seccion' => 'configuracion/opendoors/locales'], $panel);
     comprobarStartup($response['status'] === 200
-        && count($tarjetas) === 3
-        && str_contains($imagenes['OpenDoors'] ?? '', '../img/OpenDoors.png')
-        && str_starts_with($imagenes['GESTALO'] ?? '', '<svg')
-        && str_starts_with($imagenes['Otro &amp; &lt;modulo&gt;'] ?? '', '<svg')
-        && $imagenes['GESTALO'] !== $imagenes['Otro &amp; &lt;modulo&gt;'],
-        'Configuración debe mostrar el nombre y la imagen de cada módulo asignado.');
+        && str_contains($response['body'], '<h2>Configuración › OpenDoors › Locales</h2>'),
+        'El enlace Locales no abre su sección dentro de Configuración.');
+    $response = $request(['seccion' => 'configuracion/gestalo/locales'], $panel);
+    comprobarStartup($response['status'] === 200
+        && str_contains($response['body'], '<h2>Configuración › GESTALO › Locales</h2>')
+        && str_contains($response['body'], 'href="?seccion=configuracion/gestalo/locales" style="--d:2" class="active"'),
+        'El enlace Locales de GESTALO no abre su propia sección dentro de Configuración.');
     $response = $request([], $panel);
     $posOpenDoors = strpos($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>');
     $posGestalo = strpos($response['body'], '<span class="label">GESTALO</span>');

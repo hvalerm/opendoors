@@ -53,12 +53,14 @@ if ($tieneOpenDoors) {
     }
 }
 
-// Estructura del menú: [título, ícono, [hijos]]. Hijo: [título, [hijos], página, clave] u hoja [título]; '-' es un separador.
+// Menú: [título, icono, hijos]. Hijo: [título, hijos, página, clave, icono SVG]; '-' es un separador.
 $menu = [];
+$iconoOpenDoors = 'M5 3h14v18H5zm9 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2z';
+$iconoLocales = 'M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z';
 if ($tieneOpenDoors) {
-    $menu[] = [$nombreWeb, 'M5 3h14v18H5zm9 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2z', [
+    $menu[] = [$nombreWeb, $iconoOpenDoors, [
         ['Dashboard', null, 'OpenDoors/Dashboard/resumen', 'dashboard', 'M3 3h8v10H3zm10 0h8v6h-8zM3 15h8v6H3zm10-4h8v10h-8z'],
-        ['Locales', $itemsLocales, null, 'locales', 'M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z'],
+        ['Locales', $itemsLocales, null, 'locales', $iconoLocales],
         ['Accesos', [
             ['Crear', null, 'OpenDoors/Accesos/SeleccionarLocalAcceso'], ['Listar (y editar)', null, 'OpenDoors/Accesos/listarAccesos', 'listar'], ['Habilitar/Deshabilitar', null, 'OpenDoors/Accesos/busquedaAccesoRevocar', 'revocar'],
         ], null, 'accesos', 'M12.65 10A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'],
@@ -67,13 +69,25 @@ if ($tieneOpenDoors) {
         ], null, 'dispositivos-de-apertura', 'M6 6h12v12H6zM9 9v6h6V9zM7 3h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2zM7 18h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2z'],
     ]];
 }
+$itemsConfiguracion = [];
+$iconoModulo = 'M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z';
+$iconoGestalo = 'M2 4h2v9h7V8h7a4 4 0 0 1 4 4v8h-2v-3H4v3H2zM5 10a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0z';
 foreach ($modulos as $modulo) {
-    if (strcasecmp(trim($modulo['nombreModulo']), 'OpenDoors') !== 0) {
-        $menu[] = [$modulo['nombreModulo'], 'M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z',
-            [], null, 'modulo-' . (int) $modulo['idModulo']];
+    $nombreModulo = $modulo['nombreModulo'];
+    $tipoModulo = strtolower(trim($nombreModulo));
+    $claveModulo = 'modulo-' . (int) $modulo['idModulo'];
+    if ($tipoModulo !== 'opendoors') {
+        $menu[] = [$nombreModulo, $iconoModulo, [], null, $claveModulo];
+    }
+    if ($tipoModulo === 'opendoors' || $tipoModulo === 'gestalo') {
+        $itemsConfiguracion[] = [$nombreModulo, [
+            ['Locales', null, null, 'locales', $iconoLocales],
+        ], null, $tipoModulo, $tipoModulo === 'gestalo' ? $iconoGestalo : $iconoOpenDoors];
+    } else {
+        $itemsConfiguracion[] = [$nombreModulo, null, null, $claveModulo, $iconoModulo];
     }
 }
-$menu[] = ['Configuración', 'M3 5h4V3h2v2h12v2H9v2H7V7H3zM3 11h12V9h2v2h4v2h-4v2h-2v-2H3zM3 17h6v-2h2v2h10v2H11v2H9v-2H3z', []];
+$menu[] = ['Configuración', 'M3 5h4V3h2v2h12v2H9v2H7V7H3zM3 11h12V9h2v2h4v2h-4v2h-2v-2H3zM3 17h6v-2h2v2h10v2H11v2H9v-2H3z', $itemsConfiguracion, null, 'configuracion'];
 $menu[] = ['Soporte', 'M12 2a10 10 0 0 0-10 10v6h6v-8H4a8 8 0 0 1 16 0h-4v8h4a4 4 0 0 1-4 4h-4v2h4a6 6 0 0 0 6-6v-6A10 10 0 0 0 12 2z', [
     ['Contacto'], ['Enviar Correo'],
 ]];
@@ -101,7 +115,7 @@ function renderItems(array $items, string $prefix, array $labels, int $depth, ar
         $ruta = array_merge($labels, [$item[0]]);
         $pad = 'style="--d:' . $depth . '"';
         $icono = !empty($item[4])
-            ? '<svg class="ico" viewBox="0 0 24 24" fill-rule="evenodd"><path d="' . $h($item[4]) . '"/></svg>'
+            ? '<svg class="ico" viewBox="0 0 24 24" fill-rule="evenodd" aria-hidden="true"><path d="' . $h($item[4]) . '"/></svg>'
             : '';
         if (!empty($item[1])) {
             $abierto = str_starts_with($actual, $clave . '/');
@@ -127,7 +141,7 @@ foreach ($menu as $entrada) {
     [$titulo, $icono, $hijos] = $entrada;
     $pagina = $entrada[3] ?? null;
     $clave = $entrada[4] ?? slug($titulo);
-    if (!$hijos) {
+    if (!$hijos && $clave !== 'configuracion') {
         // Menú de acceso directo, sin submenús
         $validas[$clave] = [$titulo];
         if (!empty($pagina)) {
@@ -143,7 +157,9 @@ foreach ($menu as $entrada) {
         . '<svg class="ico" viewBox="0 0 24 24" fill-rule="evenodd"><path d="' . $h($icono) . '"/></svg>'
         . '<span class="label">' . $h($titulo) . '</span>'
         . '<svg class="arrow" viewBox="0 0 24 24"><path d="M8 5l8 7-8 7z"/></svg></button>'
-        . '<div class="sub"><ul>' . renderItems($hijos, $clave, [$titulo], 1, $validas, $actual, $h) . '</ul></div></div>';
+        . '<div class="sub"><ul>' . ($hijos
+            ? renderItems($hijos, $clave, [$titulo], 1, $validas, $actual, $h)
+            : '<li class="sub-vacio">No hay módulos asignados a esta empresa.</li>') . '</ul></div></div>';
 }
 
 $validas['configuracion-cuenta'] = ['Configuración de cuenta'];
@@ -187,8 +203,7 @@ if (!isset($validas[$actual])) {
             border-radius: 8px; cursor: pointer; white-space: nowrap;
         }
         .item-btn:hover, .sub a:hover { background: rgba(255,255,255,.1); }
-        .item-btn svg.ico { flex: 0 0 22px; width: 22px; height: 22px; fill: currentColor; }
-        .sub a svg.ico { flex: 0 0 22px; width: 22px; height: 22px; fill: currentColor; }
+        .item-btn .ico, .sub a .ico { flex: 0 0 22px; width: 22px; height: 22px; fill: currentColor; }
         .item-btn .label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
         .sub .label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
         .item-btn .arrow { width: 16px; height: 16px; fill: currentColor; transition: transform .2s; }
@@ -197,6 +212,7 @@ if (!isset($validas[$actual])) {
         .sub > ul { overflow: hidden; min-height: 0; list-style: none; }
         .group.open > .sub { grid-template-rows: 1fr; }
         .sub .item-btn, .sub a { font-size: .92rem; color: #b9cad5; padding-left: calc(46px + (var(--d, 1) - 1) * 16px); }
+        .sub-vacio { padding: 8px 12px 12px 46px; color: #b9cad5; font-size: .85rem; }
         .sub a.active { background: rgba(58,143,183,.35); color: #fff; }
         a.item-btn.active { background: rgba(58,143,183,.35); color: #fff; }
         .sep { height: 1px; margin: 6px 12px 6px 46px; background: rgba(255,255,255,.2); }
@@ -215,9 +231,6 @@ if (!isset($validas[$actual])) {
         .panel { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
         .panel h2 { margin-bottom: 8px; }
         .panel p { color: #6b7a86; }
-        .modulos-configuracion { list-style: none; margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 16px; }
-        .modulo-configuracion { display: flex; align-items: center; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid #d5dee4; border-radius: 12px; text-align: center; overflow-wrap: anywhere; }
-        .modulo-configuracion img, .modulo-configuracion svg { width: 56px; height: 56px; object-fit: contain; color: #2c5364; }
 
         /* Barra contraída */
         body.collapsed .sidebar { width: 68px; }
@@ -282,33 +295,7 @@ if (!isset($validas[$actual])) {
             <section class="panel">
                 <?php if ($actual): ?>
                     <h2><?= $h(implode(' › ', $validas[$actual])) ?></h2>
-                    <?php if ($actual === 'configuracion'): ?>
-                        <?php if (!$modulos): ?>
-                            <p>No hay módulos asignados a esta empresa.</p>
-                        <?php else: ?>
-                            <ul class="modulos-configuracion">
-                                <?php foreach ($modulos as $modulo):
-                                    $nombreModulo = $modulo['nombreModulo'];
-                                    $imagenModulo = match (strtolower(trim($nombreModulo))) {
-                                        'opendoors' => null,
-                                        'gestalo' => 'M2 4h2v9h7V8h7a4 4 0 0 1 4 4v8h-2v-3H4v3H2zM5 10a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0z',
-                                        default => 'M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z',
-                                    };
-                                ?>
-                                    <li class="modulo-configuracion">
-                                        <?php if ($imagenModulo === null): ?>
-                                            <img src="../img/OpenDoors.png" alt="">
-                                        <?php else: ?>
-                                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="<?= $h($imagenModulo) ?>"/></svg>
-                                        <?php endif; ?>
-                                        <strong><?= $h($nombreModulo) ?></strong>
-                                    </li>
-                                <?php endforeach; ?>
-                            </ul>
-                        <?php endif; ?>
-                    <?php else: ?>
-                        <p>Sección en construcción.</p>
-                    <?php endif; ?>
+                    <p>Sección en construcción.</p>
                 <?php else: ?>
                     <h2>Bienvenido, <?= $h($usuario['nombre']) ?></h2>
                     <p>Selecciona una opción del menú lateral.</p>
@@ -334,7 +321,7 @@ if (!isset($validas[$actual])) {
                                 </li>
                             </ul>
                         </li>
-                        <li>⚙️ <b>Configuración</b> — <span>Consulta los módulos asignados a tu empresa.</span></li>
+                        <li>⚙️ <b>Configuración</b> — <span>Despliega los módulos asignados a tu empresa en el menú lateral.</span></li>
                         <li>🎧 <b>Soporte</b> — <span>Estamos aquí para ayudarte.</span>
                             <ul>
                                 <li><b>Contacto</b> — <span>Encuentra cómo comunicarte con nosotros.</span></li>
