@@ -40,6 +40,7 @@ try {
         'ModoAnfitrion/Configuracion/OpenDoors/comunLocales.php',
         'ModoAnfitrion/Configuracion/OpenDoors/locales.php',
         'ModoAnfitrion/Configuracion/OpenDoors/configuracionLocal.php',
+        'ModoAnfitrion/Configuracion/OpenDoors/RestaurarInformacion.php',
         'ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php',
         'ModoAnfitrion/OpenDoors/Microcontroladores/verActividad.php',
         'ModoAnfitrion/OpenDoors/Dashboard/resumen.php',
@@ -661,7 +662,71 @@ recFin();
     $response = $request(['seccion' => 'puertas-prueba/dashboard'], $panel);
     comprobarStartup(str_contains($response['body'], 'OpenDoors/Dashboard/resumen?embed=1'),
         'La seccion de OpenDoors asignada no carga su pagina.');
+    $restaurarInfo = 'ModoAnfitrion/Configuracion/OpenDoors/RestaurarInformacion.php';
+    $embedInfo = ['embed' => '1'];
+    $response = $request(['seccion' => 'configuracion/opendoors/restaurar-informacion'], $panel);
+    comprobarStartup(str_contains($response['body'], 'src="Configuracion/OpenDoors/RestaurarInformacion.php?embed=1"'),
+        'Configuración de OpenDoors no abre Restaurar información.');
+    $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal, eliminado)
+        VALUES (5, 3, 'Local eliminado de prueba', 'Direccion', 1)");
+    $pdo->exec("INSERT INTO microcontroladores VALUES
+        (201, 3, 3, NULL, '2020-01-01 00:00:00', 1, 7),
+        (202, 4, 3, NULL, '2020-01-01 00:00:00', 1, 8),
+        (203, 5, 3, NULL, '2020-01-01 00:00:00', 1, 9),
+        (204, 1, 1, NULL, '2020-01-01 00:00:00', 1, 10)");
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta, ejecutado) VALUES
+        ('RestVencido', 3, 3, '2000-01-01 00:00:00', '2000-02-01 00:00:00', 0),
+        ('RestUsado', 4, 3, '2000-01-01 00:00:00', '2099-12-31 00:00:00', 1),
+        ('RestVigente', 3, 3, '2000-01-01 00:00:00', '2099-12-31 00:00:00', 0),
+        ('RestFuturo', 4, 3, '2099-01-01 00:00:00', '2099-12-31 00:00:00', 0),
+        ('RestEliminado', 5, 3, '2000-01-01 00:00:00', '2000-02-01 00:00:00', 0),
+        ('RestAjeno', 1, 1, '2000-01-01 00:00:00', '2000-02-01 00:00:00', 0)");
+    $formInfo = $request($embedInfo, $restaurarInfo);
+    comprobarStartup($formInfo['status'] === 200 && str_contains($formInfo['body'], 'Todos los locales no eliminados')
+        && str_contains($formInfo['body'], '<option value="3">Local del anfitrion</option>')
+        && !str_contains($formInfo['body'], 'Local eliminado de prueba') && !str_contains($formInfo['body'], 'Local de prueba'),
+        'Restaurar información no muestra únicamente los locales no eliminados de la empresa.');
+    $postInfo = ['csrf' => $csrf($formInfo), 'alcance' => '3', 'campos' => ['cantidadAperturas']];
+    foreach ([['alcance' => '5'], ['alcance' => '1'], ['campos' => []], ['campos' => ['cantidadAperturas', 'ultimaConsulta']]] as $invalido) {
+        comprobarStartup($request($embedInfo, $restaurarInfo, post: array_replace($postInfo, $invalido))['status'] === 422,
+            'Restaurar información aceptó un local o un campo inválido.');
+    }
+    comprobarStartup($request($embedInfo, $restaurarInfo, post: array_replace($postInfo, ['csrf' => '']))['status'] === 403
+        && (int) $pdo->query('SELECT cantidadAperturas FROM microcontroladores WHERE idMicrocontrolador = 201')->fetchColumn() === 7,
+        'Una restauración inválida o sin CSRF modificó datos.');
+    $contadoresInfo = fn(PDO $db) => array_map('intval', $db->query(
+        'SELECT idMicrocontrolador, cantidadAperturas FROM microcontroladores
+         WHERE idMicrocontrolador BETWEEN 201 AND 204 ORDER BY idMicrocontrolador'
+    )->fetchAll(PDO::FETCH_KEY_PAIR));
+    $response = $request($embedInfo, $restaurarInfo, post: $postInfo);
+    comprobarStartup($response['status'] === 303 && $response['location'] === 'RestaurarInformacion.php?embed=1'
+        && $contadoresInfo($pdo) === [201 => 0, 202 => 8, 203 => 9, 204 => 10]
+        && $pdo->query('SELECT ultimaApertura FROM microcontroladores WHERE idMicrocontrolador = 201')->fetchColumn() === '2020-01-01 00:00:00'
+        && (int) $pdo->query("SELECT habilitado FROM accesos WHERE token = 'RestVencido'")->fetchColumn() === 1,
+        'La restauración individual alteró un local o campo no seleccionado.');
+    $desdeInfo = gmdate('Y-m-d H:i:s');
+    $response = $request($embedInfo, $restaurarInfo, post: array_replace($postInfo, [
+        'alcance' => 'todos', 'campos' => ['ultimaApertura', 'cantidadAperturas', 'accesosInservibles'],
+    ]));
+    $hastaInfo = gmdate('Y-m-d H:i:s');
+    $aperturasInfo = $pdo->query('SELECT idMicrocontrolador, ultimaApertura FROM microcontroladores
+        WHERE idMicrocontrolador BETWEEN 201 AND 204')->fetchAll(PDO::FETCH_KEY_PAIR);
+    $accesosInfo = array_map('intval', $pdo->query("SELECT token, habilitado FROM accesos WHERE token LIKE 'Rest%'")->fetchAll(PDO::FETCH_KEY_PAIR));
+    comprobarStartup($response['status'] === 303
+        && str_contains($request($embedInfo, $restaurarInfo)['body'], 'Información restaurada.')
+        && $contadoresInfo($pdo) === [201 => 0, 202 => 0, 203 => 9, 204 => 10]
+        && $aperturasInfo[201] >= $desdeInfo && $aperturasInfo[201] <= $hastaInfo
+        && $aperturasInfo[202] === $aperturasInfo[201]
+        && $aperturasInfo[203] === '2020-01-01 00:00:00' && $aperturasInfo[204] === '2020-01-01 00:00:00'
+        && $accesosInfo == ['RestVencido' => 0, 'RestUsado' => 0, 'RestVigente' => 1,
+            'RestFuturo' => 1, 'RestEliminado' => 1, 'RestAjeno' => 1],
+        'Restaurar todos no respetó la hora UTC, la vigencia de accesos o el alcance por empresa y local.');
+    $pdo->exec("DELETE FROM accesos WHERE token LIKE 'Rest%'");
+    $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador BETWEEN 201 AND 204');
+    $pdo->exec('DELETE FROM locales WHERE idLocal = 5');
     $pdo->exec('DELETE FROM empresas_modulos WHERE idEmpresa = 3 AND idModulo IN (1, 2)');
+    comprobarStartup($request($embedInfo, $restaurarInfo, post: $postInfo)['status'] === 403,
+        'Restaurar información acepta cambios sin OpenDoors habilitado.');
     $response = $request(['seccion' => 'modulo-2'], $panel);
     comprobarStartup(!str_contains($response['body'], '<span class="label">GESTALO</span>')
         && !str_contains($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>')

@@ -80,9 +80,14 @@ foreach ($modulos as $modulo) {
         $menu[] = [$nombreModulo, $iconoModulo, [], null, $claveModulo];
     }
     if ($tipoModulo === 'opendoors' || $tipoModulo === 'gestalo') {
-        $itemsConfiguracion[] = [$nombreModulo, [
+        $opcionesModulo = [
             ['Locales', null, $tipoModulo === 'opendoors' ? 'Configuracion/OpenDoors/locales.php' : null, 'locales', $iconoLocales],
-        ], null, $tipoModulo, $tipoModulo === 'gestalo' ? $iconoGestalo : $iconoOpenDoors];
+        ];
+        if ($tipoModulo === 'opendoors') {
+            $opcionesModulo[] = ['Restaurar información', null, 'Configuracion/OpenDoors/RestaurarInformacion.php', 'restaurar-informacion',
+                'M12 5a7 7 0 1 1-6.7 9H3.2A9 9 0 1 0 5 6.4V3H3v7h7V8H6.3A7 7 0 0 1 12 5z'];
+        }
+        $itemsConfiguracion[] = [$nombreModulo, $opcionesModulo, null, $tipoModulo, $tipoModulo === 'gestalo' ? $iconoGestalo : $iconoOpenDoors];
     } else {
         $itemsConfiguracion[] = [$nombreModulo, null, null, $claveModulo, $iconoModulo];
     }
