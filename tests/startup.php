@@ -619,6 +619,10 @@ recFin();
     $guardadoConfig = $request($idConfig, $editarConfig, post: $cambiosConfig);
     $editadoConfig = $request($idConfig, $editarConfig);
     $lista = $request(['embed' => '1'], $listaConfig);
+    $leerLocalesMenu = static function (array $respuesta): ?array {
+        return preg_match("/tipo: 'locales-opendoors-actualizados',\\s*locales: (\\[[^\\r\\n]*\\])/", $respuesta['body'], $datos)
+            ? json_decode($datos[1], true) : null;
+    };
     comprobarStartup($guardadoConfig['status'] === 303
         && $guardadoConfig['location'] === 'locales.php?embed=1'
         && $lista['status'] === 200
@@ -631,6 +635,11 @@ recFin();
         && str_contains($lista['body'], '<dt>Eliminado</dt><dd>Sí</dd>')
         && str_contains($editadoConfig['body'], '<option value="1" selected>Sí</option>'),
         'El guardado no vuelve al listado embebido o no refleja los cambios con una confirmación única.');
+    $panelLocales = $request(['seccion' => 'configuracion/opendoors/locales'], $panel);
+    comprobarStartup($leerLocalesMenu($lista) === [['id' => 4, 'nombre' => 'Local <especial>']]
+        && str_contains($panelLocales['body'], 'data-locales-opendoors="puertas-prueba/locales"')
+        && !str_contains($panelLocales['body'], 'seccion=puertas-prueba/locales/local-3'),
+        'El local eliminado no debe aparecer en el menú lateral ni en su actualización embebida.');
     $restauradoConfig = $request(['id' => '3'], $editarConfig, post: [
         'csrf' => $csrf($editadoConfig), 'nombreLocal' => 'Local del anfitrion',
         'direccionLocal' => 'Direccion del anfitrion', 'zonaHoraria' => 'America/Guayaquil', 'eliminado' => '0',
@@ -639,6 +648,9 @@ recFin();
         && $restauradoConfig['location'] === 'locales.php'
         && (int) $pdo->query('SELECT eliminado FROM locales WHERE idLocal = 3')->fetchColumn() === 0,
         'No permite restaurar el local o no vuelve al listado independiente.');
+    comprobarStartup($leerLocalesMenu($request(['embed' => '1'], $listaConfig)) === [
+        ['id' => 4, 'nombre' => 'Local <especial>'], ['id' => 3, 'nombre' => 'Local del anfitrion'],
+    ], 'El local restaurado debe volver a incluirse en la actualización del menú lateral.');
     $response = $request(['seccion' => 'configuracion/gestalo/locales'], $panel);
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '<h2>Configuración › GESTALO › Locales</h2>')

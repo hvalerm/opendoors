@@ -48,19 +48,16 @@ if ($tieneOpenDoors) {
     } catch (Throwable $e) {
         error_log('No se pudieron cargar los locales: ' . $e->getMessage());
     }
-    if (!$itemsLocales) {
-        $itemsLocales[] = ['Sin locales'];
-    }
 }
 
-// Menú: [título, icono, hijos]. Hijo: [título, hijos, página, clave, icono SVG]; '-' es un separador.
+// Menú: [título, icono, hijos]. Hijo: [título, hijos, página, clave, icono SVG, lista de locales dinámica]; '-' es un separador.
 $menu = [];
 $iconoOpenDoors = 'M5 3h14v18H5zm9 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2z';
 $iconoLocales = 'M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z';
 if ($tieneOpenDoors) {
     $menu[] = [$nombreWeb, $iconoOpenDoors, [
         ['Dashboard', null, 'OpenDoors/Dashboard/resumen', 'dashboard', 'M3 3h8v10H3zm10 0h8v6h-8zM3 15h8v6H3zm10-4h8v10h-8z'],
-        ['Locales', $itemsLocales, null, 'locales', $iconoLocales],
+        ['Locales', $itemsLocales, null, 'locales', $iconoLocales, true],
         ['Accesos', [
             ['Crear', null, 'OpenDoors/Accesos/SeleccionarLocalAcceso'], ['Listar (y editar)', null, 'OpenDoors/Accesos/listarAccesos', 'listar'], ['Habilitar/Deshabilitar', null, 'OpenDoors/Accesos/busquedaAccesoRevocar', 'revocar'],
         ], null, 'accesos', 'M12.65 10A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'],
@@ -123,13 +120,18 @@ function renderItems(array $items, string $prefix, array $labels, int $depth, ar
         $icono = !empty($item[4])
             ? '<svg class="ico" viewBox="0 0 24 24" fill-rule="evenodd" aria-hidden="true"><path d="' . $h($item[4]) . '"/></svg>'
             : '';
-        if (!empty($item[1])) {
+        $listaLocales = $item[5] ?? false;
+        if ($listaLocales || !empty($item[1])) {
             $abierto = str_starts_with($actual, $clave . '/');
+            $atributoLista = $listaLocales ? ' data-locales-opendoors="' . $h($clave) . '"' : '';
+            $contenido = $listaLocales && !$item[1]
+                ? '<li class="sub-vacio">Sin locales</li>'
+                : renderItems($item[1], $clave, $ruta, $depth + 1, $validas, $actual, $h);
             $out .= '<li class="group' . ($abierto ? ' open' : '') . '"><button type="button" class="item-btn" ' . $pad . ' aria-expanded="' . ($abierto ? 'true' : 'false') . '">'
                 . $icono
                 . '<span class="label">' . $h($item[0]) . '</span>'
                 . '<svg class="arrow" viewBox="0 0 24 24"><path d="M8 5l8 7-8 7z"/></svg></button>'
-                . '<div class="sub"><ul>' . renderItems($item[1], $clave, $ruta, $depth + 1, $validas, $actual, $h) . '</ul></div></li>';
+                . '<div class="sub"><ul' . $atributoLista . '>' . $contenido . '</ul></div></li>';
         } else {
             $validas[$clave] = $ruta;
             if (!empty($item[2])) {
@@ -344,6 +346,39 @@ if (!isset($validas[$actual])) {
 
     <script>
         var body = document.body;
+
+        <?php if ($actual === 'configuracion/opendoors/locales'): ?>
+        window.addEventListener('message', function (evento) {
+            var marco = document.querySelector('iframe.embebida');
+            if (evento.origin !== window.location.origin || evento.source !== marco?.contentWindow
+                || evento.data?.tipo !== 'locales-opendoors-actualizados' || !Array.isArray(evento.data.locales)) return;
+
+            var lista = document.querySelector('[data-locales-opendoors]');
+            if (!lista) return;
+            var locales = evento.data.locales;
+            if (!locales.every(local => Number.isSafeInteger(local?.id) && local.id > 0 && typeof local.nombre === 'string')) return;
+
+            var filas = locales.map(function (local) {
+                var fila = document.createElement('li');
+                var enlace = document.createElement('a');
+                var etiqueta = document.createElement('span');
+                enlace.href = '?seccion=' + lista.dataset.localesOpendoors + '/local-' + local.id;
+                enlace.style.setProperty('--d', '2');
+                etiqueta.className = 'label';
+                etiqueta.textContent = local.nombre;
+                enlace.append(etiqueta);
+                fila.append(enlace);
+                return fila;
+            });
+            if (!filas.length) {
+                var vacio = document.createElement('li');
+                vacio.className = 'sub-vacio';
+                vacio.textContent = 'Sin locales';
+                filas.push(vacio);
+            }
+            lista.replaceChildren(...filas);
+        });
+        <?php endif; ?>
 
         document.querySelector('nav').addEventListener('click', function (e) {
             var btn = e.target.closest('.item-btn');

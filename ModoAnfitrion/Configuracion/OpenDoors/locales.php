@@ -64,5 +64,21 @@ session_write_close();
             </div>
         <?php endif; ?>
     </main>
+    <?php if ($embed && $guardado): ?>
+        <?php
+        $localesMenu = [];
+        foreach ($locales as $local) {
+            if (!$local['eliminado']) {
+                $localesMenu[] = ['id' => (int) $local['idLocal'], 'nombre' => $local['nombreLocal']];
+            }
+        }
+        ?>
+        <script>
+            window.parent.postMessage({
+                tipo: 'locales-opendoors-actualizados',
+                locales: <?= json_encode($localesMenu, JSON_HEX_TAG | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR) ?>
+            }, window.location.origin);
+        </script>
+    <?php endif; ?>
 </body>
 </html>
