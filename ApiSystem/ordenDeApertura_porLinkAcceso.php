@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/verificar.php';
+require_once __DIR__ . '/../util/vigencia_accesos.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -49,7 +50,7 @@ try {
         responder(403, false, 'El acceso está deshabilitado.');
     }
     // Paso 4: verificar que la hora actual esté dentro del rango de vigencia
-    $ahora = date('Y-m-d H:i:s');
+    $ahora = ahoraVigenciaAccesos();
     if ($ahora < $acceso['activo_desde'] || $ahora > $acceso['activo_hasta']) {
         responder(403, false, 'El acceso está fuera de su horario de vigencia.');
     }

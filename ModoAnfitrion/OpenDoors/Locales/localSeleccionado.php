@@ -10,13 +10,16 @@ $embed = isset($_GET['embed']);
 $mensaje = '';
 $esError = false;
 $local = null;
+if (empty($_SESSION['csrf'])) {
+    $_SESSION['csrf'] = bin2hex(random_bytes(32));
+}
 
 // Solo se accede a locales de la empresa de la cuenta con sesión iniciada
 function cargarLocal(int $idLocal, int $idCuenta): ?array
 {
     $stmt = getPDO()->prepare(
         'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, e.nombreEmpresa AS nombre_empresa,
-                l.accionar, l.habilitado, l.eliminado, l.idEmpresa AS id_empresa
+                l.accionar, l.habilitado, l.eliminado, l.idEmpresa AS id_empresa, l.zonaHoraria
          FROM locales l
          INNER JOIN empresas e ON e.idEmpresa = l.idEmpresa
          INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa
@@ -32,7 +35,8 @@ try {
     }
 
     if ($local && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        if (!hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf'] ?? '')) {
+        $csrf = $_POST['csrf'] ?? '';
+        if (!is_string($csrf) || !hash_equals($_SESSION['csrf'], $csrf)) {
             $mensaje = 'Solicitud no válida. Recarga la página e inténtalo de nuevo.';
             $esError = true;
         } elseif (($_POST['accion'] ?? '') === 'abrir_puerta') {
@@ -55,6 +59,10 @@ try {
                 $esError = true;
             }
             $local = cargarLocal($idLocal, (int) $usuario['id']);
+        } else {
+            http_response_code(400);
+            $mensaje = 'Acción no válida.';
+            $esError = true;
         }
     }
 } catch (PDOException $e) {
@@ -103,6 +111,7 @@ try {
                 <dt>Nombre</dt><dd><?= $h($local['nombre_local']) ?></dd>
                 <dt>Dirección</dt><dd><?= $h($local['direccion_local']) ?></dd>
                 <dt>Empresa</dt><dd><?= $h($local['nombre_empresa']) ?></dd>
+                <dt>Zona horaria</dt><dd><?= $h($local['zonaHoraria']) ?></dd>
                 <dt>Accionar</dt><dd><?= $local['accionar'] ? 'Activado (puerta solicitada)' : 'Inactivo' ?></dd>
                 <dt>Habilitado</dt><dd><?= $local['habilitado'] ? 'Sí' : 'No' ?></dd>
             </dl>

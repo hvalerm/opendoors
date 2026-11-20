@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/util/db.php';
 require_once __DIR__ . '/util/DatosWeb.php';
+require_once __DIR__ . '/util/vigencia_accesos.php';
 
 header('Cache-Control: no-store');
 // El token viaja en la URL: no debe filtrarse por Referer ni indexarse
@@ -18,7 +19,7 @@ if (is_string($token) && preg_match('/^[A-Za-z0-9]{1,250}$/', $token)) {
     try {
         $stmt = getPDO()->prepare(
             'SELECT a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, a.ejecutado, a.habilitado,
-                    l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local
+                    l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, l.zonaHoraria
              FROM accesos a
              INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
              WHERE a.token = ? AND l.eliminado = 0'
@@ -31,7 +32,7 @@ if (is_string($token) && preg_match('/^[A-Za-z0-9]{1,250}$/', $token)) {
     }
 
     if ($estado !== 'error') {
-        $ahora = date('Y-m-d H:i:s');
+        $ahora = ahoraVigenciaAccesos();
         if (!$acceso) {
             $estado = 'invalido';
         } elseif ($acceso['ejecutado']) {
@@ -63,7 +64,6 @@ if ($esValidacion) {
     exit;
 }
 
-$fmt = fn($f) => (new DateTime($f))->format('d/m/Y H:i');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -95,8 +95,9 @@ $fmt = fn($f) => (new DateTime($f))->format('d/m/Y H:i');
             <h1>Acceso al alojamiento</h1>
             <div class="dato"><span>Local</span><strong><?= $h($acceso['nombre_local']) ?></strong></div>
             <div class="dato"><span>Dirección</span><strong><?= $h($acceso['direccion_local']) ?></strong></div>
-            <div class="dato"><span>Vigente desde</span><strong><?= $h($fmt($acceso['activo_desde'])) ?></strong></div>
-            <div class="dato"><span>Vigente hasta</span><strong><?= $h($fmt($acceso['activo_hasta'])) ?></strong></div>
+            <div class="dato"><span>Vigente desde</span><strong><?= $h(mostrarFechaAcceso($acceso['activo_desde'], $acceso['zonaHoraria'])) ?></strong></div>
+            <div class="dato"><span>Vigente hasta</span><strong><?= $h(mostrarFechaAcceso($acceso['activo_hasta'], $acceso['zonaHoraria'])) ?></strong></div>
+            <div class="dato"><span>Zona horaria del alojamiento</span><strong><?= $h($acceso['zonaHoraria']) ?></strong></div>
 
             <div class="advertencia" role="alert">
                 <span class="titulo">⚠ Advertencia de seguridad</span>

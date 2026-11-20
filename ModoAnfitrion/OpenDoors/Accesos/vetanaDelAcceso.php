@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
 require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../../../util/vigencia_accesos.php';
 requerirSesion();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -19,7 +20,7 @@ function cargarAcceso(PDO $pdo, int $idAcceso, int $idCuenta): ?array
 {
     $stmt = $pdo->prepare(
         'SELECT a.idAcceso AS id_acceso, a.idEmpresa AS id_empresa, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
-                a.token, a.ejecutado, a.habilitado
+                a.token, a.ejecutado, a.habilitado, l.zonaHoraria, l.idLocal AS id_local
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
          INNER JOIN empresas e ON e.idEmpresa = a.idEmpresa
@@ -30,14 +31,9 @@ function cargarAcceso(PDO $pdo, int $idAcceso, int $idCuenta): ?array
     return $stmt->fetch() ?: null;
 }
 
-function parsearFecha(string $v): ?DateTime
-{
-    $d = DateTime::createFromFormat('Y-m-d\TH:i', $v) ?: DateTime::createFromFormat('Y-m-d\TH:i:s', $v);
-    return $d ?: null;
-}
-
 $desde = null;
 $hasta = null;
+$idLocalNuevo = null;
 try {
     $pdo = getPDO();
     $idCuenta = (int) $_SESSION['usuario_id'];
@@ -55,27 +51,42 @@ try {
                 ->execute([$nuevo, $acceso['id_acceso'], $acceso['id_empresa']]);
             $mensaje = $nuevo ? 'El acceso fue habilitado.' : 'El acceso fue deshabilitado.';
         } elseif ($accion === 'actualizar') {
-            $desde = trim($_POST['activo_desde'] ?? '');
-            $hasta = trim($_POST['activo_hasta'] ?? '');
-            $d1 = parsearFecha($desde);
-            $d2 = parsearFecha($hasta);
+            $desde = is_string($_POST['activo_desde'] ?? null) ? trim($_POST['activo_desde']) : '';
+            $hasta = is_string($_POST['activo_hasta'] ?? null) ? trim($_POST['activo_hasta']) : '';
             $idLocalNuevo = filter_var($_POST['id_local'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $ejecutadoNuevo = ($_POST['ejecutado'] ?? '') === '1' ? 1 : 0;
             $habilitadoNuevo = ($_POST['habilitado'] ?? '') === '1' ? 1 : 0;
-            $chk = $pdo->prepare('SELECT 1 FROM locales WHERE idLocal = ? AND idEmpresa = ? AND eliminado = 0');
+            $chk = $pdo->prepare('SELECT zonaHoraria FROM locales WHERE idLocal = ? AND idEmpresa = ? AND eliminado = 0');
             $chk->execute([$idLocalNuevo ?: 0, $acceso['id_empresa']]);
-            if (!$d1 || !$d2) {
-                $error = 'Ingresa fechas y horas válidas.';
+            $zonaDestino = $chk->fetchColumn();
+            $d1 = $zonaDestino !== false ? fechaAccesoEnUtc($desde, $zonaDestino) : null;
+            $d2 = $zonaDestino !== false ? fechaAccesoEnUtc($hasta, $zonaDestino) : null;
+            if ($idLocalNuevo === (int) $acceso['id_local'] && $zonaDestino !== false) {
+                // Conservar el instante original si se guardó una hora repetida.
+                foreach (['activo_desde' => $desde, 'activo_hasta' => $hasta] as $campo => $valor) {
+                    $utcOriginal = $acceso[$campo];
+                    $formato = strlen($valor) === 16 ? 'Y-m-d\TH:i' : 'Y-m-d\TH:i:s';
+                    if ($valor === mostrarFechaAcceso($utcOriginal, $zonaDestino, $formato)) {
+                        if ($campo === 'activo_desde') {
+                            $d1 = $utcOriginal;
+                        } else {
+                            $d2 = $utcOriginal;
+                        }
+                    }
+                }
+            }
+            if ($zonaDestino === false) {
+                $error = 'El local seleccionado no es válido.';
+            } elseif (!$d1 || !$d2) {
+                $error = 'Ingresa fechas y horas válidas. Las horas omitidas o repetidas por un cambio de horario no se aceptan.';
             } elseif ($d2 <= $d1) {
                 $error = 'La fecha "Activo hasta" debe ser posterior a "Activo desde".';
-            } elseif (!$chk->fetchColumn()) {
-                $error = 'El local seleccionado no es válido.';
             } else {
                 $pdo->prepare(
                     'UPDATE accesos SET activoDesde = ?, activoHasta = ?, idLocal = ?, ejecutado = ?, habilitado = ?
                      WHERE idAcceso = ? AND idEmpresa = ?'
                 )->execute([
-                    $d1->format('Y-m-d H:i:s'), $d2->format('Y-m-d H:i:s'), $idLocalNuevo,
+                    $d1, $d2, $idLocalNuevo,
                     $ejecutadoNuevo, $habilitadoNuevo, $acceso['id_acceso'], $acceso['id_empresa'],
                 ]);
                 $mensaje = 'El acceso fue actualizado.';
@@ -97,7 +108,8 @@ $urlLista = 'listarAccesos' . ($embed ? '?embed=1' : '');
 $locales = [];
 if ($acceso) {
     try {
-        $st = getPDO()->prepare('SELECT idLocal AS id_local, nombreLocal AS nombre_local FROM locales WHERE idEmpresa = ? AND eliminado = 0 ORDER BY nombreLocal');
+        $st = getPDO()->prepare('SELECT idLocal AS id_local, nombreLocal AS nombre_local, zonaHoraria
+            FROM locales WHERE idEmpresa = ? AND eliminado = 0 ORDER BY nombreLocal');
         $st->execute([$acceso['id_empresa']]);
         $locales = $st->fetchAll();
     } catch (PDOException $e) {
@@ -105,8 +117,8 @@ if ($acceso) {
     }
 }
 $link = $acceso ? $urlAccesoPuerta . '?token=' . rawurlencode($acceso['token']) : '';
-$valDesde = $desde ?? ($acceso ? date('Y-m-d\TH:i', strtotime($acceso['activo_desde'])) : '');
-$valHasta = $hasta ?? ($acceso ? date('Y-m-d\TH:i', strtotime($acceso['activo_hasta'])) : '');
+$valDesde = $desde ?? ($acceso ? mostrarFechaAcceso($acceso['activo_desde'], $acceso['zonaHoraria'], 'Y-m-d\TH:i:s') : '');
+$valHasta = $hasta ?? ($acceso ? mostrarFechaAcceso($acceso['activo_hasta'], $acceso['zonaHoraria'], 'Y-m-d\TH:i:s') : '');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -160,13 +172,14 @@ $valHasta = $hasta ?? ($acceso ? date('Y-m-d\TH:i', strtotime($acceso['activo_ha
                     <dd>
                         <select name="id_local">
                             <?php foreach ($locales as $l): ?>
-                                <option value="<?= (int) $l['id_local'] ?>" <?= $l['nombre_local'] === $acceso['nombre_local'] ? 'selected' : '' ?>><?= $h($l['nombre_local']) ?></option>
+                                <option value="<?= (int) $l['id_local'] ?>" <?= (int) $l['id_local'] === ($idLocalNuevo ?: (int) $acceso['id_local']) ? 'selected' : '' ?>><?= $h($l['nombre_local'] . ' (' . $l['zonaHoraria'] . ')') ?></option>
                             <?php endforeach; ?>
                         </select>
                     </dd>
                     <dt>Empresa</dt><dd><?= $h($acceso['nombre_empresa']) ?></dd>
-                    <dt>Activo desde</dt><dd><input type="datetime-local" name="activo_desde" required value="<?= $h($valDesde) ?>"></dd>
-                    <dt>Activo hasta</dt><dd><input type="datetime-local" name="activo_hasta" required value="<?= $h($valHasta) ?>"></dd>
+                    <dt>Activo desde</dt><dd><input type="datetime-local" name="activo_desde" step="1" required value="<?= $h($valDesde) ?>"></dd>
+                    <dt>Activo hasta</dt><dd><input type="datetime-local" name="activo_hasta" step="1" required value="<?= $h($valHasta) ?>">
+                        <p class="nota">Las fechas se interpretan en la zona del local seleccionado. Si cambias de local, revisa las horas antes de guardar: se mantienen como las escribiste, pero pueden corresponder a otro momento.</p></dd>
                     <dt>Token</dt><dd><?= $h($acceso['token']) ?></dd>
                     <dt>Ejecutado</dt>
                     <dd><label class="chk"><input type="checkbox" name="ejecutado" value="1" <?= $acceso['ejecutado'] ? 'checked' : '' ?>> <span class="nota">(Debe estar sin marcar para que pueda usarse)</span></label></dd>

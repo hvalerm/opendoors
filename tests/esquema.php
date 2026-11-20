@@ -36,7 +36,7 @@ try {
     $pdo->exec("USE `$db`");
     $delimiter = ';';
     $sql = '';
-    foreach (file($root . DIRECTORY_SEPARATOR . 'bd_ultima.sql') as $line) {
+    foreach (file($root . DIRECTORY_SEPARATOR . 'bd_ultimo.sql') as $line) {
         if (preg_match('/^\s*DELIMITER\s+(\S+)/', $line, $m)) {
             $delimiter = $m[1];
             continue;
@@ -67,9 +67,37 @@ try {
         ('LocalAlpha', 'DireccionAlpha', 1), ('LocalBeta', 'DireccionBeta', 2),
         ('LocalAlphaDos', 'Otra direccion', 1)");
     $pdo->exec('INSERT INTO microcontroladores (idLocal, idEmpresa) VALUES (1,1), (2,2)');
-    $pdo->exec("INSERT INTO accesos (activoDesde, activoHasta, idLocal, idEmpresa, token) VALUES
-        (DATE_SUB(NOW(), INTERVAL 1 HOUR), DATE_ADD(NOW(), INTERVAL 1 DAY), 1, 1, 'TokenAlpha'),
-        (DATE_SUB(NOW(), INTERVAL 1 HOUR), DATE_ADD(NOW(), INTERVAL 1 DAY), 2, 2, 'TokenBeta')");
+    $insertarAcceso = $pdo->prepare('INSERT INTO accesos (activoDesde, activoHasta, idLocal, idEmpresa, token)
+        VALUES (?, ?, ?, ?, ?)');
+    comprobar($pdo->query('SELECT zonaHoraria FROM locales WHERE idLocal = 1')->fetchColumn() === 'America/Guayaquil',
+        'El esquema nuevo no asigna la zona inicial.');
+    $pdo->exec('ALTER TABLE locales DROP COLUMN zonaHoraria');
+    $ahora = time();
+    $desde = gmdate('Y-m-d H:i:s', $ahora - 3600);
+    $hasta = gmdate('Y-m-d H:i:s', $ahora + 86400);
+    $desdeAnterior = gmdate('Y-m-d H:i:s', $ahora - 3600 - 5 * 3600);
+    $hastaAnterior = gmdate('Y-m-d H:i:s', $ahora + 86400 - 5 * 3600);
+    $insertarAcceso->execute([$desdeAnterior, $hastaAnterior, 1, 1, 'TokenAlpha']);
+    $insertarAcceso->execute([$desdeAnterior, $hastaAnterior, 2, 2, 'TokenBeta']);
+    $insertarAcceso->execute([$desdeAnterior, $hastaAnterior, 1, 1, 'TokenAlphaDos']);
+    unset($insertarAcceso);
+
+    $migracion = file($root . DIRECTORY_SEPARATOR . 'migraciones' . DIRECTORY_SEPARATOR . 'vigencia_utc_por_local.sql');
+    $sql = implode('', array_filter($migracion, fn($linea) => !str_starts_with($linea, '--')));
+    $sentencias = array_values(array_filter(array_map('trim', explode(';', $sql))));
+    foreach ($sentencias as $sentencia) {
+        $pdo->exec($sentencia);
+    }
+    // Simular que se retoma la migración después de confirmar la transacción.
+    foreach (array_slice($sentencias, 1) as $sentencia) {
+        $pdo->exec($sentencia);
+    }
+    $migrados = $pdo->query('SELECT activoDesde, activoHasta FROM accesos')->fetchAll();
+    comprobar(count($migrados) === 3 && $migrados === array_fill(0, 3, ['activoDesde' => $desde, 'activoHasta' => $hasta]),
+        'La migración no conserva la vigencia de todos los accesos o los convierte dos veces.');
+    comprobar((int) $pdo->query("SELECT COUNT(*) FROM locales WHERE zonaHoraria = 'America/Guayaquil'")->fetchColumn() === 3,
+        'La migración no asigna la zona inicial a todos los locales.');
+    $pdo->exec("DELETE FROM accesos WHERE token = 'TokenAlphaDos'");
 
     mkdir($tmp);
     $app = $tmp . DIRECTORY_SEPARATOR . 'app';

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
 require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../../../util/vigencia_accesos.php';
 requerirSesion();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -19,7 +20,7 @@ function cargarAcceso(PDO $pdo, int $idAcceso, int $idCuenta): ?array
 {
     $stmt = $pdo->prepare(
         'SELECT a.idAcceso AS id_acceso, a.idEmpresa AS id_empresa, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
-                a.token, a.ejecutado, a.habilitado
+                a.token, a.ejecutado, a.habilitado, l.zonaHoraria
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
          INNER JOIN empresas e ON e.idEmpresa = a.idEmpresa
@@ -54,7 +55,6 @@ try {
     error_log('Error en revocarAcceso: ' . $e->getMessage());
     $error = 'Ocurrió un error al actualizar el acceso.';
 }
-$fmt = fn($f) => $f ? date('d/m/Y H:i', strtotime($f)) : '';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -94,8 +94,9 @@ $fmt = fn($f) => $f ? date('d/m/Y H:i', strtotime($f)) : '';
                 <dt>ID acceso</dt><dd><?= (int) $acceso['id_acceso'] ?></dd>
                 <dt>Local</dt><dd><?= $h($acceso['nombre_local']) ?></dd>
                 <dt>Empresa</dt><dd><?= $h($acceso['nombre_empresa']) ?></dd>
-                <dt>Activo desde</dt><dd><?= $h($fmt($acceso['activo_desde'])) ?></dd>
-                <dt>Activo hasta</dt><dd><?= $h($fmt($acceso['activo_hasta'])) ?></dd>
+                <dt>Activo desde</dt><dd><?= $h(mostrarFechaAcceso($acceso['activo_desde'], $acceso['zonaHoraria'])) ?></dd>
+                <dt>Activo hasta</dt><dd><?= $h(mostrarFechaAcceso($acceso['activo_hasta'], $acceso['zonaHoraria'])) ?></dd>
+                <dt>Zona horaria</dt><dd><?= $h($acceso['zonaHoraria']) ?></dd>
                 <dt>Token</dt><dd><?= $h($acceso['token']) ?></dd>
                 <dt>Ejecutado</dt><dd><?= $acceso['ejecutado'] ? 'Sí' : 'No' ?></dd>
                 <dt>Habilitado</dt><dd><?= $acceso['habilitado'] ? 'Sí' : 'No' ?></dd>

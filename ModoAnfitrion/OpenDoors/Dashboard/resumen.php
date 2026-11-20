@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
 require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../../../util/vigencia_accesos.php';
 requerirSesion();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);
-$fmt = fn($f) => $f ? date('d/m/Y H:i', strtotime($f)) : '';
 $error = '';
 $k = ['locales' => 0, 'locales_ok' => 0, 'vigentes' => 0, 'proximos' => 0, 'usados' => 0, 'revocados' => 0,
       'disp' => 0, 'disp_activos' => 0, 'aperturas' => 0, 'puertas_pendientes' => 0];
@@ -18,6 +18,7 @@ $porLocal = [];
 try {
     $pdo = getPDO();
     $idEmpresa = (int) $_SESSION['empresa_id'];
+    $ahora = ahoraVigenciaAccesos();
 
     // Locales
     $q = $pdo->prepare('SELECT COUNT(*) AS total, COALESCE(SUM(habilitado = 1), 0) AS ok, COALESCE(SUM(accionar = 1), 0) AS pend
@@ -30,13 +31,13 @@ try {
 
     // Accesos por situación
     $q = $pdo->prepare(
-        'SELECT COALESCE(SUM(habilitado = 1 AND ejecutado = 0 AND NOW() BETWEEN activoDesde AND activoHasta), 0) AS vigentes,
-                COALESCE(SUM(habilitado = 1 AND ejecutado = 0 AND activoDesde > NOW()), 0) AS proximos,
+        'SELECT COALESCE(SUM(habilitado = 1 AND ejecutado = 0 AND ? BETWEEN activoDesde AND activoHasta), 0) AS vigentes,
+                COALESCE(SUM(habilitado = 1 AND ejecutado = 0 AND activoDesde > ?), 0) AS proximos,
                 COALESCE(SUM(ejecutado = 1), 0) AS usados,
                 COALESCE(SUM(habilitado = 0 AND ejecutado = 0), 0) AS revocados
          FROM accesos WHERE idEmpresa = ?'
     );
-    $q->execute([$idEmpresa]);
+    $q->execute([$ahora, $ahora, $idEmpresa]);
     $r = $q->fetch();
     foreach (['vigentes', 'proximos', 'usados', 'revocados'] as $c) {
         $k[$c] = (int) $r[$c];
@@ -44,24 +45,24 @@ try {
 
     // Próximas llegadas y accesos vigentes sin usar
     $q = $pdo->prepare(
-        'SELECT l.nombreLocal AS nombre_local, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, (a.activoDesde > NOW()) AS futuro
+        'SELECT l.nombreLocal AS nombre_local, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.zonaHoraria, (a.activoDesde > ?) AS futuro
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta >= NOW()
+         WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta >= ?
          ORDER BY a.activoDesde LIMIT 5'
     );
-    $q->execute([$idEmpresa]);
+    $q->execute([$ahora, $idEmpresa, $ahora]);
     $proximos = $q->fetchAll();
 
     // Accesos vencidos que nunca se usaron
     $q = $pdo->prepare(
-        'SELECT l.nombreLocal AS nombre_local, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta
+        'SELECT l.nombreLocal AS nombre_local, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.zonaHoraria
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta < NOW()
+         WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta < ?
          ORDER BY a.activoHasta DESC'
     );
-    $q->execute([$idEmpresa]);
+    $q->execute([$idEmpresa, $ahora]);
     $noUsados = $q->fetchAll();
     $k['no_usados'] = count($noUsados);
     $noUsados = array_slice($noUsados, 0, 5);
@@ -177,8 +178,8 @@ try {
                             <?php foreach ($proximos as $p): ?>
                                 <tr>
                                     <td><?= $h($p['nombre_local']) ?></td>
-                                    <td><?= $h($fmt($p['activo_desde'])) ?></td>
-                                    <td><?= $h($fmt($p['activo_hasta'])) ?></td>
+                                    <td><?= $h(mostrarFechaAcceso($p['activo_desde'], $p['zonaHoraria'], 'd/m/Y H:i T')) ?></td>
+                                    <td><?= $h(mostrarFechaAcceso($p['activo_hasta'], $p['zonaHoraria'], 'd/m/Y H:i T')) ?></td>
                                     <td><?= $p['futuro'] ? '<span class="chip luego">Próximo</span>' : '<span class="chip ahora">Vigente</span>' ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -219,8 +220,8 @@ try {
                         <?php foreach ($noUsados as $n): ?>
                             <tr>
                                 <td><?= $h($n['nombre_local']) ?></td>
-                                <td><?= $h($fmt($n['activo_desde'])) ?></td>
-                                <td><?= $h($fmt($n['activo_hasta'])) ?></td>
+                                <td><?= $h(mostrarFechaAcceso($n['activo_desde'], $n['zonaHoraria'], 'd/m/Y H:i T')) ?></td>
+                                <td><?= $h(mostrarFechaAcceso($n['activo_hasta'], $n['zonaHoraria'], 'd/m/Y H:i T')) ?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

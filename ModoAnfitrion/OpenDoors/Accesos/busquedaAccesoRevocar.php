@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
 require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../../../util/vigencia_accesos.php';
 requerirSesion();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -12,8 +13,8 @@ $error = '';
 try {
     $stmt = getPDO()->prepare(
         'SELECT a.idAcceso AS id_acceso, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
-                a.token, a.ejecutado, a.habilitado,
-                (NOW() BETWEEN a.activoDesde AND a.activoHasta AND a.habilitado = 1 AND a.ejecutado = 0) AS en_rango
+                a.token, a.ejecutado, a.habilitado, l.zonaHoraria,
+                (? BETWEEN a.activoDesde AND a.activoHasta AND a.habilitado = 1 AND a.ejecutado = 0) AS en_rango
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
          INNER JOIN empresas e ON e.idEmpresa = a.idEmpresa
@@ -21,14 +22,13 @@ try {
          WHERE c.idCuenta = ?
          ORDER BY a.idAcceso DESC'
     );
-    $stmt->execute([$_SESSION['usuario_id']]);
+    $stmt->execute([ahoraVigenciaAccesos(), $_SESSION['usuario_id']]);
     $accesos = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en listarAccesos: ' . $e->getMessage());
     $error = 'No se pudieron cargar los accesos.';
 }
 
-$fmt = fn($f) => $f ? date('d/m/Y H:i', strtotime($f)) : '';
 $si = fn($v) => $v ? 'Sí' : 'No';
 ?>
 <!DOCTYPE html>
@@ -92,11 +92,11 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                         <tr><th>ID</th><th>Activo desde</th><th>Activo hasta</th><th>Local</th><th>Empresa</th><th>Token</th><th>Ejecutado</th><th>Habilitado</th><th>¿Se puede usar?</th><th>Acción</th></tr>
                     </thead>
                     <tbody id="cuerpo">
-                        <?php foreach ($accesos as $a): ?>
-                            <tr data-desde="<?= $h(date('Y-m-d', strtotime($a['activo_desde']))) ?>" data-hasta="<?= $h(date('Y-m-d', strtotime($a['activo_hasta']))) ?>">
+                        <?php foreach ($accesos as $a): $zona = $a['zonaHoraria']; ?>
+                            <tr data-desde="<?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'Y-m-d')) ?>" data-hasta="<?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'Y-m-d')) ?>">
                                 <td><?= (int) $a['id_acceso'] ?></td>
-                                <td><?= $h($fmt($a['activo_desde'])) ?></td>
-                                <td><?= $h($fmt($a['activo_hasta'])) ?></td>
+                                <td><?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'd/m/Y H:i T')) ?></td>
+                                <td><?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'd/m/Y H:i T')) ?></td>
                                 <td><?= $h($a['nombre_local']) ?></td>
                                 <td><?= $h($a['nombre_empresa']) ?></td>
                                 <td class="token" title="<?= $h($a['token']) ?>"><?= $h($a['token']) ?></td>

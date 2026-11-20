@@ -34,11 +34,13 @@ function cifrarStartup(string $value): string
 try {
     foreach (['Startup/startup.php', 'Startup/configuracionInicial.php', 'accesoPuerta.php', 'util/enc.php',
         'util/verificar.php', 'util/seguridad.php', 'util/recuperar_comun.php', 'util/DatosWeb.php', 'util/contacto.php',
-        'util/api_dispositivo.php', 'ApiSystem/api_board.php', 'ApiSystem/api_microcontrolador.php',
+        'util/api_dispositivo.php', 'util/vigencia_accesos.php', 'ApiSystem/api_board.php', 'ApiSystem/api_microcontrolador.php',
         'ApiSystem/api_restore.php', 'ApiSystem/ordenDeApertura_porLinkAcceso.php',
         'ModoAnfitrion/vistaAnfitrion.php', 'ModoAnfitrion/OpenDoors/puertaAccionada.php',
         'ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php',
         'ModoAnfitrion/OpenDoors/Microcontroladores/verActividad.php',
+        'ModoAnfitrion/OpenDoors/Dashboard/resumen.php',
+        'ModoAnfitrion/OpenDoors/Locales/localSeleccionado.php',
         'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal.php',
         'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php',
         'ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php',
@@ -63,10 +65,12 @@ try {
         'CAST(strftime("%s", "now") - strftime("%s", m.ultimaConsulta) AS INTEGER)',
         file_get_contents($vistaDispositivos)
     ));
-    $vistaAccesos = $tmp . '/ModoAnfitrion/OpenDoors/Accesos/busquedaAccesoRevocar.php';
-    file_put_contents($vistaAccesos, str_replace('NOW()', 'datetime("now")', file_get_contents($vistaAccesos)));
-    $vistaListado = $tmp . '/ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php';
-    file_put_contents($vistaListado, str_replace('NOW()', 'datetime("now")', file_get_contents($vistaListado)));
+    $vistaDashboard = $tmp . '/ModoAnfitrion/OpenDoors/Dashboard/resumen.php';
+    file_put_contents($vistaDashboard, str_replace(
+        'TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP())',
+        'CAST(strftime("%s", "now") - strftime("%s", m.ultimaConsulta) AS INTEGER)',
+        file_get_contents($vistaDashboard)
+    ));
     $apiDispositivo = $tmp . '/util/api_dispositivo.php';
     file_put_contents($apiDispositivo, str_replace(
         ['FOR UPDATE', 'UTC_TIMESTAMP()'], ['', 'CURRENT_TIMESTAMP'], file_get_contents($apiDispositivo)
@@ -136,7 +140,7 @@ recFin();
     $pdo->exec('INSERT INTO empresas_modulos VALUES (1, 1), (1, 2)');
     $pdo->exec('CREATE TABLE locales (idLocal INTEGER PRIMARY KEY, idEmpresa INTEGER,
         nombreLocal TEXT, direccionLocal TEXT, eliminado INTEGER DEFAULT 0, habilitado INTEGER DEFAULT 1,
-        accionar INTEGER DEFAULT 0)');
+        accionar INTEGER DEFAULT 0, zonaHoraria TEXT NOT NULL DEFAULT "America/Guayaquil")');
     $pdo->exec('CREATE TABLE soporte (idSoporte INTEGER PRIMARY KEY, telefonoContacto TEXT)');
     $pdo->exec('CREATE TABLE microcontroladores (idMicrocontrolador INTEGER PRIMARY KEY, idLocal INTEGER,
         idEmpresa INTEGER, ultimaConsulta TEXT, ultimaApertura TEXT, habilitado INTEGER, cantidadAperturas INTEGER DEFAULT 0)');
@@ -414,6 +418,37 @@ recFin();
 
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
         VALUES (3, 3, 'Local del anfitrion', 'Direccion del anfitrion')");
+    $insertarVigencia = $pdo->prepare('INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
+        VALUES (?, 3, 3, ?, ?)');
+    $horaUtc = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+    foreach ([
+        ['VigenciaActual', '-1 hour', '+1 hour', true],
+        ['VigenciaFutura', '+4 hours', '+6 hours', false],
+        ['VigenciaVencida', '-2 hours', '-1 hour', false],
+    ] as [$tokenVigencia, $desde, $hasta, $vigente]) {
+        $insertarVigencia->execute([$tokenVigencia, $horaUtc->modify($desde)->format('Y-m-d H:i:s'),
+            $horaUtc->modify($hasta)->format('Y-m-d H:i:s')]);
+        $respuesta = $request([], 'accesoPuerta', post: ['accion' => 'validar', 'token' => $tokenVigencia]);
+        comprobarStartup((json_decode($respuesta['body'], true)['valido'] ?? null) === $vigente,
+            'La página pública no comprueba la vigencia en UTC.');
+        if (!$vigente) {
+            $respuesta = $request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', post: ['token' => $tokenVigencia]);
+            comprobarStartup($respuesta['status'] === 403, 'La API aceptó una orden fuera de vigencia.');
+        }
+    }
+    foreach (['listarAccesos', 'busquedaAccesoRevocar'] as $vistaVigencia) {
+        $respuesta = $request([], 'ModoAnfitrion/OpenDoors/Accesos/' . $vistaVigencia);
+        comprobarStartup(preg_match('~>VigenciaActual</td>(?:(?!</tr>).)*<td class="si">Sí</td>~s', $respuesta['body']) === 1
+            && preg_match('~>VigenciaFutura</td>(?:(?!</tr>).)*<td class="no">No</td>~s', $respuesta['body']) === 1,
+            'El listado no coincide con la vigencia mostrada al huésped.');
+    }
+    $respuesta = $request([], 'ModoAnfitrion/OpenDoors/Dashboard/resumen');
+    foreach (['Accesos vigentes', 'Próximos accesos', 'Accesos sin usar'] as $etiqueta) {
+        comprobarStartup(str_contains($respuesta['body'], '<div class="n">1</div><div class="t">' . $etiqueta . '</div>'),
+            'El dashboard no clasifica los accesos por su horario local.');
+    }
+    $pdo->exec("DELETE FROM accesos WHERE token IN ('VigenciaActual', 'VigenciaFutura', 'VigenciaVencida')");
+    unset($insertarVigencia);
     $vistaDispositivos = 'ModoAnfitrion/OpenDoors/Microcontroladores/verEstado';
     $response = $request([], $vistaDispositivos);
     comprobarStartup(str_contains($response['body'], 'Tu empresa no tiene dispositivos de apertura registrados.'),
@@ -530,16 +565,34 @@ recFin();
         && str_contains($response['body'], 'No se pudieron cargar los módulos.'),
         'Un error al consultar los modulos no debe ocultarse como una lista vacia.');
 
+    $pdo->exec("UPDATE locales SET zonaHoraria = 'Asia/Tokyo' WHERE idLocal = 3 AND idEmpresa = 3");
+    $fichaLocal = 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado';
+    $localConZona = $request(['id' => '3'], $fichaLocal);
+    comprobarStartup($localConZona['status'] === 200
+        && str_contains($localConZona['body'], '<dt>Zona horaria</dt><dd>Asia/Tokyo</dd>')
+        && !str_contains($localConZona['body'], 'name="zona_horaria"'),
+        'La ficha debe mostrar la zona horaria sin permitir editarla.');
+    $respuesta = $request(['id' => '3'], $fichaLocal, post: [
+        'accion' => 'guardar_zona', 'csrf' => $csrf($localConZona), 'zona_horaria' => 'America/Lima',
+    ]);
+    comprobarStartup($respuesta['status'] === 400
+        && $pdo->query('SELECT zonaHoraria FROM locales WHERE idLocal = 3 AND idEmpresa = 3')->fetchColumn() === 'Asia/Tokyo',
+        'La ficha no debe permitir modificar la zona horaria mediante POST.');
     $crearAcceso = 'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal';
     $response = $request(['id' => '3'], $crearAcceso);
     $response = $request(['id' => '3'], $crearAcceso, post: [
         'csrf' => $csrf($response),
-        'activo_desde' => date('Y-m-d\TH:i', time() - 3600),
-        'activo_hasta' => date('Y-m-d\TH:i', time() + 86400),
+        'activo_desde' => '2000-01-02T03:04',
+        'activo_hasta' => '2099-01-02T03:04',
     ]);
-    $nuevoAcceso = $pdo->query('SELECT idAcceso, token FROM accesos WHERE idEmpresa = 3')->fetch(PDO::FETCH_ASSOC);
+    $nuevoAcceso = $pdo->query('SELECT idAcceso, token, activoDesde, activoHasta FROM accesos WHERE idEmpresa = 3')->fetch(PDO::FETCH_ASSOC);
     comprobarStartup($response['status'] === 200 && $nuevoAcceso !== false,
         'No crea el acceso de prueba.');
+    comprobarStartup($nuevoAcceso['activoDesde'] === '2000-01-01 18:04:00'
+        && $nuevoAcceso['activoHasta'] === '2099-01-01 18:04:00', 'No guarda el horario de Tokio convertido a UTC.');
+    $respuesta = $request(['token' => $nuevoAcceso['token']], 'accesoPuerta');
+    comprobarStartup(str_contains($respuesta['body'], '02/01/2000 03:04')
+        && str_contains($respuesta['body'], 'Asia/Tokyo'), 'El huésped no ve la hora y zona del alojamiento.');
     $enlaceEsperado = 'https://puertas.example.test/instalacion/entrada?token=' . $nuevoAcceso['token'];
     comprobarStartup(str_contains($response['body'], $enlaceEsperado)
         && str_contains($response['body'], rawurlencode($enlaceEsperado)),
@@ -554,6 +607,8 @@ recFin();
     comprobarStartup($instruccion !== false && $tabla !== false && $instruccion < $tabla
         && str_contains($listado['body'], 'vetanaDelAcceso?id=' . $nuevoAcceso['idAcceso']),
         'El listado no indica como editar un acceso antes de la tabla.');
+    comprobarStartup(str_contains($listado['body'], 'data-desde="2000-01-02"') &&
+        str_contains($listado['body'], 'data-hasta="2099-01-02"'), 'El filtro no usa el día local.');
     $response = $request(['id' => (string) $nuevoAcceso['idAcceso']],
         'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php');
     comprobarStartup($response['status'] === 200
@@ -562,7 +617,28 @@ recFin();
         'El detalle del acceso no usa el enlace configurado.');
     comprobarStartup(str_contains($response['body'], 'Deshabilitar acceso'),
         'El detalle no muestra la accion de deshabilitar.');
+    comprobarStartup(str_contains($response['body'], 'value="2000-01-02T03:04:00"'),
+        'El formulario de edición no muestra el horario del local.');
     $idAcceso = (int) $nuevoAcceso['idAcceso'];
+    $editarAcceso = 'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso';
+    $response = $request(['id' => (string) $idAcceso], $editarAcceso, post: [
+        'accion' => 'actualizar', 'csrf' => $csrf($response), 'id_local' => '3', 'habilitado' => '1',
+        'activo_desde' => '2000-01-02T04:05:06', 'activo_hasta' => '2099-01-02T03:04',
+    ]);
+    comprobarStartup(str_contains($response['body'], 'El acceso fue actualizado.')
+        && $pdo->query("SELECT activoDesde FROM accesos WHERE idAcceso = $idAcceso")->fetchColumn() === '2000-01-01 19:05:06',
+        'La edición no guarda la nueva hora local en UTC.');
+    $pdo->exec("UPDATE locales SET zonaHoraria = 'America/Lima' WHERE idLocal = 3 AND idEmpresa = 3");
+    $response = $request(['id' => (string) $idAcceso], $editarAcceso);
+    comprobarStartup(str_contains($response['body'], 'value="2000-01-01T14:05:06"')
+        && $pdo->query("SELECT activoDesde FROM accesos WHERE idAcceso = $idAcceso")->fetchColumn() === '2000-01-01 19:05:06',
+        'Cambiar la zona debe cambiar lo mostrado sin mover la vigencia.');
+
+    require_once dirname(__DIR__) . '/util/vigencia_accesos.php';
+    comprobarStartup(fechaAccesoEnUtc('2026-03-08T02:30', 'America/New_York') === null
+        && fechaAccesoEnUtc('2026-11-01T01:30', 'America/New_York') === null
+        && fechaAccesoEnUtc('2026-11-01T02:30', 'America/New_York') === '2026-11-01 07:30:00',
+        'La conversión no distingue horas omitidas, repetidas y válidas.');
     $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta, habilitado)
         VALUES ('TokenDeshabilitado', 3, 3, '2000-01-01 00:00:00', '2099-12-31 23:59:59', 0)");
     $idDeshabilitado = (int) $pdo->lastInsertId();
