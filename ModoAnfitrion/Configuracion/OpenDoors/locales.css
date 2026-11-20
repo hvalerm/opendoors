@@ -23,6 +23,10 @@ input, select { width: 100%; min-width: 0; border: 1px solid #b5c3cc; background
 input[readonly] { background: #f2f5f7; }
 button { justify-self: start; margin-top: 10px; border: 0; background: #2c5364; color: #fff; font-weight: 600; cursor: pointer; }
 button:hover { background: #203a43; }
+.filtro-zona:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 8px; }
+.filtro-zona input::-webkit-search-cancel-button { display: none; }
+.filtro-zona button { display: grid; place-items: center; margin: 0; min-width: 44px; }
+#avisoZonaHoraria:empty { position: absolute; }
 :focus-visible { outline: 2px solid #277899; outline-offset: 3px; }
 .aviso { margin-bottom: 18px; padding: 10px 14px; border-radius: 8px; background: #e6f4ea; color: #1e6b34; }
 .aviso.error { background: #fdecea; color: #922018; }

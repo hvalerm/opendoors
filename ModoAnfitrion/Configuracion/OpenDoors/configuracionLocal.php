@@ -103,12 +103,21 @@ session_write_close();
                 <label for="direccionLocal">Dirección</label>
                 <input id="direccionLocal" name="direccionLocal" value="<?= $h($local['direccionLocal']) ?>" maxlength="100" required>
                 <label for="zonaHoraria">Zona horaria</label>
+                <div id="filtroZonaHoraria" class="filtro-zona" hidden>
+                    <input type="search" id="buscarZonaHoraria" aria-label="Buscar zona horaria" aria-controls="zonaHoraria" placeholder="Buscar por ciudad o región" autocomplete="off">
+                    <button type="button" id="limpiarZonaHoraria" aria-label="Limpiar búsqueda" title="Limpiar búsqueda">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                            <path d="m6 6 12 12M18 6 6 18"/>
+                        </svg>
+                    </button>
+                </div>
                 <select id="zonaHoraria" name="zonaHoraria" required>
                     <option value="">Selecciona una zona horaria</option>
                     <?php foreach ($zonas as $zona): ?>
                         <option value="<?= $h($zona) ?>"<?= $zona === $local['zonaHoraria'] ? ' selected' : '' ?>><?= $h($zona) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <p id="avisoZonaHoraria" class="ayuda" role="status"></p>
                 <label for="nombreEmpresa">Empresa</label>
                 <input id="nombreEmpresa" value="<?= $h($local['nombreEmpresa']) ?>" readonly>
                 <label for="eliminado">Eliminado</label>
@@ -121,5 +130,41 @@ session_write_close();
             </form>
         <?php endif; ?>
     </main>
+    <?php if ($local): ?>
+    <script>
+        (() => {
+            const filtro = document.getElementById('filtroZonaHoraria');
+            const buscar = document.getElementById('buscarZonaHoraria');
+            const limpiar = document.getElementById('limpiarZonaHoraria');
+            const selector = document.getElementById('zonaHoraria');
+            const aviso = document.getElementById('avisoZonaHoraria');
+            const normalizar = texto => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase().replace(/_/g, ' ').trim();
+            const opciones = Array.from(selector.options).slice(1);
+
+            function filtrar() {
+                const texto = normalizar(buscar.value);
+                let coincidencias = 0;
+                for (const opcion of opciones) {
+                    opcion.hidden = !normalizar(opcion.textContent).includes(texto);
+                    if (!opcion.hidden) coincidencias++;
+                }
+                aviso.textContent = coincidencias ? '' : 'No se encontraron zonas horarias.';
+            }
+
+            buscar.addEventListener('input', filtrar);
+            buscar.addEventListener('keydown', evento => {
+                if (evento.key === 'Enter' && !evento.isComposing) evento.preventDefault();
+            });
+            limpiar.addEventListener('click', () => {
+                buscar.value = '';
+                filtrar();
+                buscar.focus();
+            });
+            filtrar();
+            filtro.hidden = false;
+        })();
+    </script>
+    <?php endif; ?>
 </body>
 </html>
