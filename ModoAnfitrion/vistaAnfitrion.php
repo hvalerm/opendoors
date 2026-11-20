@@ -215,6 +215,9 @@ if (!isset($validas[$actual])) {
         .panel { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
         .panel h2 { margin-bottom: 8px; }
         .panel p { color: #6b7a86; }
+        .modulos-configuracion { list-style: none; margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 16px; }
+        .modulo-configuracion { display: flex; align-items: center; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid #d5dee4; border-radius: 12px; text-align: center; overflow-wrap: anywhere; }
+        .modulo-configuracion img, .modulo-configuracion svg { width: 56px; height: 56px; object-fit: contain; color: #2c5364; }
 
         /* Barra contraída */
         body.collapsed .sidebar { width: 68px; }
@@ -279,7 +282,33 @@ if (!isset($validas[$actual])) {
             <section class="panel">
                 <?php if ($actual): ?>
                     <h2><?= $h(implode(' › ', $validas[$actual])) ?></h2>
-                    <p>Sección en construcción.</p>
+                    <?php if ($actual === 'configuracion'): ?>
+                        <?php if (!$modulos): ?>
+                            <p>No hay módulos asignados a esta empresa.</p>
+                        <?php else: ?>
+                            <ul class="modulos-configuracion">
+                                <?php foreach ($modulos as $modulo):
+                                    $nombreModulo = $modulo['nombreModulo'];
+                                    $imagenModulo = match (strtolower(trim($nombreModulo))) {
+                                        'opendoors' => null,
+                                        'gestalo' => 'M2 4h2v9h7V8h7a4 4 0 0 1 4 4v8h-2v-3H4v3H2zM5 10a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0z',
+                                        default => 'M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z',
+                                    };
+                                ?>
+                                    <li class="modulo-configuracion">
+                                        <?php if ($imagenModulo === null): ?>
+                                            <img src="../img/OpenDoors.png" alt="">
+                                        <?php else: ?>
+                                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="<?= $h($imagenModulo) ?>"/></svg>
+                                        <?php endif; ?>
+                                        <strong><?= $h($nombreModulo) ?></strong>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <p>Sección en construcción.</p>
+                    <?php endif; ?>
                 <?php else: ?>
                     <h2>Bienvenido, <?= $h($usuario['nombre']) ?></h2>
                     <p>Selecciona una opción del menú lateral.</p>
@@ -305,7 +334,7 @@ if (!isset($validas[$actual])) {
                                 </li>
                             </ul>
                         </li>
-                        <li>⚙️ <b>Configuración</b> — <span>Sección en construcción.</span></li>
+                        <li>⚙️ <b>Configuración</b> — <span>Consulta los módulos asignados a tu empresa.</span></li>
                         <li>🎧 <b>Soporte</b> — <span>Estamos aquí para ayudarte.</span>
                             <ul>
                                 <li><b>Contacto</b> — <span>Encuentra cómo comunicarte con nosotros.</span></li>

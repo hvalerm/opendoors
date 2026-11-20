@@ -527,8 +527,9 @@ recFin();
     $response = $request(['seccion' => 'configuracion'], $panel);
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '<h2>Configuración</h2>')
-        && str_contains($response['body'], 'Sección en construcción.'),
-        'El enlace no abre la sección de Configuración.');
+        && str_contains($response['body'], 'No hay módulos asignados a esta empresa.')
+        && !str_contains($response['body'], 'class="modulo-configuracion"'),
+        'Configuración no muestra correctamente que la empresa no tiene módulos.');
     $pdo->exec('INSERT INTO empresas_modulos VALUES (3, 2), (3, 3)');
     $response = $request([], $panel);
     comprobarStartup(str_contains($response['body'], '<span class="label">GESTALO</span>')
@@ -543,6 +544,16 @@ recFin();
     comprobarStartup(!str_contains($response['body'], '<iframe'),
         'Muestra una seccion del menu OpenDoors sin el modulo asignado.');
     $pdo->exec('INSERT INTO empresas_modulos VALUES (3, 1)');
+    $response = $request(['seccion' => 'configuracion'], $panel);
+    preg_match_all('~<li class="modulo-configuracion">\s*(<img[^>]+>|<svg\b.*?</svg>)\s*<strong>([^<]*)</strong>~s', $response['body'], $tarjetas, PREG_SET_ORDER);
+    $imagenes = array_column($tarjetas, 1, 2);
+    comprobarStartup($response['status'] === 200
+        && count($tarjetas) === 3
+        && str_contains($imagenes['OpenDoors'] ?? '', '../img/OpenDoors.png')
+        && str_starts_with($imagenes['GESTALO'] ?? '', '<svg')
+        && str_starts_with($imagenes['Otro &amp; &lt;modulo&gt;'] ?? '', '<svg')
+        && $imagenes['GESTALO'] !== $imagenes['Otro &amp; &lt;modulo&gt;'],
+        'Configuración debe mostrar el nombre y la imagen de cada módulo asignado.');
     $response = $request([], $panel);
     $posOpenDoors = strpos($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>');
     $posGestalo = strpos($response['body'], '<span class="label">GESTALO</span>');
