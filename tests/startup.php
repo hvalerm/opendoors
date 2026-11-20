@@ -37,6 +37,9 @@ try {
         'util/api_dispositivo.php', 'util/vigencia_accesos.php', 'ApiSystem/api_board.php', 'ApiSystem/api_microcontrolador.php',
         'ApiSystem/api_restore.php', 'ApiSystem/ordenDeApertura_porLinkAcceso.php',
         'ModoAnfitrion/vistaAnfitrion.php', 'ModoAnfitrion/OpenDoors/puertaAccionada.php',
+        'ModoAnfitrion/Configuracion/OpenDoors/comunLocales.php',
+        'ModoAnfitrion/Configuracion/OpenDoors/locales.php',
+        'ModoAnfitrion/Configuracion/OpenDoors/configuracionLocal.php',
         'ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php',
         'ModoAnfitrion/OpenDoors/Microcontroladores/verActividad.php',
         'ModoAnfitrion/OpenDoors/Dashboard/resumen.php',
@@ -134,10 +137,11 @@ recFin();
         PRIMARY KEY (idEmpresa, idCuenta))');
     $pdo->exec('CREATE TABLE modulos (idModulo INTEGER PRIMARY KEY, nombreModulo TEXT NOT NULL)');
     $pdo->exec('CREATE TABLE empresas_modulos (idEmpresa INTEGER REFERENCES empresas(idEmpresa),
-        idModulo INTEGER REFERENCES modulos(idModulo), PRIMARY KEY (idEmpresa, idModulo))');
+        idModulo INTEGER REFERENCES modulos(idModulo), habilitado INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (idEmpresa, idModulo))');
     $pdo->exec("INSERT INTO modulos VALUES (1, 'OpenDoors'), (2, 'GESTALO'),
         (3, 'Otro & <modulo>')");
-    $pdo->exec('INSERT INTO empresas_modulos VALUES (1, 1), (1, 2)');
+    $pdo->exec('INSERT INTO empresas_modulos (idEmpresa, idModulo, habilitado) VALUES (1, 1, 1), (1, 2, 1)');
     $pdo->exec('CREATE TABLE locales (idLocal INTEGER PRIMARY KEY, idEmpresa INTEGER,
         nombreLocal TEXT, direccionLocal TEXT, eliminado INTEGER DEFAULT 0, habilitado INTEGER DEFAULT 1,
         accionar INTEGER DEFAULT 0, zonaHoraria TEXT NOT NULL DEFAULT "America/Guayaquil")');
@@ -531,12 +535,13 @@ recFin();
     $response = $request(['seccion' => 'configuracion/gestalo/locales'], $panel);
     comprobarStartup(!str_contains($response['body'], '<h2>Configuración › GESTALO › Locales</h2>'),
         'Abre la configuración de Locales sin tener GESTALO asignado.');
-    $pdo->exec('INSERT INTO empresas_modulos VALUES (3, 2), (3, 3)');
+    $pdo->exec('INSERT INTO empresas_modulos (idEmpresa, idModulo, habilitado) VALUES (3, 1, 0), (3, 2, 1), (3, 3, 1)');
     $response = $request([], $panel);
     comprobarStartup(str_contains($response['body'], '<span class="label">GESTALO</span>')
         && str_contains($response['body'], '<span class="label">Otro &amp; &lt;modulo&gt;</span>')
+        && !str_contains($response['body'], '<span class="label">OpenDoors</span>')
         && !str_contains($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>'),
-        'No muestra exclusivamente los modulos asignados o no escapa sus nombres.');
+        'No muestra exclusivamente los modulos habilitados o no escapa sus nombres.');
     $response = $request(['seccion' => 'modulo-2'], $panel);
     comprobarStartup(str_contains($response['body'], '<h2>GESTALO</h2>')
         && str_contains($response['body'], 'Sección en construcción.'),
@@ -545,9 +550,13 @@ recFin();
     comprobarStartup(!str_contains($response['body'], '<iframe'),
         'Muestra una seccion del menu OpenDoors sin el modulo asignado.');
     $response = $request(['seccion' => 'configuracion/opendoors/locales'], $panel);
-    comprobarStartup(!str_contains($response['body'], '<h2>Configuración › OpenDoors › Locales</h2>'),
-        'Abre la configuración de Locales sin tener OpenDoors asignado.');
-    $pdo->exec('INSERT INTO empresas_modulos VALUES (3, 1)');
+    $listaConfig = 'ModoAnfitrion/Configuracion/OpenDoors/locales.php';
+    $editarConfig = 'ModoAnfitrion/Configuracion/OpenDoors/configuracionLocal.php';
+    comprobarStartup(!str_contains($response['body'], 'Configuracion/OpenDoors/locales.php?embed=1')
+        && $request([], $listaConfig)['status'] === 403
+        && $request(['id' => '3'], $editarConfig)['status'] === 403,
+        'Abre la configuración de Locales con OpenDoors deshabilitado.');
+    $pdo->exec('UPDATE empresas_modulos SET habilitado = 1 WHERE idEmpresa = 3 AND idModulo = 1');
     $response = $request([], $panel);
     preg_match('~<span class="label">Configuración</span>(.*?)<span class="label">Soporte</span>~s', $response['body'], $bloque);
     $submenu = $bloque[1] ?? '';
@@ -566,8 +575,62 @@ recFin();
         'Configuración también debe ofrecer los demás módulos asignados.');
     $response = $request(['seccion' => 'configuracion/opendoors/locales'], $panel);
     comprobarStartup($response['status'] === 200
-        && str_contains($response['body'], '<h2>Configuración › OpenDoors › Locales</h2>'),
+        && str_contains($response['body'], 'src="Configuracion/OpenDoors/locales.php?embed=1"'),
         'El enlace Locales no abre su sección dentro de Configuración.');
+    $lista = $request(['embed' => '1'], $listaConfig);
+    $empresaConfig = htmlspecialchars($pdo->query('SELECT nombreEmpresa FROM empresas WHERE idEmpresa = 3')->fetchColumn(), ENT_QUOTES, 'UTF-8');
+    comprobarStartup($lista['status'] === 200
+        && str_contains($lista['body'], 'href="configuracionLocal.php?id=3&amp;embed=1"')
+        && str_contains($lista['body'], '<h2>Local del anfitrion</h2>')
+        && str_contains($lista['body'], '<dt>Dirección</dt><dd>Direccion del anfitrion</dd>')
+        && str_contains($lista['body'], '<dt>Zona horaria</dt><dd>America/Guayaquil</dd>')
+        && str_contains($lista['body'], '<dt>Empresa</dt><dd>' . $empresaConfig . '</dd>')
+        && str_contains($lista['body'], '<dt>Eliminado</dt><dd>No</dd>')
+        && str_contains($lista['body'], '<h2>Local &lt;especial&gt;</h2>')
+        && !str_contains($lista['body'], 'Local de prueba'),
+        'El listado no presenta los datos esperados o incluye locales de otra empresa.');
+    $idConfig = ['id' => '3', 'embed' => '1'];
+    $formConfig = $request($idConfig, $editarConfig);
+    comprobarStartup($formConfig['status'] === 200
+        && str_contains($formConfig['body'], 'name="nombreLocal" value="Local del anfitrion"')
+        && str_contains($formConfig['body'], 'name="direccionLocal" value="Direccion del anfitrion"')
+        && str_contains($formConfig['body'], '<option value="America/Guayaquil" selected>')
+        && str_contains($formConfig['body'], 'id="nombreEmpresa" value="' . $empresaConfig . '" readonly')
+        && str_contains($formConfig['body'], '<option value="0" selected>No</option>')
+        && str_contains($formConfig['body'], 'href="locales.php?embed=1"'),
+        'El formulario no precarga el local seleccionado o pierde la navegación embebida.');
+    $cambiosConfig = [
+        'csrf' => $csrf($formConfig), 'nombreLocal' => 'Casa & Mar', 'direccionLocal' => 'Calle 123',
+        'zonaHoraria' => 'America/Lima', 'eliminado' => '1',
+    ];
+    comprobarStartup($request(['id' => '1'], $editarConfig)['status'] === 404
+        && $request(['id' => '1'], $editarConfig, post: $cambiosConfig)['status'] === 404
+        && $pdo->query('SELECT nombreLocal FROM locales WHERE idLocal = 1')->fetchColumn() === 'Local de prueba',
+        'La configuración permite consultar o actualizar un local ajeno.');
+    comprobarStartup($request($idConfig, $editarConfig, post: array_replace($cambiosConfig, ['csrf' => '']))['status'] === 403
+        && $request($idConfig, $editarConfig, post: array_replace($cambiosConfig, ['zonaHoraria' => 'No/Existe']))['status'] === 422
+        && $pdo->query('SELECT nombreLocal FROM locales WHERE idLocal = 3')->fetchColumn() === 'Local del anfitrion',
+        'El formulario guarda cambios sin un CSRF o una zona horaria válidos.');
+    $guardadoConfig = $request($idConfig, $editarConfig, post: $cambiosConfig);
+    $editadoConfig = $request($idConfig, $editarConfig);
+    $lista = $request(['embed' => '1'], $listaConfig);
+    comprobarStartup($guardadoConfig['status'] === 303
+        && $guardadoConfig['location'] === 'configuracionLocal.php?id=3&embed=1'
+        && str_contains($editadoConfig['body'], 'Cambios guardados.')
+        && str_contains($lista['body'], 'class="tarjeta eliminado" href="configuracionLocal.php?id=3&amp;embed=1"')
+        && str_contains($lista['body'], '<h2>Casa &amp; Mar</h2>')
+        && str_contains($lista['body'], '<dt>Dirección</dt><dd>Calle 123</dd>')
+        && str_contains($lista['body'], '<dt>Zona horaria</dt><dd>America/Lima</dd>')
+        && str_contains($lista['body'], '<dt>Eliminado</dt><dd>Sí</dd>')
+        && str_contains($editadoConfig['body'], '<option value="1" selected>Sí</option>'),
+        'Los cambios guardados no se reflejan en el formulario y en la tarjeta del local eliminado.');
+    $restauradoConfig = $request($idConfig, $editarConfig, post: [
+        'csrf' => $csrf($editadoConfig), 'nombreLocal' => 'Local del anfitrion',
+        'direccionLocal' => 'Direccion del anfitrion', 'zonaHoraria' => 'America/Guayaquil', 'eliminado' => '0',
+    ]);
+    comprobarStartup($restauradoConfig['status'] === 303
+        && (int) $pdo->query('SELECT eliminado FROM locales WHERE idLocal = 3')->fetchColumn() === 0,
+        'No permite restaurar el local desde Configuración.');
     $response = $request(['seccion' => 'configuracion/gestalo/locales'], $panel);
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '<h2>Configuración › GESTALO › Locales</h2>')

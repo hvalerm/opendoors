@@ -11,7 +11,7 @@ try {
         'SELECT m.idModulo, m.nombreModulo
          FROM empresas_modulos em
          INNER JOIN modulos m ON m.idModulo = em.idModulo
-         WHERE em.idEmpresa = ?
+         WHERE em.idEmpresa = ? AND em.habilitado = 1
          ORDER BY m.nombreModulo, m.idModulo'
     );
     $stmt->execute([(int) $_SESSION['empresa_id']]);
@@ -81,7 +81,7 @@ foreach ($modulos as $modulo) {
     }
     if ($tipoModulo === 'opendoors' || $tipoModulo === 'gestalo') {
         $itemsConfiguracion[] = [$nombreModulo, [
-            ['Locales', null, null, 'locales', $iconoLocales],
+            ['Locales', null, $tipoModulo === 'opendoors' ? 'Configuracion/OpenDoors/locales.php' : null, 'locales', $iconoLocales],
         ], null, $tipoModulo, $tipoModulo === 'gestalo' ? $iconoGestalo : $iconoOpenDoors];
     } else {
         $itemsConfiguracion[] = [$nombreModulo, null, null, $claveModulo, $iconoModulo];
