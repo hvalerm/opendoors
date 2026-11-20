@@ -569,7 +569,7 @@ recFin();
     $fichaLocal = 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado';
     $localConZona = $request(['id' => '3'], $fichaLocal);
     comprobarStartup($localConZona['status'] === 200
-        && str_contains($localConZona['body'], '<dt>Zona horaria</dt><dd>Asia/Tokyo</dd>')
+        && str_contains($localConZona['body'], '<dt>Zona horaria</dt><dd>Asia/Tokyo (+09:00)</dd>')
         && !str_contains($localConZona['body'], 'name="zona_horaria"'),
         'La ficha debe mostrar la zona horaria sin permitir editarla.');
     $respuesta = $request(['id' => '3'], $fichaLocal, post: [
@@ -629,6 +629,9 @@ recFin();
         && $pdo->query("SELECT activoDesde FROM accesos WHERE idAcceso = $idAcceso")->fetchColumn() === '2000-01-01 19:05:06',
         'La edición no guarda la nueva hora local en UTC.');
     $pdo->exec("UPDATE locales SET zonaHoraria = 'America/Lima' WHERE idLocal = 3 AND idEmpresa = 3");
+    $localConZona = $request(['id' => '3'], $fichaLocal);
+    comprobarStartup(str_contains($localConZona['body'], '<dt>Zona horaria</dt><dd>America/Lima (-05:00)</dd>'),
+        'La ficha no muestra el desfase UTC esperado para Lima.');
     $response = $request(['id' => (string) $idAcceso], $editarAcceso);
     comprobarStartup(str_contains($response['body'], 'value="2000-01-01T14:05:06"')
         && $pdo->query("SELECT activoDesde FROM accesos WHERE idAcceso = $idAcceso")->fetchColumn() === '2000-01-01 19:05:06',

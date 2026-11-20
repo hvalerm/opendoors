@@ -102,7 +102,10 @@ try {
         <?php if (!$local): ?>
             <h1>Local no encontrado</h1>
             <p>El local no existe o no pertenece a tu empresa.</p>
-        <?php else: ?>
+        <?php else:
+            $zonaHoraria = $local['zonaHoraria'];
+            $desfaseUtc = (new DateTimeImmutable('now', new DateTimeZone($zonaHoraria)))->format('P');
+        ?>
             <h1><?= $h($local['nombre_local']) ?></h1>
             <?php if ($mensaje): ?>
                 <p class="aviso<?= $esError ? ' error' : '' ?>"><?= $h($mensaje) ?></p>
@@ -111,7 +114,7 @@ try {
                 <dt>Nombre</dt><dd><?= $h($local['nombre_local']) ?></dd>
                 <dt>Dirección</dt><dd><?= $h($local['direccion_local']) ?></dd>
                 <dt>Empresa</dt><dd><?= $h($local['nombre_empresa']) ?></dd>
-                <dt>Zona horaria</dt><dd><?= $h($local['zonaHoraria']) ?></dd>
+                <dt>Zona horaria</dt><dd><?= $h($zonaHoraria . ' (' . $desfaseUtc . ')') ?></dd>
                 <dt>Accionar</dt><dd><?= $local['accionar'] ? 'Activado (puerta solicitada)' : 'Inactivo' ?></dd>
                 <dt>Habilitado</dt><dd><?= $local['habilitado'] ? 'Sí' : 'No' ?></dd>
             </dl>
