@@ -560,6 +560,10 @@ recFin();
     $response = $request([], $panel);
     preg_match('~<span class="label">Configuración</span>(.*?)<span class="label">Soporte</span>~s', $response['body'], $bloque);
     $submenu = $bloque[1] ?? '';
+    $posOpenDoorsConfig = strpos($submenu, '<span class="label">OpenDoors</span>');
+    $posGestaloConfig = strpos($submenu, '<span class="label">GESTALO</span>');
+    comprobarStartup($posOpenDoorsConfig !== false && $posGestaloConfig !== false && $posOpenDoorsConfig < $posGestaloConfig,
+        'OpenDoors debe aparecer antes de GESTALO en Configuración.');
     preg_match('~<svg class="ico"[^>]*><path d="([^"]+)"/></svg><span class="label">Puertas &amp; &lt;Prueba&gt;</span>~', $response['body'], $iconoPrincipal);
     preg_match('~<svg class="ico"[^>]*><path d="([^"]+)"/></svg><span class="label">OpenDoors</span>~', $submenu, $iconoConfiguracion);
     comprobarStartup(isset($iconoPrincipal[1], $iconoConfiguracion[1]) && $iconoPrincipal[1] === $iconoConfiguracion[1],

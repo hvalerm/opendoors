@@ -87,6 +87,7 @@ foreach ($modulos as $modulo) {
         $itemsConfiguracion[] = [$nombreModulo, null, null, $claveModulo, $iconoModulo];
     }
 }
+usort($itemsConfiguracion, fn(array $a, array $b): int => ($a[3] !== 'opendoors') <=> ($b[3] !== 'opendoors'));
 $menu[] = ['Configuración', 'M3 5h4V3h2v2h12v2H9v2H7V7H3zM3 11h12V9h2v2h4v2h-4v2h-2v-2H3zM3 17h6v-2h2v2h10v2H11v2H9v-2H3z', $itemsConfiguracion, null, 'configuracion'];
 $menu[] = ['Soporte', 'M12 2a10 10 0 0 0-10 10v6h6v-8H4a8 8 0 0 1 16 0h-4v8h4a4 4 0 0 1-4 4h-4v2h4a6 6 0 0 0 6-6v-6A10 10 0 0 0 12 2z', [
     ['Contacto'], ['Enviar Correo'],
