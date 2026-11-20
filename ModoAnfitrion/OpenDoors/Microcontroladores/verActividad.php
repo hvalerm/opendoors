@@ -37,12 +37,15 @@ try {
         body { font-family: 'Segoe UI', Roboto, Arial, sans-serif; background: <?= $embed ? '#fff' : '#f2f5f7' ?>; color: #1b2a35; padding: 24px; }
         .panel { max-width: 1100px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
         h1 { font-size: 1.4rem; margin-bottom: 18px; }
-        .tabla { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e1e8ec; }
-        th { color: #6b7a86; font-weight: 600; background: #f7f9fa; white-space: nowrap; }
-        td.num, th.num { text-align: right; }
+        .tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+        .tarjeta { min-width: 0; aspect-ratio: 1 / 1; background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.1); border-left: 5px solid #3a8fb7; }
+        .tarjeta h2 { font-size: 1.05rem; margin-bottom: 12px; overflow-wrap: anywhere; }
+        .tarjeta dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .tarjeta dt { color: #6b7a86; font-size: .8rem; }
+        .tarjeta dd { margin-top: 2px; font-size: .95rem; overflow-wrap: anywhere; }
+        .direccion { grid-column: 1 / -1; }
         .vacio { text-align: center; color: #6b7a86; padding: 20px 0; }
+        @media (max-width: 480px) { body { padding: 12px; } .panel { padding: 18px; } }
     </style>
 </head>
 <body>
@@ -54,22 +57,17 @@ try {
         <?php elseif (!$unidades): ?>
             <p class="vacio">Tu empresa no tiene dispositivos de apertura registrados.</p>
         <?php else: ?>
-            <div class="tabla">
-                <table>
-                    <thead>
-                        <tr><th>ID</th><th>Local</th><th>Dirección</th><th class="num">Veces ejecutado</th></tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($unidades as $u): ?>
-                            <tr>
-                                <td><?= (int) $u['id_microcontrolador'] ?></td>
-                                <td><?= $h($u['nombre_local']) ?></td>
-                                <td><?= $h($u['direccion_local']) ?></td>
-                                <td class="num"><?= (int) $u['cantidadAperturas'] ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <div class="tarjetas">
+                <?php foreach ($unidades as $u): ?>
+                    <article class="tarjeta">
+                        <h2>Microcontrolador #<?= (int) $u['id_microcontrolador'] ?></h2>
+                        <dl>
+                            <div><dt>Local</dt><dd><?= $h($u['nombre_local']) ?></dd></div>
+                            <div><dt>Veces ejecutado</dt><dd><?= (int) $u['cantidadAperturas'] ?></dd></div>
+                            <div class="direccion"><dt>Dirección</dt><dd><?= $h($u['direccion_local']) ?></dd></div>
+                        </dl>
+                    </article>
+                <?php endforeach; ?>
             </div>
         <?php endif; ?>
     </section>

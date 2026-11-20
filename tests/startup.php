@@ -38,6 +38,7 @@ try {
         'ApiSystem/api_restore.php', 'ApiSystem/ordenDeApertura_porLinkAcceso.php',
         'ModoAnfitrion/vistaAnfitrion.php', 'ModoAnfitrion/OpenDoors/puertaAccionada.php',
         'ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php',
+        'ModoAnfitrion/OpenDoors/Microcontroladores/verActividad.php',
         'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal.php',
         'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php',
         'ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php',
@@ -138,7 +139,7 @@ recFin();
         accionar INTEGER DEFAULT 0)');
     $pdo->exec('CREATE TABLE soporte (idSoporte INTEGER PRIMARY KEY, telefonoContacto TEXT)');
     $pdo->exec('CREATE TABLE microcontroladores (idMicrocontrolador INTEGER PRIMARY KEY, idLocal INTEGER,
-        idEmpresa INTEGER, ultimaConsulta TEXT, ultimaApertura TEXT, habilitado INTEGER)');
+        idEmpresa INTEGER, ultimaConsulta TEXT, ultimaApertura TEXT, habilitado INTEGER, cantidadAperturas INTEGER DEFAULT 0)');
     $pdo->exec('CREATE TABLE accesos (idAcceso INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT UNIQUE, idLocal INTEGER, idEmpresa INTEGER,
         activoDesde TEXT, activoHasta TEXT, ejecutado INTEGER DEFAULT 0, habilitado INTEGER DEFAULT 1)');
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
@@ -420,9 +421,20 @@ recFin();
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
         VALUES (4, 3, 'Local <especial>', 'Direccion')");
     $pdo->exec("INSERT INTO microcontroladores VALUES
-        (101, 3, 3, datetime('now'), '2025-01-02 03:04:05', 1),
-        (102, 4, 3, NULL, NULL, 0),
-        (103, 1, 1, datetime('now'), NULL, 1)");
+        (101, 3, 3, datetime('now'), '2025-01-02 03:04:05', 1, 27),
+        (102, 4, 3, NULL, NULL, 0, 0),
+        (103, 1, 1, datetime('now'), NULL, 1, 5)");
+    $actividad = $request(['embed' => '1'], 'ModoAnfitrion/OpenDoors/Microcontroladores/verActividad');
+    preg_match_all('~<article class="tarjeta">(.*?)</article>~s', $actividad['body'], $tarjetas);
+    comprobarStartup($actividad['status'] === 200 && count($tarjetas[1]) === 2
+        && !str_contains($actividad['body'], '<table')
+        && str_contains($tarjetas[1][0], 'Microcontrolador #101')
+        && str_contains($tarjetas[1][0], '<dt>Local</dt><dd>Local del anfitrion</dd>')
+        && str_contains($tarjetas[1][0], '<dt>Dirección</dt><dd>Direccion del anfitrion</dd>')
+        && str_contains($tarjetas[1][0], '<dt>Veces ejecutado</dt><dd>27</dd>')
+        && str_contains($tarjetas[1][1], 'Microcontrolador #102')
+        && str_contains($tarjetas[1][1], '<dt>Veces ejecutado</dt><dd>0</dd>'),
+        'La actividad no muestra una tarjeta con los datos correspondientes a cada dispositivo de la empresa.');
     $response = $request([], $vistaDispositivos);
     comprobarStartup($response['status'] === 200
         && substr_count($response['body'], '<article class="tarjeta') === 2
