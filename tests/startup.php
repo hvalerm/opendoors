@@ -694,10 +694,12 @@ recFin();
         ('RestEliminado', 5, 3, '2000-01-01 00:00:00', '2000-02-01 00:00:00', 0),
         ('RestAjeno', 1, 1, '2000-01-01 00:00:00', '2000-02-01 00:00:00', 0)");
     $formInfo = $request($embedInfo, $restaurarInfo);
-    comprobarStartup($formInfo['status'] === 200 && str_contains($formInfo['body'], 'Todos los locales no eliminados')
+    comprobarStartup($formInfo['status'] === 200
+        && str_contains($formInfo['body'], '<option value="todos" selected>Todos los locales no eliminados</option>')
+        && !str_contains($formInfo['body'], 'Selecciona un local o todos')
         && str_contains($formInfo['body'], '<option value="3">Local del anfitrion</option>')
         && !str_contains($formInfo['body'], 'Local eliminado de prueba') && !str_contains($formInfo['body'], 'Local de prueba'),
-        'Restaurar información no muestra únicamente los locales no eliminados de la empresa.');
+        'Restaurar información no selecciona todos por defecto o muestra opciones de locales incorrectas.');
     $postInfo = ['csrf' => $csrf($formInfo), 'alcance' => '3', 'campos' => ['cantidadAperturas']];
     foreach ([['alcance' => '5'], ['alcance' => '1'], ['campos' => []], ['campos' => ['cantidadAperturas', 'ultimaConsulta']]] as $invalido) {
         comprobarStartup($request($embedInfo, $restaurarInfo, post: array_replace($postInfo, $invalido))['status'] === 422,

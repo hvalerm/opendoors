@@ -12,7 +12,7 @@ $opciones = [
     'accesosInservibles' => ['Accesos que ya no sirven', 'Se deshabilitarán los accesos vencidos o ya usados. No se borrarán registros.'],
 ];
 $locales = [];
-$alcance = '';
+$alcance = 'todos';
 $seleccion = [];
 $error = '';
 $restaurado = false;
@@ -126,20 +126,25 @@ session_write_close();
                 <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
                 <label for="alcance">Locales</label>
                 <select id="alcance" name="alcance" required>
-                    <option value="">Selecciona un local o todos</option>
-                    <option value="todos"<?= $alcance === 'todos' ? ' selected' : '' ?>>Todos los locales no eliminados</option>
+                    <option value="todos"<?= !isset($locales[$alcance]) ? ' selected' : '' ?>>Todos los locales no eliminados</option>
                     <?php foreach ($locales as $id => $nombre): ?>
                         <option value="<?= $h($id) ?>"<?= $alcance === (string) $id ? ' selected' : '' ?>><?= $h($nombre) ?></option>
                     <?php endforeach; ?>
                 </select>
                 <fieldset class="datos-restaurables">
                     <legend>Datos a restaurar</legend>
+                    <div id="grupoSeleccionarTodos" hidden>
+                        <input type="checkbox" id="seleccionarTodos">
+                        <label for="seleccionarTodos">Seleccionar todos los datos</label>
+                    </div>
                     <?php foreach ($opciones as $clave => [$titulo, $detalle]): ?>
                         <div>
                             <input type="checkbox" name="campos[]" id="<?= $h($clave) ?>" value="<?= $h($clave) ?>"
                                 aria-describedby="<?= $h($clave) ?>-detalle"<?= isset($seleccion[$clave]) ? ' checked' : '' ?>>
-                            <label for="<?= $h($clave) ?>"><?= $h($titulo) ?></label>
-                            <p class="ayuda" id="<?= $h($clave) ?>-detalle"><?= $h($detalle) ?></p>
+                            <div>
+                                <label for="<?= $h($clave) ?>"><?= $h($titulo) ?></label>
+                                <p class="ayuda" id="<?= $h($clave) ?>-detalle"><?= $h($detalle) ?></p>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </fieldset>
@@ -149,5 +154,27 @@ session_write_close();
             <p>Tu empresa no tiene locales no eliminados.</p>
         <?php endif; ?>
     </main>
+    <?php if ($locales): ?>
+    <script>
+        (() => {
+            const todos = document.getElementById('seleccionarTodos');
+            const campos = Array.from(todos.closest('fieldset').querySelectorAll('input[name="campos[]"]'));
+
+            function sincronizarSeleccion() {
+                const seleccionados = campos.filter(campo => campo.checked).length;
+                todos.checked = seleccionados === campos.length;
+                todos.indeterminate = seleccionados > 0 && !todos.checked;
+            }
+
+            todos.addEventListener('change', () => {
+                campos.forEach(campo => { campo.checked = todos.checked; });
+                sincronizarSeleccion();
+            });
+            campos.forEach(campo => campo.addEventListener('change', sincronizarSeleccion));
+            sincronizarSeleccion();
+            document.getElementById('grupoSeleccionarTodos').hidden = false;
+        })();
+    </script>
+    <?php endif; ?>
 </body>
 </html>

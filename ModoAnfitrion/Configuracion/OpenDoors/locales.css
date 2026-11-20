@@ -32,7 +32,8 @@ button:hover { background: #203a43; }
 .aviso.error { background: #fdecea; color: #922018; }
 .datos-restaurables { min-width: 0; margin-top: 8px; padding: 14px; border: 1px solid #b5c3cc; border-radius: 8px; }
 .datos-restaurables legend { padding: 0 6px; font-weight: 600; }
+.datos-restaurables > div:not([hidden]) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; }
 .datos-restaurables > div + div { margin-top: 14px; }
-.datos-restaurables input { width: auto; margin-right: 4px; }
+.datos-restaurables input { width: auto; margin: 3px 0 0; }
 .datos-restaurables .ayuda { margin-top: 3px; }
 @media (max-width: 480px) { body { padding: 12px; } .panel { padding: 18px; } }
