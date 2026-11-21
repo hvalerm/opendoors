@@ -843,8 +843,11 @@ recFin();
         'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php');
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], $enlaceEsperado)
-        && str_contains($response['body'], rawurlencode($enlaceEsperado)),
-        'El detalle del acceso no usa el enlace configurado.');
+        && str_contains($response['body'], rawurlencode($enlaceEsperado))
+        && str_contains($response['body'], 'id="btnCopiar"')
+        && !str_contains($response['body'], '<dt>Token</dt>')
+        && !str_contains($response['body'], '<dd>' . $nuevoAcceso['token'] . '</dd>'),
+        'El detalle debe mantener el enlace compartible sin mostrar el token separado.');
     comprobarStartup(str_contains($response['body'], 'Deshabilitar acceso'),
         'El detalle no muestra la accion de deshabilitar.');
     comprobarStartup(str_contains($response['body'], 'value="2000-01-02T03:04:00"'),

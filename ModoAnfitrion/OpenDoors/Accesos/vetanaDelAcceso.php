@@ -180,7 +180,6 @@ $valHasta = $hasta ?? ($acceso ? mostrarFechaAcceso($acceso['activo_hasta'], $ac
                     <dt>Activo desde</dt><dd><input type="datetime-local" name="activo_desde" step="1" required value="<?= $h($valDesde) ?>"></dd>
                     <dt>Activo hasta</dt><dd><input type="datetime-local" name="activo_hasta" step="1" required value="<?= $h($valHasta) ?>">
                         <p class="nota">Las fechas se interpretan en la zona del local seleccionado. Si cambias de local, revisa las horas antes de guardar: se mantienen como las escribiste, pero pueden corresponder a otro momento.</p></dd>
-                    <dt>Token</dt><dd><?= $h($acceso['token']) ?></dd>
                     <dt>Ejecutado</dt>
                     <dd><label class="chk"><input type="checkbox" name="ejecutado" value="1" <?= $acceso['ejecutado'] ? 'checked' : '' ?>> <span class="nota">(Debe estar sin marcar para que pueda usarse)</span></label></dd>
                     <dt>Habilitado</dt>
