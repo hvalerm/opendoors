@@ -21,7 +21,7 @@ function cargarDispositivosDashboard(PDO $pdo, int $idEmpresa): array
 {
     $q = $pdo->prepare(
         'SELECT l.nombreLocal AS nombre_local, l.zonaHoraria, m.idMicrocontrolador AS id_microcontrolador,
-                m.habilitado, m.cantidadAperturas, m.ultimaConsulta,
+                m.habilitado, m.cantidadAperturas, m.ultimaConsulta, m.ultimaApertura,
                 TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP()) AS seg
          FROM microcontroladores m
          INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
@@ -43,15 +43,17 @@ function renderDispositivosDashboard(array $dispositivos, callable $h): string
     ob_start();
     ?>
     <table>
-        <thead><tr><th>Local</th><th>Estado</th><th>Última consulta</th></tr></thead>
+        <thead><tr><th>Local</th><th>Estado</th><th>Última consulta</th><th>Última apertura</th></tr></thead>
         <tbody>
         <?php foreach ($dispositivos as $d): ?>
             <tr>
-                <td><?= $h($d['nombre_local']) ?></td>
+                <td><?= $h($d['nombre_local']) ?> (<?= $h($d['zonaHoraria']) ?>)</td>
                 <td class="<?= $d['activo'] ? 'a' : 'i' ?>"><?= $d['activo'] ? 'Activo' : 'Inactivo' ?></td>
-                <td><?php if ($d['ultimaConsulta']): ?>
-                    <time datetime="<?= $h(str_replace(' ', 'T', $d['ultimaConsulta']) . 'Z') ?>"><?= $h(mostrarFechaAcceso($d['ultimaConsulta'], $d['zonaHoraria'], 'd/m/Y H:i:s P') . ' (' . $d['zonaHoraria'] . ')') ?></time>
-                <?php else: ?>—<?php endif; ?></td>
+                <?php foreach (['ultimaConsulta', 'ultimaApertura'] as $campo): ?>
+                    <td><?php if ($d[$campo]): ?>
+                        <time datetime="<?= $h(str_replace(' ', 'T', $d[$campo]) . 'Z') ?>"><?= $h(mostrarFechaAcceso($d[$campo], $d['zonaHoraria'], 'd/m/Y H:i:s')) ?></time>
+                    <?php else: ?>—<?php endif; ?></td>
+                <?php endforeach; ?>
             </tr>
         <?php endforeach; ?>
         </tbody>
