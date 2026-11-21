@@ -449,15 +449,13 @@ recFin();
         comprobarStartup(preg_match('~<tr\b[^>]*>\s*<td>(?:<a\b[^>]*>)?' . $idActual . '(?:</a>)?</td>(?:(?!</tr>).)*<td class="si">Sí</td>~s', $respuesta['body']) === 1
             && preg_match('~<tr\b[^>]*>\s*<td>(?:<a\b[^>]*>)?' . $idFuturo . '(?:</a>)?</td>(?:(?!</tr>).)*<td class="no">No</td>~s', $respuesta['body']) === 1,
             'El listado no coincide con la vigencia mostrada al huésped.');
-        if ($vistaVigencia === 'listarAccesos') {
-            comprobarStartup(!str_contains($respuesta['body'], 'VigenciaActual')
-                && !str_contains($respuesta['body'], '<th>Token</th>')
-                && !str_contains($respuesta['body'], 'id="f-token"')
-                && str_contains($respuesta['body'], 'id="f-ejecutado" data-col="5"')
-                && str_contains($respuesta['body'], 'id="f-habilitado" data-col="6"')
-                && str_contains($respuesta['body'], 'id="f-enrango" data-col="7"'),
-                'El listado debe ocultar el token y conservar los índices de los demás filtros.');
-        }
+        comprobarStartup(!str_contains($respuesta['body'], 'VigenciaActual')
+            && !str_contains($respuesta['body'], '<th>Token</th>')
+            && !str_contains($respuesta['body'], 'id="f-token"')
+            && str_contains($respuesta['body'], 'id="f-ejecutado" data-col="5"')
+            && str_contains($respuesta['body'], 'id="f-habilitado" data-col="6"')
+            && str_contains($respuesta['body'], 'id="f-enrango" data-col="7"'),
+            'El listado debe ocultar el token y conservar los índices de los demás filtros.');
     }
     $respuesta = $request([], 'ModoAnfitrion/OpenDoors/Dashboard/resumen');
     foreach (['Accesos vigentes', 'Próximos accesos', 'Accesos sin usar'] as $etiqueta) {
