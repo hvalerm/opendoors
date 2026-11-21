@@ -43,7 +43,6 @@ try {
     }
 }
 
-$fmt = fn($f) => $f ? date('d/m/Y H:i:s', strtotime($f)) : '';
 $si = fn($v) => $v ? 'Sí' : 'No';
 // ultimaConsulta es un DATETIME en UTC. Los valores futuros no indican actividad.
 $activo = fn($seg) => $seg !== null && (int) $seg >= 0 && (int) $seg <= 15;
@@ -51,6 +50,7 @@ ob_start();
 foreach ($unidades as $u):
     $estaActivo = $activo($u['segundos_sin_consulta']);
     $ultimaConsultaUtc = $u['ultimaConsulta'];
+    $ultimaAperturaUtc = $u['ultimaApertura'];
 ?>
     <article class="tarjeta<?= $estaActivo ? ' activo' : '' ?>">
         <h2>Microcontrolador #<span data-col="0"><?= (int) $u['id_microcontrolador'] ?></span></h2>
@@ -62,7 +62,9 @@ foreach ($unidades as $u):
             <div><dt>Última consulta</dt><dd><?php if ($ultimaConsultaUtc): ?>
                 <time class="consulta-utc" datetime="<?= $h(str_replace(' ', 'T', $ultimaConsultaUtc) . 'Z') ?>"><?= $h($ultimaConsultaUtc) ?> UTC</time>
             <?php else: ?>—<?php endif; ?></dd></div>
-            <div><dt>Última apertura</dt><dd><?= $h($fmt($u['ultimaApertura']) ?: '—') ?></dd></div>
+            <div><dt>Última apertura</dt><dd><?php if ($ultimaAperturaUtc): ?>
+                <time class="apertura-utc" datetime="<?= $h(str_replace(' ', 'T', $ultimaAperturaUtc) . 'Z') ?>"><?= $h($ultimaAperturaUtc) ?> UTC</time>
+            <?php else: ?>—<?php endif; ?></dd></div>
         </dl>
     </article>
 <?php endforeach;
@@ -144,8 +146,8 @@ if ($soloDatos) {
                 timeZoneName: 'shortOffset'
             });
 
-            function mostrarConsultasEnHoraLocal() {
-                tarjetas.querySelectorAll('time.consulta-utc').forEach(function (elemento) {
+            function mostrarFechasEnHoraLocal() {
+                tarjetas.querySelectorAll('time.consulta-utc, time.apertura-utc').forEach(function (elemento) {
                     var fecha = new Date(elemento.dateTime);
                     if (!Number.isNaN(fecha.getTime())) elemento.textContent = formatoConsulta.format(fecha);
                 });
@@ -197,7 +199,7 @@ if ($soloDatos) {
                     if (html !== ultimoHtml) {
                         tarjetas.innerHTML = html;
                         ultimoHtml = html;
-                        mostrarConsultasEnHoraLocal();
+                        mostrarFechasEnHoraLocal();
                     }
                     aviso.hidden = true;
                     if (cambio) filtrar();
@@ -214,7 +216,7 @@ if ($soloDatos) {
             campos.forEach(function (c) {
                 c.addEventListener(c.tagName === 'SELECT' ? 'change' : 'input', filtrar);
             });
-            mostrarConsultasEnHoraLocal();
+            mostrarFechasEnHoraLocal();
             filtrar();
             var intervalo = setInterval(actualizarEstado, 1000);
         })();

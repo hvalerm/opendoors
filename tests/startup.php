@@ -486,7 +486,7 @@ recFin();
         && str_contains($response['body'], 'data-col="5">Inactivo</dd>')
         && str_contains($response['body'], 'data-col="6">Sí</dd>')
         && str_contains($response['body'], 'data-col="6">No</dd>')
-        && str_contains($response['body'], '02/01/2025 03:04:05')
+        && str_contains($response['body'], '<time class="apertura-utc" datetime="2025-01-02T03:04:05Z">2025-01-02 03:04:05 UTC</time>')
         && str_contains($response['body'], '<dt>Última apertura</dt><dd>—</dd>'),
         'Las tarjetas no muestran correctamente los dispositivos de la empresa.');
     $sinSesion = $cookies;
@@ -501,6 +501,7 @@ recFin();
     comprobarStartup($actualizacion['status'] === 200
         && substr_count($fragmento, 'data-col="5">Inactivo</dd>') === 2
         && str_contains($fragmento, 'datetime="2025-01-02T12:00:00Z">2025-01-02 12:00:00 UTC</time>')
+        && str_contains($fragmento, '<time class="apertura-utc" datetime="2025-01-02T03:04:05Z">2025-01-02 03:04:05 UTC</time>')
         && !str_contains($fragmento, '<!DOCTYPE')
         && !str_contains($fragmento, 'data-col="0">103</span>'),
         'La actualizacion no refleja la desconexion o devuelve contenido ajeno a las tarjetas de la empresa.');
