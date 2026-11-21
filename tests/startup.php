@@ -464,6 +464,33 @@ recFin();
         (101, 3, 3, datetime('now'), '2025-01-02 03:04:05', 1, 27),
         (102, 4, 3, NULL, NULL, 0, 0),
         (103, 1, 1, datetime('now'), NULL, 1, 5)");
+    $dashboard = 'ModoAnfitrion/OpenDoors/Dashboard/resumen';
+    $pdo->exec("UPDATE locales SET zonaHoraria = 'Asia/Tokyo' WHERE idLocal = 3");
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = '2025-01-02 12:00:00' WHERE idMicrocontrolador = 101");
+    $resumen = $request([], $dashboard);
+    comprobarStartup($resumen['status'] === 200
+        && str_contains($resumen['body'], '<h2>Dispositivo(s) de local(es)</h2>')
+        && str_contains($resumen['body'], '<th>Local</th><th>Estado</th><th>Última consulta</th>')
+        && str_contains($resumen['body'], 'datetime="2025-01-02T12:00:00Z">02/01/2025 21:00:00 +09:00 (Asia/Tokyo)</time>')
+        && str_contains($resumen['body'], '<td>—</td>')
+        && !str_contains($resumen['body'], '<h2>Aperturas por local</h2>'),
+        'El resumen no muestra la última consulta en la zona del local o el estado vacío.');
+    $pdo->exec("UPDATE locales SET zonaHoraria = 'America/Los_Angeles' WHERE idLocal = 3");
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = '2025-07-02 12:00:00' WHERE idMicrocontrolador = 101");
+    $datosDashboard = $request(['datos' => 'dispositivos'], $dashboard);
+    $fragmentoDashboard = json_decode($datosDashboard['body'], true)['dispositivos'] ?? '';
+    comprobarStartup($datosDashboard['status'] === 200
+        && str_contains($fragmentoDashboard, 'datetime="2025-07-02T12:00:00Z">02/07/2025 05:00:00 -07:00 (America/Los_Angeles)</time>')
+        && !str_contains($fragmentoDashboard, 'Local de prueba')
+        && !str_contains($fragmentoDashboard, '<!DOCTYPE'),
+        'La actualización de dispositivos no aplica la zona y horario de verano del local o incluye datos ajenos.');
+    $cookiesDashboard = $cookies;
+    $cookies = [];
+    comprobarStartup($request(['datos' => 'dispositivos'], $dashboard)['status'] === 401,
+        'La actualización de dispositivos del dashboard requiere sesión.');
+    $cookies = $cookiesDashboard;
+    $pdo->exec("UPDATE locales SET zonaHoraria = 'America/Guayaquil' WHERE idLocal = 3");
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now') WHERE idMicrocontrolador = 101");
     $actividad = $request(['embed' => '1'], 'ModoAnfitrion/OpenDoors/Microcontroladores/verActividad');
     preg_match_all('~<article class="tarjeta">(.*?)</article>~s', $actividad['body'], $tarjetas);
     comprobarStartup($actividad['status'] === 200 && count($tarjetas[1]) === 2

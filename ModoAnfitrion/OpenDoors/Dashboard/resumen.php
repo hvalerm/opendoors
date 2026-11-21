@@ -2,9 +2,75 @@
 require_once __DIR__ . '/../../../util/verificar.php';
 require_once __DIR__ . '/../../../util/db.php';
 require_once __DIR__ . '/../../../util/vigencia_accesos.php';
-requerirSesion();
+$soloDispositivos = ($_GET['datos'] ?? '') === 'dispositivos';
+if ($soloDispositivos) {
+    header('Cache-Control: no-store');
+    if (!haySesionActiva(false)) {
+        http_response_code(401);
+        exit;
+    }
+} else {
+    requerirSesion();
+}
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+$idEmpresa = (int) $_SESSION['empresa_id'];
+session_write_close();
+
+function cargarDispositivosDashboard(PDO $pdo, int $idEmpresa): array
+{
+    $q = $pdo->prepare(
+        'SELECT l.nombreLocal AS nombre_local, l.zonaHoraria, m.idMicrocontrolador AS id_microcontrolador,
+                m.habilitado, m.cantidadAperturas, m.ultimaConsulta,
+                TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP()) AS seg
+         FROM microcontroladores m
+         INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
+         WHERE m.idEmpresa = ? ORDER BY m.cantidadAperturas DESC, l.nombreLocal'
+    );
+    $q->execute([$idEmpresa]);
+    $dispositivos = $q->fetchAll();
+    foreach ($dispositivos as &$dispositivo) {
+        $dispositivo['activo'] = $dispositivo['seg'] !== null && (int) $dispositivo['seg'] >= 0 && (int) $dispositivo['seg'] <= 15;
+    }
+    return $dispositivos;
+}
+
+function renderDispositivosDashboard(array $dispositivos, callable $h): string
+{
+    if (!$dispositivos) {
+        return '<p class="vacio">Aún no tienes dispositivos de apertura registrados.</p>';
+    }
+    ob_start();
+    ?>
+    <table>
+        <thead><tr><th>Local</th><th>Estado</th><th>Última consulta</th></tr></thead>
+        <tbody>
+        <?php foreach ($dispositivos as $d): ?>
+            <tr>
+                <td><?= $h($d['nombre_local']) ?></td>
+                <td class="<?= $d['activo'] ? 'a' : 'i' ?>"><?= $d['activo'] ? 'Activo' : 'Inactivo' ?></td>
+                <td><?php if ($d['ultimaConsulta']): ?>
+                    <time datetime="<?= $h(str_replace(' ', 'T', $d['ultimaConsulta']) . 'Z') ?>"><?= $h(mostrarFechaAcceso($d['ultimaConsulta'], $d['zonaHoraria'], 'd/m/Y H:i:s P') . ' (' . $d['zonaHoraria'] . ')') ?></time>
+                <?php else: ?>—<?php endif; ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php
+    return ob_get_clean();
+}
+
+if ($soloDispositivos) {
+    try {
+        $html = renderDispositivosDashboard(cargarDispositivosDashboard(getPDO(), $idEmpresa), $h);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['dispositivos' => $html], JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+    } catch (PDOException $e) {
+        error_log('Error al actualizar dispositivos del resumen: ' . $e->getMessage());
+        http_response_code(503);
+    }
+    exit;
+}
 $embed = isset($_GET['embed']);
 $error = '';
 $k = ['locales' => 0, 'locales_ok' => 0, 'vigentes' => 0, 'proximos' => 0, 'usados' => 0, 'revocados' => 0,
@@ -17,7 +83,6 @@ $porLocal = [];
 
 try {
     $pdo = getPDO();
-    $idEmpresa = (int) $_SESSION['empresa_id'];
     $ahora = ahoraVigenciaAccesos();
 
     // Locales
@@ -68,18 +133,9 @@ try {
     $noUsados = array_slice($noUsados, 0, 5);
 
     // Dispositivos y aperturas por local
-    $q = $pdo->prepare(
-        'SELECT l.nombreLocal AS nombre_local, m.idMicrocontrolador AS id_microcontrolador, m.habilitado, m.cantidadAperturas,
-                TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP()) AS seg
-         FROM microcontroladores m
-         INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
-         WHERE m.idEmpresa = ? ORDER BY m.cantidadAperturas DESC, l.nombreLocal'
-    );
-    $q->execute([$idEmpresa]);
-    foreach ($q->fetchAll() as $d) {
+    foreach (cargarDispositivosDashboard($pdo, $idEmpresa) as $d) {
         $k['disp']++;
         $k['aperturas'] += (int) $d['cantidadAperturas'];
-        $d['activo'] = $d['seg'] !== null && (int) $d['seg'] >= 0 && (int) $d['seg'] <= 15;
         if ($d['activo']) {
             $k['disp_activos']++;
         } elseif ($d['habilitado']) {
@@ -189,23 +245,9 @@ try {
                 </div>
 
                 <div class="caja">
-                    <h2>Aperturas por local</h2>
-                    <?php if (!$porLocal): ?>
-                        <p class="vacio">Aún no tienes dispositivos de apertura registrados.</p>
-                    <?php else: ?>
-                        <table>
-                            <thead><tr><th>Local</th><th>Estado</th><th class="num">Aperturas</th></tr></thead>
-                            <tbody>
-                            <?php foreach ($porLocal as $d): $act = $d['activo']; ?>
-                                <tr>
-                                    <td><?= $h($d['nombre_local']) ?></td>
-                                    <td class="<?= $act ? 'a' : 'i' ?>"><?= $act ? 'Activo' : 'Inactivo' ?></td>
-                                    <td class="num"><?= (int) $d['cantidadAperturas'] ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    <?php endif; ?>
+                    <h2>Dispositivo(s) de local(es)</h2>
+                    <p class="alerta" id="avisoDispositivos" role="status" hidden></p>
+                    <div id="dispositivosDashboard"><?= renderDispositivosDashboard($porLocal, $h) ?></div>
                 </div>
             </div>
 
@@ -234,5 +276,39 @@ try {
             <?php endif; ?>
         <?php endif; ?>
     </section>
+    <?php if (!$error): ?>
+    <script>
+        (function () {
+            var contenedor = document.getElementById('dispositivosDashboard');
+            var aviso = document.getElementById('avisoDispositivos');
+            var url = new URL(window.location.href);
+            url.searchParams.set('datos', 'dispositivos');
+            var consultando = false;
+            var intervalo = setInterval(async function () {
+                if (consultando) return;
+                consultando = true;
+                try {
+                    var respuesta = await fetch(url, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(10000) });
+                    if (respuesta.status === 401) {
+                        clearInterval(intervalo);
+                        aviso.textContent = 'Tu sesión ha expirado. Vuelve a iniciar sesión para actualizar los dispositivos.';
+                        aviso.hidden = false;
+                        return;
+                    }
+                    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
+                    var datos = await respuesta.json();
+                    if (typeof datos?.dispositivos !== 'string') throw new Error('Respuesta inesperada');
+                    if (contenedor.innerHTML !== datos.dispositivos) contenedor.innerHTML = datos.dispositivos;
+                    aviso.hidden = true;
+                } catch (error) {
+                    aviso.textContent = 'No se pudo actualizar la última consulta de los dispositivos. Reintentando…';
+                    aviso.hidden = false;
+                } finally {
+                    consultando = false;
+                }
+            }, 1000);
+        })();
+    </script>
+    <?php endif; ?>
 </body>
 </html>
