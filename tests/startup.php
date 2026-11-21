@@ -468,20 +468,21 @@ recFin();
     preg_match_all('~<article class="tarjeta">(.*?)</article>~s', $actividad['body'], $tarjetas);
     comprobarStartup($actividad['status'] === 200 && count($tarjetas[1]) === 2
         && !str_contains($actividad['body'], '<table')
-        && str_contains($tarjetas[1][0], 'Microcontrolador #101')
+        && str_contains($tarjetas[1][0], '<h2>Dispositivo de Local del anfitrion</h2>')
         && str_contains($tarjetas[1][0], '<dt>Local</dt><dd>Local del anfitrion</dd>')
         && str_contains($tarjetas[1][0], '<dt>Dirección</dt><dd>Direccion del anfitrion</dd>')
         && str_contains($tarjetas[1][0], '<dt>Veces ejecutado</dt><dd>27</dd>')
-        && str_contains($tarjetas[1][1], 'Microcontrolador #102')
+        && str_contains($tarjetas[1][1], '<h2>Dispositivo de Local &lt;especial&gt;</h2>')
         && str_contains($tarjetas[1][1], '<dt>Veces ejecutado</dt><dd>0</dd>'),
         'La actividad no muestra una tarjeta con los datos correspondientes a cada dispositivo de la empresa.');
     $response = $request([], $vistaDispositivos);
     comprobarStartup($response['status'] === 200
         && substr_count($response['body'], '<article class="tarjeta') === 2
-        && str_contains($response['body'], 'data-col="0">101</span>')
-        && str_contains($response['body'], 'data-col="0">102</span>')
-        && !str_contains($response['body'], 'data-col="0">103</span>')
-        && str_contains($response['body'], 'Local &lt;especial&gt;')
+        && str_contains($response['body'], 'data-col="0" hidden>101</span>')
+        && str_contains($response['body'], 'data-col="0" hidden>102</span>')
+        && !str_contains($response['body'], 'data-col="0" hidden>103</span>')
+        && str_contains($response['body'], '<h2>Dispositivo de Local del anfitrion</h2>')
+        && str_contains($response['body'], '<h2>Dispositivo de Local &lt;especial&gt;</h2>')
         && str_contains($response['body'], 'data-col="5">Activo</dd>')
         && str_contains($response['body'], 'data-col="5">Inactivo</dd>')
         && str_contains($response['body'], 'data-col="6">Sí</dd>')
@@ -502,8 +503,9 @@ recFin();
         && substr_count($fragmento, 'data-col="5">Inactivo</dd>') === 2
         && str_contains($fragmento, 'datetime="2025-01-02T12:00:00Z">2025-01-02 12:00:00 UTC</time>')
         && str_contains($fragmento, '<time class="apertura-utc" datetime="2025-01-02T03:04:05Z">2025-01-02 03:04:05 UTC</time>')
+        && str_contains($fragmento, '<h2>Dispositivo de Local &lt;especial&gt;</h2>')
         && !str_contains($fragmento, '<!DOCTYPE')
-        && !str_contains($fragmento, 'data-col="0">103</span>'),
+        && !str_contains($fragmento, 'data-col="0" hidden>103</span>'),
         'La actualizacion no refleja la desconexion o devuelve contenido ajeno a las tarjetas de la empresa.');
     $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now') WHERE idMicrocontrolador = 102");
     $actualizacion = $request(['datos' => '1'], $vistaDispositivos);

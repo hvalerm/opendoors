@@ -60,7 +60,7 @@ try {
             <div class="tarjetas">
                 <?php foreach ($unidades as $u): ?>
                     <article class="tarjeta">
-                        <h2>Microcontrolador #<?= (int) $u['id_microcontrolador'] ?></h2>
+                        <h2>Dispositivo de <?= $h($u['nombre_local']) ?></h2>
                         <dl>
                             <div><dt>Local</dt><dd><?= $h($u['nombre_local']) ?></dd></div>
                             <div><dt>Veces ejecutado</dt><dd><?= (int) $u['cantidadAperturas'] ?></dd></div>

@@ -53,7 +53,8 @@ foreach ($unidades as $u):
     $ultimaAperturaUtc = $u['ultimaApertura'];
 ?>
     <article class="tarjeta<?= $estaActivo ? ' activo' : '' ?>">
-        <h2>Microcontrolador #<span data-col="0"><?= (int) $u['id_microcontrolador'] ?></span></h2>
+        <h2>Dispositivo de <?= $h($u['nombre_local']) ?></h2>
+        <span data-col="0" hidden><?= (int) $u['id_microcontrolador'] ?></span>
         <dl>
             <div><dt>Estado</dt><dd class="<?= $estaActivo ? 'estado-activo' : 'estado-inactivo' ?>" data-col="5"><?= $estaActivo ? 'Activo' : 'Inactivo' ?></dd></div>
             <div><dt>Habilitado</dt><dd data-col="6"><?= $si($u['habilitado']) ?></dd></div>
