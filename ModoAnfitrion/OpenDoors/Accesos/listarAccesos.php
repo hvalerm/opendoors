@@ -13,7 +13,7 @@ $error = '';
 try {
     $stmt = getPDO()->prepare(
         'SELECT a.idAcceso AS id_acceso, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
-                a.token, a.ejecutado, a.habilitado, l.zonaHoraria,
+                a.ejecutado, a.habilitado, l.zonaHoraria,
                 (? BETWEEN a.activoDesde AND a.activoHasta AND a.habilitado = 1 AND a.ejecutado = 0) AS en_rango
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
@@ -53,7 +53,6 @@ $si = fn($v) => $v ? 'Sí' : 'No';
         table { width: 100%; border-collapse: collapse; font-size: .9rem; }
         th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e1e8ec; white-space: nowrap; }
         th { color: #6b7a86; font-weight: 600; background: #f7f9fa; }
-        td.token { max-width: 200px; overflow: hidden; text-overflow: ellipsis; font-family: Consolas, monospace; font-size: .8rem; }
         .fila { cursor: pointer; }
         .fila:hover { background: #f2f7fa; }
         .enlace-id { color: #2c5364; font-weight: 600; text-decoration: none; }
@@ -78,20 +77,19 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                 <div><label for="f-hasta">Activo hasta (hasta)</label><input type="date" id="f-hasta"></div>
                 <div><label for="f-local">Local</label><input type="search" id="f-local" data-col="3" autocomplete="off"></div>
                 <div><label for="f-empresa">Empresa</label><input type="search" id="f-empresa" data-col="4" autocomplete="off"></div>
-                <div><label for="f-token">Token</label><input type="search" id="f-token" data-col="5" autocomplete="off"></div>
                 <div><label for="f-ejecutado">Ejecutado</label>
-                    <select id="f-ejecutado" data-col="6" data-exacto="1"><option value="">Todos</option><option>Sí</option><option>No</option></select></div>
+                    <select id="f-ejecutado" data-col="5" data-exacto="1"><option value="">Todos</option><option>Sí</option><option>No</option></select></div>
                 <div><label for="f-habilitado">Habilitado</label>
-                    <select id="f-habilitado" data-col="7" data-exacto="1"><option value="">Todos</option><option>Sí</option><option>No</option></select></div>
+                    <select id="f-habilitado" data-col="6" data-exacto="1"><option value="">Todos</option><option>Sí</option><option>No</option></select></div>
                 <div><label for="f-enrango">¿Se puede usar?</label>
-                    <select id="f-enrango" data-col="8" data-exacto="1"><option value="">Todos</option><option>Sí</option><option>No</option></select></div>
+                    <select id="f-enrango" data-col="7" data-exacto="1"><option value="">Todos</option><option>Sí</option><option>No</option></select></div>
             </div>
             <p class="contador" id="contador" aria-live="polite"></p>
             <p class="instruccion">Seleccione un acceso para editarlo</p>
             <div class="tabla">
                 <table>
                     <thead>
-                        <tr><th>ID</th><th>Activo desde</th><th>Activo hasta</th><th>Local</th><th>Empresa</th><th>Token</th><th>Ejecutado</th><th>Habilitado</th><th>¿Se puede usar?</th></tr>
+                        <tr><th>ID</th><th>Activo desde</th><th>Activo hasta</th><th>Local</th><th>Empresa</th><th>Ejecutado</th><th>Habilitado</th><th>¿Se puede usar?</th></tr>
                     </thead>
                     <tbody id="cuerpo">
                         <?php foreach ($accesos as $a): $zona = $a['zonaHoraria']; ?>
@@ -101,7 +99,6 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                                 <td><?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'd/m/Y H:i T')) ?></td>
                                 <td><?= $h($a['nombre_local']) ?></td>
                                 <td><?= $h($a['nombre_empresa']) ?></td>
-                                <td class="token" title="<?= $h($a['token']) ?>"><?= $h($a['token']) ?></td>
                                 <td><?= $si($a['ejecutado']) ?></td>
                                 <td><?= $si($a['habilitado']) ?></td>
                                 <td class="<?= $a['en_rango'] ? 'si' : 'no' ?>"><?= $si($a['en_rango']) ?></td>
