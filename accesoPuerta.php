@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/util/db.php';
+require_once __DIR__ . '/ModoAnfitrion/OpenDoors/util/db.php';
 require_once __DIR__ . '/util/DatosWeb.php';
 require_once __DIR__ . '/util/vigencia_accesos.php';
 
@@ -17,7 +17,7 @@ $acceso = null;
 
 if (is_string($token) && preg_match('/^[A-Za-z0-9]{1,250}$/', $token)) {
     try {
-        $stmt = getPDO()->prepare(
+        $stmt = getOpenDoorsPDO()->prepare(
             'SELECT a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, a.ejecutado, a.habilitado,
                     l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, l.zonaHoraria
              FROM accesos a

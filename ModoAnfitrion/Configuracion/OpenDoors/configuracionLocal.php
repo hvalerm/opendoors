@@ -12,12 +12,11 @@ $error = '';
 $zonas = DateTimeZone::listIdentifiers();
 
 try {
-    $pdo = getPDO();
-    $idEmpresa = empresaConfiguracionLocales($pdo);
+    $idEmpresa = empresaConfiguracionLocales();
     if ($idEmpresa === null) {
         http_response_code(403);
         $error = 'OpenDoors no está habilitado para tu empresa.';
-    } elseif (!$idLocal || !($local = datosLocalesConfiguracion($pdo, $idEmpresa, $idLocal)[0] ?? null)) {
+    } elseif (!$idLocal || !($local = datosLocalesConfiguracion(getOpenDoorsPDO(), $idEmpresa, $idLocal)[0] ?? null)) {
         http_response_code(404);
         $error = 'El local no existe o no pertenece a tu empresa.';
     } else {
@@ -53,7 +52,7 @@ try {
                 if ($error !== '') {
                     http_response_code(422);
                 } else {
-                    $stmt = $pdo->prepare(
+                    $stmt = getOpenDoorsPDO()->prepare(
                         'UPDATE locales SET nombreLocal = ?, direccionLocal = ?, zonaHoraria = ?, eliminado = ?
                          WHERE idLocal = ? AND idEmpresa = ?'
                     );

@@ -1,5 +1,5 @@
 <?php
-// Cabeceras de seguridad comunes. Se carga desde util/db.php, que usan todas las páginas.
+// Cabeceras de seguridad comunes para las conexiones y paginas del sistema.
 
 function esHttps(): bool
 {

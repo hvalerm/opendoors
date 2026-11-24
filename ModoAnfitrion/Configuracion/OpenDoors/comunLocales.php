@@ -1,11 +1,12 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
 require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../../OpenDoors/util/db.php';
 
-function empresaConfiguracionLocales(PDO $pdo): ?int
+function empresaConfiguracionLocales(): ?int
 {
     $idEmpresa = (int) $_SESSION['empresa_id'];
-    $stmt = $pdo->prepare(
+    $stmt = getPDO()->prepare(
         'SELECT 1 FROM empresas_modulos em
          INNER JOIN modulos m ON m.idModulo = em.idModulo
          WHERE em.idEmpresa = ? AND em.habilitado = 1 AND LOWER(TRIM(m.nombreModulo)) = ?

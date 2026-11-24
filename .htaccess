@@ -1,5 +1,7 @@
 RewriteEngine On
 
+RewriteRule ^ModoAnfitrion/OpenDoors/util(?:/|$) - [F,END]
+
 # Alias internos: conservan los enlaces antiguos, el método HTTP y los datos de la petición.
 RewriteRule ^(index|login|logout|licencia_expirada|accesoPuerta|recuperar_password|verificar_codigo|nueva_password)$ $1.php [END]
 RewriteRule ^(Startup/startup|ModoAnfitrion/vistaAnfitrion)$ $1.php [END]

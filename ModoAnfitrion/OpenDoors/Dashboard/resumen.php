@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
-require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../../../util/vigencia_accesos.php';
 $soloDispositivos = ($_GET['datos'] ?? '') === 'dispositivos';
 if ($soloDispositivos) {
@@ -64,7 +64,7 @@ function renderDispositivosDashboard(array $dispositivos, callable $h): string
 
 if ($soloDispositivos) {
     try {
-        $html = renderDispositivosDashboard(cargarDispositivosDashboard(getPDO(), $idEmpresa), $h);
+        $html = renderDispositivosDashboard(cargarDispositivosDashboard(getOpenDoorsPDO(), $idEmpresa), $h);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['dispositivos' => $html], JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
     } catch (PDOException $e) {
@@ -84,7 +84,7 @@ $alertas = [];
 $porLocal = [];
 
 try {
-    $pdo = getPDO();
+    $pdo = getOpenDoorsPDO();
     $ahora = ahoraVigenciaAccesos();
 
     // Locales

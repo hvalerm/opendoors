@@ -20,12 +20,12 @@ $pdo = null;
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 
 try {
-    $pdo = getPDO();
-    $idEmpresa = empresaConfiguracionLocales($pdo);
+    $idEmpresa = empresaConfiguracionLocales();
     if ($idEmpresa === null) {
         http_response_code(403);
         $error = 'OpenDoors no está habilitado para tu empresa.';
     } else {
+        $pdo = getOpenDoorsPDO();
         $stmt = $pdo->prepare(
             'SELECT idLocal, nombreLocal FROM locales WHERE idEmpresa = ? AND eliminado = 0 ORDER BY nombreLocal, idLocal'
         );

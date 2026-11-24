@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
-require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../util/db.php';
 requerirSesion();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -10,15 +10,14 @@ $error = '';
 
 // Solo dispositivos de apertura de la empresa de la cuenta con sesión iniciada
 try {
-    $stmt = getPDO()->prepare(
+    $stmt = getOpenDoorsPDO()->prepare(
         'SELECT m.idMicrocontrolador AS id_microcontrolador, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, m.cantidadAperturas
          FROM microcontroladores m
          INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
-         INNER JOIN empresas_cuentas c ON c.idEmpresa = m.idEmpresa
-         WHERE c.idCuenta = ?
+         WHERE m.idEmpresa = ?
          ORDER BY m.idMicrocontrolador'
     );
-    $stmt->execute([$_SESSION['usuario_id']]);
+    $stmt->execute([(int) $_SESSION['empresa_id']]);
     $unidades = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en verActividad: ' . $e->getMessage());

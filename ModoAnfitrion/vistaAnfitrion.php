@@ -33,20 +33,22 @@ foreach ($modulos as $modulo) {
 // Locales de la empresa a la que pertenece la cuenta (sin los eliminados)
 $itemsLocales = [];
 if ($tieneOpenDoors) {
+    require_once __DIR__ . '/OpenDoors/util/db.php';
     try {
-        $stmt = getPDO()->prepare(
+        $stmt = getOpenDoorsPDO()->prepare(
             'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local
              FROM locales l
-             INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa
-             WHERE c.idCuenta = ? AND l.eliminado = 0
+             WHERE l.idEmpresa = ? AND l.eliminado = 0
              ORDER BY l.nombreLocal, l.idLocal'
         );
-        $stmt->execute([$usuario['id']]);
+        $stmt->execute([(int) $_SESSION['empresa_id']]);
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $local) {
             $itemsLocales[] = [$local['nombre_local'], null, 'OpenDoors/Locales/localSeleccionado?id=' . $local['id_local'], 'local-' . $local['id_local']];
         }
-    } catch (Throwable $e) {
+    } catch (PDOException $e) {
         error_log('No se pudieron cargar los locales: ' . $e->getMessage());
+        http_response_code(503);
+        exit('No se pudieron cargar los locales. Intentalo mas tarde.');
     }
 }
 

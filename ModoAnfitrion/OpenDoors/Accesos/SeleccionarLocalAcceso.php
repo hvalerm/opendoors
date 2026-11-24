@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
-require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../util/db.php';
 requerirSesion();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -9,14 +9,13 @@ $locales = [];
 $error = '';
 
 try {
-    $stmt = getPDO()->prepare(
+    $stmt = getOpenDoorsPDO()->prepare(
         'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, l.habilitado
          FROM locales l
-         INNER JOIN empresas_cuentas c ON c.idEmpresa = l.idEmpresa
-         WHERE c.idCuenta = ? AND l.eliminado = 0
+         WHERE l.idEmpresa = ? AND l.eliminado = 0
          ORDER BY l.nombreLocal, l.idLocal'
     );
-    $stmt->execute([$_SESSION['usuario_id']]);
+    $stmt->execute([(int) $_SESSION['empresa_id']]);
     $locales = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en SeleccionarLocalAcceso: ' . $e->getMessage());

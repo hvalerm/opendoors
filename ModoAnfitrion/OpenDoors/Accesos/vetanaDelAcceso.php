@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
-require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../../../util/vigencia_accesos.php';
 requerirSesion();
 
@@ -16,7 +16,7 @@ if (empty($_SESSION['csrf'])) {
 }
 
 // Solo accesos de la empresa de la cuenta con sesión iniciada
-function cargarAcceso(PDO $pdo, int $idAcceso, int $idCuenta): ?array
+function cargarAcceso(PDO $pdo, int $idAcceso, int $idEmpresa): ?array
 {
     $stmt = $pdo->prepare(
         'SELECT a.idAcceso AS id_acceso, a.idEmpresa AS id_empresa, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
@@ -24,10 +24,9 @@ function cargarAcceso(PDO $pdo, int $idAcceso, int $idCuenta): ?array
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
          INNER JOIN empresas e ON e.idEmpresa = a.idEmpresa
-         INNER JOIN empresas_cuentas c ON c.idEmpresa = a.idEmpresa
-         WHERE a.idAcceso = ? AND c.idCuenta = ?'
+         WHERE a.idAcceso = ? AND a.idEmpresa = ?'
     );
-    $stmt->execute([$idAcceso, $idCuenta]);
+    $stmt->execute([$idAcceso, $idEmpresa]);
     return $stmt->fetch() ?: null;
 }
 
@@ -35,10 +34,10 @@ $desde = null;
 $hasta = null;
 $idLocalNuevo = null;
 try {
-    $pdo = getPDO();
-    $idCuenta = (int) $_SESSION['usuario_id'];
+    $pdo = getOpenDoorsPDO();
+    $idEmpresa = (int) $_SESSION['empresa_id'];
     if ($idAcceso) {
-        $acceso = cargarAcceso($pdo, $idAcceso, $idCuenta);
+        $acceso = cargarAcceso($pdo, $idAcceso, $idEmpresa);
     }
 
     if ($acceso && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -96,7 +95,7 @@ try {
             $error = 'Acción no válida.';
         }
         if (!$error) {
-            $acceso = cargarAcceso($pdo, $idAcceso, $idCuenta);
+            $acceso = cargarAcceso($pdo, $idAcceso, $idEmpresa);
         }
     }
 } catch (PDOException $e) {
@@ -108,7 +107,7 @@ $urlLista = 'listarAccesos' . ($embed ? '?embed=1' : '');
 $locales = [];
 if ($acceso) {
     try {
-        $st = getPDO()->prepare('SELECT idLocal AS id_local, nombreLocal AS nombre_local, zonaHoraria
+        $st = getOpenDoorsPDO()->prepare('SELECT idLocal AS id_local, nombreLocal AS nombre_local, zonaHoraria
             FROM locales WHERE idEmpresa = ? AND eliminado = 0 ORDER BY nombreLocal');
         $st->execute([$acceso['id_empresa']]);
         $locales = $st->fetchAll();

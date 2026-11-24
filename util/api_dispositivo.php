@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../ModoAnfitrion/OpenDoors/util/db.php';
 require_once __DIR__ . '/enc.php';
 
 enum OperacionDispositivo
@@ -48,7 +48,7 @@ function atenderDispositivo(OperacionDispositivo $operacion): void
     }
 
     try {
-        $pdo = getPDO();
+        $pdo = getOpenDoorsPDO();
         $pdo->beginTransaction();
         $stmt = $pdo->prepare(
             'SELECT m.idLocal AS id_local, m.idEmpresa AS id_empresa, m.habilitado, l.accionar

@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
-require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../../../util/vigencia_accesos.php';
 requerirSesion();
 
@@ -11,18 +11,17 @@ $error = '';
 
 // Solo accesos de la empresa de la cuenta con sesión iniciada
 try {
-    $stmt = getPDO()->prepare(
+    $stmt = getOpenDoorsPDO()->prepare(
         'SELECT a.idAcceso AS id_acceso, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
                 a.ejecutado, a.habilitado, l.zonaHoraria,
                 (? BETWEEN a.activoDesde AND a.activoHasta AND a.habilitado = 1 AND a.ejecutado = 0) AS en_rango
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
          INNER JOIN empresas e ON e.idEmpresa = a.idEmpresa
-         INNER JOIN empresas_cuentas c ON c.idEmpresa = a.idEmpresa
-         WHERE c.idCuenta = ?
+         WHERE a.idEmpresa = ?
          ORDER BY a.idAcceso DESC'
     );
-    $stmt->execute([ahoraVigenciaAccesos(), $_SESSION['usuario_id']]);
+    $stmt->execute([ahoraVigenciaAccesos(), (int) $_SESSION['empresa_id']]);
     $accesos = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en listarAccesos: ' . $e->getMessage());

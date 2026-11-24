@@ -10,13 +10,12 @@ $error = '';
 $guardado = false;
 
 try {
-    $pdo = getPDO();
-    $idEmpresa = empresaConfiguracionLocales($pdo);
+    $idEmpresa = empresaConfiguracionLocales();
     if ($idEmpresa === null) {
         http_response_code(403);
         $error = 'OpenDoors no está habilitado para tu empresa.';
     } else {
-        $locales = datosLocalesConfiguracion($pdo, $idEmpresa);
+        $locales = datosLocalesConfiguracion(getOpenDoorsPDO(), $idEmpresa);
         $guardado = !empty($_SESSION['configuracion_local_guardado']);
         unset($_SESSION['configuracion_local_guardado']);
     }

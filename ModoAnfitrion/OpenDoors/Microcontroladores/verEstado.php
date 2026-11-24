@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
-require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../util/db.php';
 $soloDatos = ($_GET['datos'] ?? '') === '1';
 if ($soloDatos) {
     header('Cache-Control: no-store');
@@ -11,7 +11,7 @@ if ($soloDatos) {
 } else {
     requerirSesion();
 }
-$idCuenta = (int) $_SESSION['usuario_id'];
+$idEmpresa = (int) $_SESSION['empresa_id'];
 session_write_close();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -21,18 +21,17 @@ $error = '';
 
 // Solo dispositivos de apertura de la empresa de la cuenta con sesión iniciada
 try {
-    $stmt = getPDO()->prepare(
+    $stmt = getOpenDoorsPDO()->prepare(
         'SELECT m.idMicrocontrolador AS id_microcontrolador, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
                 m.ultimaConsulta, m.ultimaApertura, m.habilitado,
                 TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP()) AS segundos_sin_consulta
          FROM microcontroladores m
          INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
          INNER JOIN empresas e ON e.idEmpresa = m.idEmpresa
-         INNER JOIN empresas_cuentas c ON c.idEmpresa = m.idEmpresa
-         WHERE c.idCuenta = ?
+         WHERE m.idEmpresa = ?
          ORDER BY m.idMicrocontrolador'
     );
-    $stmt->execute([$idCuenta]);
+    $stmt->execute([$idEmpresa]);
     $unidades = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en verEstado: ' . $e->getMessage());

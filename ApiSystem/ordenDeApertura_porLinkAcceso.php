@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../util/db.php';
+require_once __DIR__ . '/../ModoAnfitrion/OpenDoors/util/db.php';
 require_once __DIR__ . '/../util/verificar.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 
@@ -30,7 +30,7 @@ try {
         iniciarSesionSegura();
         $confirmacion = bin2hex(random_bytes(32));
     }
-    $pdo = getPDO();
+    $pdo = getOpenDoorsPDO();
     // Paso 2: comparar el token con accesos.token y obtener los datos del acceso y su local
     // (el acceso no debe estar ejecutado y el local no debe estar eliminado)
     $stmt = $pdo->prepare(

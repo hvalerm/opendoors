@@ -92,6 +92,12 @@ function getPDO(): PDO {
     }
     return $pdo;
 }');
+    mkdir($tmp . '/ModoAnfitrion/OpenDoors/util');
+    file_put_contents($tmp . '/ModoAnfitrion/OpenDoors/util/db.php', '<?php
+require_once __DIR__ . "/../../../util/db.php";
+function getOpenDoorsPDO(): PDO {
+    return getPDO();
+}');
     copy(__DIR__ . '/router.php', $tmp . '/routerRutas.php');
     file_put_contents($tmp . '/router.php', '<?php
 putenv("OPENDOORS_ENC_KEY=clave-exclusiva-startup-test");
