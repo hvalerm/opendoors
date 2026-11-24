@@ -2,7 +2,7 @@
 // Conexion del sistema general: cuentas, empresas, modulos y soporte.
 require_once __DIR__ . '/conexion_mysql.php';
 
-define('DB_NAME_EMPRESAS', getenv('DB_NAME_EMPRESAS') ?: 'empresas');
+define('DB_NAME_EMPRESAS', getenv('DB_NAME_EMPRESAS'));
 
 function getPDO(): PDO
 {
