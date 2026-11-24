@@ -67,6 +67,11 @@ try {
     $puertas = getOpenDoorsPDO();
     require_once $root . DIRECTORY_SEPARATOR . 'util' . DIRECTORY_SEPARATOR . 'db.php';
     $pdo = getPDO();
+    $migracionAperturas = file($root . '/migraciones/seguimiento_aperturas.sql');
+    $sqlAperturas = implode('', array_filter($migracionAperturas, fn($linea) => !str_starts_with($linea, '--')));
+    foreach (array_filter(array_map('trim', explode(';', $sqlAperturas))) as $sentencia) {
+        $puertas->exec($sentencia);
+    }
     comprobar($pdo !== $puertas && $pdo === getPDO() && $puertas === getOpenDoorsPDO(),
         'Las conexiones no estan separadas o no se reutilizan.');
     comprobar($pdo->query('SELECT DATABASE()')->fetchColumn() === $db
@@ -309,7 +314,7 @@ try {
     comprobar($r['status'] === 303, 'No emite la orden por enlace.');
     $confirmation = $r['location'];
     comprobar((int) $puertas->query('SELECT ejecutado FROM accesos WHERE idAcceso=1')->fetchColumn() === 1, 'No consume el enlace.');
-    comprobar((int) $puertas->query('SELECT cantidadAperturas FROM microcontroladores WHERE idMicrocontrolador=1')->fetchColumn() === 0,
+    comprobar((int) $puertas->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador=1')->fetchColumn() === 0,
         'Se contabiliza una apertura antes de que el dispositivo la confirme.');
     comprobar($request('ApiSystem/ordenDeApertura_porLinkAcceso.php', ['token' => 'TokenAlpha'])['status'] === 404, 'Reutiliza el enlace.');
     $iv = random_bytes(16);
@@ -318,13 +323,14 @@ try {
     $cipher = bin2hex(str_pad($package, 500, "\0"));
     $r = $request('ApiSystem/api_board.php?cifrado=' . $cipher);
     comprobar(json_decode($r['body'], true) === ['ok' => true, 'accionar' => 1], 'El dispositivo no recibe la orden.');
-    comprobar((int) $puertas->query('SELECT cantidadAperturas FROM microcontroladores WHERE idMicrocontrolador=1')->fetchColumn() === 1, 'La API duplica el contador del trigger.');
+    comprobar((int) $puertas->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador=1')->fetchColumn() === 1,
+        'La API no contabiliza una unica apertura exitosa.');
     comprobar(abs(time() - strtotime($puertas->query('SELECT ultimaApertura FROM microcontroladores WHERE idMicrocontrolador = 1')->fetchColumn() . ' UTC')) < 10,
-        'El trigger de apertura no guarda la hora en UTC.');
+        'La confirmacion de apertura no guarda la hora en UTC.');
     $r = $request('ApiSystem/api_board.php?cifrado=' . $cipher);
     comprobar(json_decode($r['body'], true) === ['ok' => true, 'accionar' => 0], 'No limpia la orden de apertura.');
     $r = $request('ModoAnfitrion/OpenDoors/' . basename($confirmation) . '&estado=1');
-    comprobar(json_decode($r['body'], true) === ['accionar' => 0], 'No confirma la apertura del huesped.');
+    comprobar((json_decode($r['body'], true)['estado'] ?? '') === 'exitosa', 'No confirma la apertura del huesped.');
     $local = 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado.php?id=1';
     $token = $csrf($request($local));
     comprobar($request($local, ['csrf' => $token, 'accion' => 'abrir_puerta'])['status'] === 302, 'No abre desde el panel.');
@@ -339,9 +345,9 @@ try {
         'La configuracion no escribe en OpenDoors.');
     $restaurar = 'ModoAnfitrion/Configuracion/OpenDoors/RestaurarInformacion.php';
     $r = $request($restaurar, ['csrf' => $csrf($request($restaurar)), 'alcance' => '1',
-        'campos' => ['cantidadAperturas']]);
+        'campos' => ['cantidadAperturasExitosas']]);
     comprobar($r['status'] === 303
-        && (int) $puertas->query('SELECT cantidadAperturas FROM microcontroladores WHERE idMicrocontrolador = 1')->fetchColumn() === 0,
+        && (int) $puertas->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador = 1')->fetchColumn() === 0,
         'La restauracion no usa una transaccion en OpenDoors.');
     $pdo->exec('UPDATE empresas_modulos SET habilitado = 0 WHERE idEmpresa = 1 AND idModulo = 1');
     comprobar($request($configurar)['status'] === 403 && $request($restaurar)['status'] === 403

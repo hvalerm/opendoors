@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../ModoAnfitrion/OpenDoors/util/db.php';
+require_once __DIR__ . '/../ModoAnfitrion/OpenDoors/util/aperturas.php';
 require_once __DIR__ . '/../util/verificar.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 
@@ -65,8 +66,7 @@ try {
         responder(404, false, 'Acceso no encontrado.');
     }
 
-    $upd = $pdo->prepare('UPDATE locales SET accionar = 1 WHERE idLocal = ? AND idEmpresa = ?');
-    $upd->execute([$acceso['id_local'], $acceso['id_empresa']]);
+    $idSolicitud = emitirSolicitudApertura($pdo, (int) $acceso['id_local'], (int) $acceso['id_empresa']);
 
     $pdo->commit();
 
@@ -74,6 +74,7 @@ try {
         $_SESSION['confirmacion_apertura'] = [
             'clave' => $confirmacion,
             'id_local' => (int) $acceso['id_local'],
+            'id_solicitud' => $idSolicitud,
             'expira' => time() + 120,
         ];
         session_write_close();
@@ -83,7 +84,12 @@ try {
 
     // Los clientes de la API conservan la respuesta JSON.
     responder(200, true, 'Orden de apertura emitida.');
-} catch (PDOException $e) {
+} catch (DomainException $e) {
+    if (isset($pdo) && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    responder(409, false, $e->getMessage());
+} catch (PDOException | LogicException $e) {
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
     }

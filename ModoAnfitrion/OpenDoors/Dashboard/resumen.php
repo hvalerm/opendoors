@@ -21,11 +21,11 @@ function cargarDispositivosDashboard(PDO $pdo, int $idEmpresa): array
 {
     $q = $pdo->prepare(
         'SELECT l.nombreLocal AS nombre_local, l.zonaHoraria, m.idMicrocontrolador AS id_microcontrolador,
-                m.habilitado, m.cantidadAperturas, m.ultimaConsulta, m.ultimaApertura,
+                m.habilitado, m.cantidadAperturasExitosas, m.cantidadAperturasFallidas, m.ultimaConsulta, m.ultimaApertura,
                 TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP()) AS seg
          FROM microcontroladores m
          INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
-         WHERE m.idEmpresa = ? ORDER BY m.cantidadAperturas DESC, l.nombreLocal'
+         WHERE m.idEmpresa = ? ORDER BY m.cantidadAperturasExitosas DESC, l.nombreLocal'
     );
     $q->execute([$idEmpresa]);
     $dispositivos = $q->fetchAll();
@@ -76,7 +76,7 @@ if ($soloDispositivos) {
 $embed = isset($_GET['embed']);
 $error = '';
 $k = ['locales' => 0, 'locales_ok' => 0, 'vigentes' => 0, 'proximos' => 0, 'usados' => 0, 'revocados' => 0,
-      'disp' => 0, 'disp_activos' => 0, 'aperturas' => 0, 'puertas_pendientes' => 0];
+      'disp' => 0, 'disp_activos' => 0, 'aperturas' => 0, 'fallidas' => 0, 'puertas_pendientes' => 0];
 $proximos = [];
 $noUsados = [];
 $k['no_usados'] = 0;
@@ -137,7 +137,8 @@ try {
     // Dispositivos y aperturas por local
     foreach (cargarDispositivosDashboard($pdo, $idEmpresa) as $d) {
         $k['disp']++;
-        $k['aperturas'] += (int) $d['cantidadAperturas'];
+        $k['aperturas'] += (int) $d['cantidadAperturasExitosas'];
+        $k['fallidas'] += (int) $d['cantidadAperturasFallidas'];
         if ($d['activo']) {
             $k['disp_activos']++;
         } elseif ($d['habilitado']) {
@@ -221,7 +222,8 @@ try {
                 <div class="tarjeta naranja"><div class="n"><?= $k['proximos'] ?></div><div class="t">Próximos accesos</div><div class="d">Llegadas programadas</div></div>
                 <div class="tarjeta gris"><div class="n"><?= $k['usados'] ?></div><div class="t">Accesos usados</div><div class="d">Huéspedes que ya abrieron</div></div>
                 <div class="tarjeta <?= $k['no_usados'] ? 'rojo' : 'verde' ?>"><div class="n"><?= $k['no_usados'] ?></div><div class="t">Accesos sin usar</div>                <div class="d">Vencieron sin que el huésped abriera</div></div>
-                                <div class="tarjeta"><div class="n"><?= $k['aperturas'] ?></div><div class="t">Aperturas totales</div><div class="d">Veces que se ha abierto una puerta</div></div>
+                <div class="tarjeta"><div class="n"><?= $k['aperturas'] ?></div><div class="t">Aperturas exitosas</div><div class="d">Confirmaciones de los dispositivos</div></div>
+                <div class="tarjeta <?= $k['fallidas'] ? 'rojo' : 'verde' ?>"><div class="n"><?= $k['fallidas'] ?></div><div class="t">Aperturas fallidas</div><div class="d">Sin confirmación en 30 segundos</div></div>
             </div>
 
             <div class="dos">

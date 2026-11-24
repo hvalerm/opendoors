@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../ModoAnfitrion/OpenDoors/util/db.php';
+require_once __DIR__ . '/../ModoAnfitrion/OpenDoors/util/aperturas.php';
 require_once __DIR__ . '/enc.php';
 
 enum OperacionDispositivo
@@ -54,8 +55,7 @@ function atenderDispositivo(OperacionDispositivo $operacion): void
             'SELECT m.idLocal AS id_local, m.idEmpresa AS id_empresa, m.habilitado, l.accionar
              FROM microcontroladores m
              INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
-             WHERE m.idMicrocontrolador = ? AND l.eliminado = 0
-             FOR UPDATE'
+             WHERE m.idMicrocontrolador = ? AND l.eliminado = 0'
         );
         $stmt->execute([$idMicrocontrolador]);
         $micro = $stmt->fetch();
@@ -64,26 +64,39 @@ function atenderDispositivo(OperacionDispositivo $operacion): void
             $pdo->rollBack();
             responderDispositivo(404, false, 'Unidad de control no encontrada.');
         }
-        if (!$micro['habilitado']) {
+        $local = bloquearLocalApertura($pdo, (int) $micro['id_local'], (int) $micro['id_empresa']);
+        $stmt = $pdo->prepare('SELECT habilitado FROM microcontroladores WHERE idMicrocontrolador = ?
+            AND idLocal = ? AND idEmpresa = ? FOR UPDATE');
+        $stmt->execute([$idMicrocontrolador, $micro['id_local'], $micro['id_empresa']]);
+        $habilitado = $stmt->fetchColumn();
+        if (!$local || $local['eliminado'] || $habilitado === false) {
+            $pdo->rollBack();
+            responderDispositivo(404, false, 'Unidad de control no encontrada.');
+        }
+        if (!$habilitado) {
             $pdo->rollBack();
             responderDispositivo(403, false, 'La unidad de control está deshabilitada.');
         }
 
-        $accionar = (int) $micro['accionar'];
+        $ahora = ahoraAperturas($pdo);
+        $solicitud = reconciliarSolicitudApertura($pdo, $local, $ahora);
+        if (!$solicitud && $local['accionar']) {
+            throw new LogicException('El local tiene una orden sin seguimiento de apertura.');
+        }
+        $accionar = $solicitud && $solicitud['estado'] === 'pendiente' ? 1 : 0;
         if (!$restablecer) {
             $pdo->prepare('UPDATE microcontroladores SET ultimaConsulta = UTC_TIMESTAMP() WHERE idMicrocontrolador = ?')
                 ->execute([$idMicrocontrolador]);
         }
         if ($operacion !== OperacionDispositivo::Consulta && $accionar === 1) {
-            $pdo->prepare('UPDATE locales SET accionar = 0 WHERE idLocal = ? AND idEmpresa = ?')
-                ->execute([$micro['id_local'], $micro['id_empresa']]);
+            finalizarSolicitudApertura($pdo, $solicitud, ResultadoApertura::Exitosa, $ahora);
         }
 
         $pdo->commit();
 
         http_response_code(200);
         echo json_encode(['ok' => true, 'accionar' => $restablecer ? 0 : $accionar], JSON_UNESCAPED_UNICODE);
-    } catch (PDOException $e) {
+    } catch (PDOException | LogicException $e) {
         if (isset($pdo) && $pdo->inTransaction()) {
             $pdo->rollBack();
         }

@@ -1,0 +1,50 @@
+SEGUIMIENTO DE APERTURAS
+
+Antes del despliegue:
+- Respaldar opendoors y detener temporalmente las ordenes de apertura.
+- Renombrar cantidadAperturas a cantidadAperturasExitosas, conservando valores.
+- Agregar cantidadAperturasFallidas INT NOT NULL DEFAULT 0.
+- La migracion normaliza contadores NULL a cero y fija INT NOT NULL DEFAULT 0.
+- Ejecutar seguimiento_aperturas.sql sobre opendoors. Elimina el antiguo
+  trigger de conteo y agrega solicitudes persistentes con vencimiento UTC.
+- El usuario PHP necesita SELECT, INSERT y UPDATE en solicitudes_apertura,
+  ademas de sus permisos existentes sobre locales y microcontroladores.
+
+El sistema suma un exito y actualiza ultimaApertura en UTC al confirmar
+la orden. Suma un fallo y restablece accionar=0 si no se confirma en 30 segundos.
+Actualiza todos los dispositivos del local y empresa. Anular manualmente no
+modifica contadores ni ultimaApertura. Los reintentos no duplican resultados.
+No se emite una segunda orden mientras la anterior siga pendiente.
+Cada pantalla consulta su propia solicitud: un fallo o anulacion no se
+presenta como exito solo porque accionar haya vuelto a cero.
+
+PROCESO OBLIGATORIO DE VENCIMIENTO
+
+Docker inicia el proceso automaticamente junto con Apache. Si cualquiera
+de los dos termina inesperadamente, el contenedor termina con error para
+que la politica de reinicio del despliegue pueda reiniciarlo.
+
+Fuera de Docker (incluido XAMPP), ejecutar permanentemente, con las mismas
+variables DB_* del servidor web:
+
+php ModoAnfitrion\OpenDoors\util\procesar_aperturas.php
+
+Configurar su inicio automatico y reinicio ante errores en el gestor de
+servicios del servidor. Comprueba los vencimientos cada segundo incluso
+sin navegadores abiertos. Tras una interrupcion recupera las solicitudes
+pendientes al arrancar. Las API tambien revisan el plazo antes de confirmar.
+Sin este proceso no se garantiza el registro puntual si no llegan peticiones.
+
+Para una ejecucion puntual o un planificador externo:
+php ModoAnfitrion\OpenDoors\util\procesar_aperturas.php --una-vez
+
+Una programacion cada minuto no garantiza el limite de 30 segundos.
+El proceso no debe publicarse por HTTP. Su directorio util esta bloqueado.
+
+VALIDACION
+
+php tests\startup.php
+  Regresion HTTP con SQLite temporal, sin base real ni correo.
+php tests\aperturas.php 13316
+  MariaDB aislado con TLS y root sin clave. Crea y elimina su propia base,
+  prueba concurrencia, rollback y un vencimiento real de 30 segundos sin HTTP.

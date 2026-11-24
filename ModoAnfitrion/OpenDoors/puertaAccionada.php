@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../util/verificar.php';
 require_once __DIR__ . '/../../util/db.php';
 require_once __DIR__ . '/util/db.php';
+require_once __DIR__ . '/util/aperturas.php';
 require_once __DIR__ . '/../../util/contacto.php';
 
 header('Cache-Control: no-store');
@@ -9,6 +10,7 @@ header('Referrer-Policy: no-referrer');
 header('X-Robots-Tag: noindex, nofollow');
 
 $idLocal = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$idSolicitud = $_GET['solicitud'] ?? null;
 $esHuesped = isset($_GET['confirmacion']);
 $autorizado = false;
 if ($esHuesped) {
@@ -19,6 +21,7 @@ if ($esHuesped) {
         && $permiso['expira'] >= time()
         && hash_equals($permiso['clave'], $confirmacion);
     $idLocal = $autorizado ? $permiso['id_local'] : null;
+    $idSolicitud = $autorizado ? ($permiso['id_solicitud'] ?? null) : null;
     session_write_close();
 }
 
@@ -26,7 +29,7 @@ if ($esHuesped) {
 function obtenerLocal(int $idLocal, ?int $idEmpresa): ?array
 {
     $stmt = getOpenDoorsPDO()->prepare(
-        'SELECT l.accionar, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local,
+        'SELECT l.idLocal, l.idEmpresa, l.accionar, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local,
                 e.telefonoContacto AS telefono_anfitrion
          FROM locales l
          INNER JOIN empresas e ON e.idEmpresa = l.idEmpresa' .
@@ -35,6 +38,45 @@ function obtenerLocal(int $idLocal, ?int $idEmpresa): ?array
     );
     $stmt->execute($idEmpresa !== null ? [$idLocal, $idEmpresa] : [$idLocal]);
     return $stmt->fetch() ?: null;
+}
+
+function estadoAperturaLocal(array $local, mixed $idSolicitud): array
+{
+    if ($idSolicitud !== null && (!is_string($idSolicitud) || !preg_match('/^[a-f0-9]{64}$/D', $idSolicitud))) {
+        error_log('Consulta de apertura con identificador de solicitud no valido.');
+        http_response_code(400);
+        return ['accionar' => (int) $local['accionar'], 'estado' => 'sin_solicitud', 'segundos_restantes' => 0];
+    }
+    $pdo = getOpenDoorsPDO();
+    try {
+        $pdo->beginTransaction();
+        $bloqueado = bloquearLocalApertura($pdo, (int) $local['idLocal'], (int) $local['idEmpresa']);
+        if (!$bloqueado) {
+            throw new DomainException('El local ya no existe.');
+        }
+        $ahora = ahoraAperturas($pdo);
+        $pendiente = reconciliarSolicitudApertura($pdo, $bloqueado, $ahora);
+        $solicitud = $pendiente;
+        if ($idSolicitud !== null) {
+            $stmt = $pdo->prepare('SELECT * FROM solicitudes_apertura
+                WHERE idSolicitud = ? AND idLocal = ? AND idEmpresa = ?');
+            $stmt->execute([$idSolicitud, $local['idLocal'], $local['idEmpresa']]);
+            $solicitud = $stmt->fetch() ?: null;
+        }
+        $pdo->commit();
+        $restante = $solicitud && $solicitud['estado'] === 'pendiente'
+            ? max(0, strtotime($solicitud['venceEn'] . ' UTC') - strtotime($ahora . ' UTC')) : 0;
+        return [
+            'accionar' => $pendiente && $pendiente['estado'] !== 'pendiente' ? 0 : (int) $bloqueado['accionar'],
+            'estado' => $solicitud['estado'] ?? 'sin_solicitud',
+            'segundos_restantes' => $restante,
+        ];
+    } catch (PDOException | LogicException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 }
 
 // Endpoint consultado por la página mientras espera el resultado de la apertura.
@@ -48,7 +90,8 @@ if (isset($_GET['estado'])) {
     }
     try {
         $local = $idLocal ? obtenerLocal($idLocal, $esHuesped ? null : (int) $_SESSION['empresa_id']) : null;
-    } catch (PDOException $e) {
+        $estadoApertura = $local ? estadoAperturaLocal($local, $idSolicitud) : null;
+    } catch (PDOException | LogicException $e) {
         error_log('Error en puertaAccionada: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'bd']);
@@ -59,7 +102,7 @@ if (isset($_GET['estado'])) {
         echo json_encode(['error' => 'local']);
         exit;
     }
-    echo json_encode(['accionar' => (int) $local['accionar']]);
+    echo json_encode($estadoApertura);
     exit;
 }
 
@@ -69,10 +112,14 @@ if (!$esHuesped) {
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);
 $local = null;
+$estadoApertura = null;
 try {
     $local = $idLocal ? obtenerLocal($idLocal, $esHuesped ? null : (int) $_SESSION['empresa_id']) : null;
-} catch (PDOException $e) {
+    $estadoApertura = $local ? estadoAperturaLocal($local, $idSolicitud) : null;
+} catch (PDOException | LogicException $e) {
     error_log('Error en puertaAccionada: ' . $e->getMessage());
+    http_response_code(503);
+    exit('No se pudo consultar la apertura. Intentalo mas tarde.');
 }
 $existe = $local !== null;
 $telefonoAnfitrion = $existe ? normalizarTelefonoContacto($local['telefono_anfitrion'] ?? null) : null;
@@ -85,6 +132,9 @@ if ($existe) {
     }
 }
 $urlEstado = 'puertaAccionada?estado=1&id=' . (int) $idLocal;
+if (is_string($idSolicitud)) {
+    $urlEstado .= '&solicitud=' . rawurlencode($idSolicitud);
+}
 if ($esHuesped && $autorizado) {
     $urlEstado = 'puertaAccionada?estado=1&confirmacion=' . rawurlencode($confirmacion);
 }
@@ -170,7 +220,6 @@ $urlSoporte = $telefonoSoporte !== null
     <?php if ($existe): ?>
     <script>
         (function () {
-            var ESPERA_MAX_MS = 30000;
             var INTERVALO_MS = 1500;
             var estado = document.getElementById('estado');
             var icono = document.getElementById('icono');
@@ -180,7 +229,8 @@ $urlSoporte = $telefonoSoporte !== null
             var unidadTiempo = document.getElementById('unidadTiempo');
             var contactosError = document.getElementById('contactosError');
             var url = new URL(<?= json_encode($urlEstado) ?>, location.href).href;
-            var limite = Date.now() + ESPERA_MAX_MS;
+            var estadoInicial = <?= json_encode($estadoApertura, JSON_HEX_TAG) ?>;
+            var limite = Date.now() + estadoInicial.segundos_restantes * 1000;
             var finalizado = false;
             var timerCuentaRegresiva;
             <?php if ($esHuesped): ?>
@@ -199,19 +249,23 @@ $urlSoporte = $telefonoSoporte !== null
                 texto.textContent = mensaje;
             }
 
-            function terminar(exito) {
+            function terminar(resultado) {
                 if (finalizado) return;
                 finalizado = true;
                 clearInterval(timerCuentaRegresiva);
                 cuentaRegresiva.hidden = true;
-                if (exito) {
+                if (resultado === 'exitosa') {
                     mostrar('ok', '😊', 'La orden de apertura fue ejecutada con éxito');
                     <?php if ($esHuesped): ?>
                     cerrarVentana.hidden = false;
                     <?php endif; ?>
-                } else {
+                } else if (resultado === 'fallida') {
                     mostrar('fallo', '😞', 'No se confirmó la apertura de la puerta en 30 segundos.');
                     contactosError.hidden = false;
+                } else {
+                    mostrar('fallo', '—', resultado === 'cancelada'
+                        ? 'La orden de apertura fue anulada.'
+                        : 'No hay una solicitud de apertura para confirmar.');
                 }
             }
 
@@ -219,55 +273,46 @@ $urlSoporte = $telefonoSoporte !== null
                 var segundos = Math.max(0, Math.ceil((limite - Date.now()) / 1000));
                 segundosRestantes.textContent = segundos;
                 unidadTiempo.textContent = segundos === 1 ? 'segundo' : 'segundos';
-                if (segundos === 0) terminar(false);
             }
 
             async function consultar() {
-                var restante = limite - Date.now();
-                if (restante <= 0) {
-                    terminar(false);
-                    return;
-                }
-
                 var controller = new AbortController();
-                var tiempoAgotado = setTimeout(function () { controller.abort(); }, restante);
+                var tiempoAgotado = setTimeout(function () { controller.abort(); }, 5000);
                 try {
                     var respuesta = await fetch(url, {
                         credentials: 'same-origin',
                         cache: 'no-store',
                         signal: controller.signal
                     });
-                    if (Date.now() >= limite) {
-                        terminar(false);
-                        return;
-                    }
                     if (!respuesta.ok) throw new Error('No se pudo consultar el estado de la puerta.');
 
                     var datos = await respuesta.json();
-                    if (Date.now() >= limite) {
-                        terminar(false);
-                    } else if (datos.accionar === 0) {
-                        terminar(true);
+                    if (datos.estado === 'pendiente') {
+                        limite = Date.now() + datos.segundos_restantes * 1000;
+                        actualizarCuentaRegresiva();
+                    } else if (['exitosa', 'fallida', 'cancelada', 'sin_solicitud'].includes(datos.estado)) {
+                        terminar(datos.estado);
+                    } else {
+                        throw new Error('Estado de apertura no valido.');
                     }
                 } catch (error) {
-                    if (Date.now() >= limite) {
-                        terminar(false);
-                    } else {
-                        texto.textContent = 'No se pudo consultar el estado; reintentando...';
-                    }
+                    texto.textContent = 'No se pudo consultar el estado; reintentando...';
                 } finally {
                     clearTimeout(tiempoAgotado);
                 }
 
-                restante = limite - Date.now();
                 if (!finalizado) {
-                    setTimeout(consultar, Math.min(INTERVALO_MS, Math.max(restante, 0)));
+                    setTimeout(consultar, INTERVALO_MS);
                 }
             }
 
             actualizarCuentaRegresiva();
             timerCuentaRegresiva = setInterval(actualizarCuentaRegresiva, 250);
-            consultar();
+            if (estadoInicial.estado === 'pendiente') {
+                consultar();
+            } else {
+                terminar(estadoInicial.estado);
+            }
         })();
     </script>
     <?php endif; ?>

@@ -37,6 +37,7 @@ try {
         'util/api_dispositivo.php', 'util/vigencia_accesos.php', 'ApiSystem/api_board.php', 'ApiSystem/api_microcontrolador.php',
         'ApiSystem/api_restore.php', 'ApiSystem/ordenDeApertura_porLinkAcceso.php',
         'ModoAnfitrion/vistaAnfitrion.php', 'ModoAnfitrion/OpenDoors/puertaAccionada.php',
+        'ModoAnfitrion/OpenDoors/util/aperturas.php', 'ModoAnfitrion/OpenDoors/util/procesar_aperturas.php',
         'ModoAnfitrion/Configuracion/OpenDoors/comunLocales.php',
         'ModoAnfitrion/Configuracion/OpenDoors/locales.php',
         'ModoAnfitrion/Configuracion/OpenDoors/configuracionLocal.php',
@@ -79,6 +80,10 @@ try {
     file_put_contents($apiDispositivo, str_replace(
         ['FOR UPDATE', 'UTC_TIMESTAMP()'], ['', 'CURRENT_TIMESTAMP'], file_get_contents($apiDispositivo)
     ));
+    $seguimiento = $tmp . '/ModoAnfitrion/OpenDoors/util/aperturas.php';
+    file_put_contents($seguimiento, str_replace(
+        ['FOR UPDATE', 'UTC_TIMESTAMP()'], ['', 'CURRENT_TIMESTAMP'], file_get_contents($seguimiento)
+    ));
     file_put_contents($tmp . '/util/db.php', '<?php
 require_once __DIR__ . "/seguridad.php";
 function getPDO(): PDO {
@@ -92,7 +97,6 @@ function getPDO(): PDO {
     }
     return $pdo;
 }');
-    mkdir($tmp . '/ModoAnfitrion/OpenDoors/util');
     file_put_contents($tmp . '/ModoAnfitrion/OpenDoors/util/db.php', '<?php
 require_once __DIR__ . "/../../../util/db.php";
 function getOpenDoorsPDO(): PDO {
@@ -154,7 +158,10 @@ recFin();
         accionar INTEGER DEFAULT 0, zonaHoraria TEXT NOT NULL DEFAULT "America/Guayaquil")');
     $pdo->exec('CREATE TABLE soporte (idSoporte INTEGER PRIMARY KEY, telefonoContacto TEXT)');
     $pdo->exec('CREATE TABLE microcontroladores (idMicrocontrolador INTEGER PRIMARY KEY, idLocal INTEGER,
-        idEmpresa INTEGER, ultimaConsulta TEXT, ultimaApertura TEXT, habilitado INTEGER, cantidadAperturas INTEGER DEFAULT 0)');
+        idEmpresa INTEGER, ultimaConsulta TEXT, ultimaApertura TEXT, habilitado INTEGER,
+        cantidadAperturasExitosas INTEGER NOT NULL DEFAULT 0, cantidadAperturasFallidas INTEGER NOT NULL DEFAULT 0)');
+    $pdo->exec("CREATE TABLE solicitudes_apertura (idSolicitud TEXT PRIMARY KEY, idLocal INTEGER, idEmpresa INTEGER,
+        estado TEXT NOT NULL, solicitadaEn TEXT NOT NULL, venceEn TEXT NOT NULL, finalizadaEn TEXT)");
     $pdo->exec('CREATE TABLE accesos (idAcceso INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT UNIQUE, idLocal INTEGER, idEmpresa INTEGER,
         activoDesde TEXT, activoHasta TEXT, ejecutado INTEGER DEFAULT 0, habilitado INTEGER DEFAULT 1)');
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
@@ -291,12 +298,58 @@ recFin();
     comprobarStartup($response['status'] === 200 && json_decode($response['body'], true) === ['ok' => true, 'accionar' => 0]
         && $orden() === 0 && $ultimaConsulta() === '2020-01-01 00:00:00',
         'Restablecer no limpia la orden o modifica la ultima consulta.');
-    $pdo->exec('UPDATE locales SET accionar = 1 WHERE idLocal = 1');
+    comprobarStartup((int) $pdo->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn() === 1,
+        'La confirmacion no incrementa aperturas exitosas sin trigger.');
+    $request([], $restore, post: $credencial);
+    comprobarStartup((int) $pdo->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn() === 1,
+        'El reintento de confirmacion duplica el contador.');
+    $pdo->exec("UPDATE accesos SET ejecutado = 0 WHERE token = 'TokenPrueba'");
+    $request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', post: ['token' => 'TokenPrueba']);
     $response = $request($credencial, 'ApiSystem/api_board.php');
     comprobarStartup(json_decode($response['body'], true) === ['ok' => true, 'accionar' => 1] && $orden() === 0,
         'La API anterior ya no consume la orden al consultarla.');
+
+    $pdo->exec('INSERT INTO microcontroladores (idMicrocontrolador, idLocal, idEmpresa, habilitado)
+        VALUES (11, 1, 1, 0)');
+    $pdo->exec("UPDATE accesos SET ejecutado = 0 WHERE token = 'TokenPrueba'");
+    $response = $request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', post: [
+        'token' => 'TokenPrueba', 'confirmar' => '1',
+    ]);
+    $permisoFallido = [];
+    parse_str((string) parse_url($response['location'], PHP_URL_QUERY), $permisoFallido);
+    $exitosAntesFallo = $pdo->query('SELECT cantidadAperturasExitosas, ultimaApertura FROM microcontroladores
+        WHERE idMicrocontrolador IN (10, 11) ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC);
+    $pdo->exec("UPDATE solicitudes_apertura SET venceEn = datetime('now', '-1 second') WHERE estado = 'pendiente'");
+    $ejecutarVencimientos = function () use ($tmp): void {
+        $worker = proc_open([PHP_BINARY, $tmp . '/ModoAnfitrion/OpenDoors/util/procesar_aperturas.php', '--una-vez'],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($worker)) {
+            throw new RuntimeException('No se pudo iniciar el procesador de aperturas.');
+        }
+        fclose($pipes[0]);
+        $salida = stream_get_contents($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        comprobarStartup(proc_close($worker) === 0, "Fallo del procesador: $salida $error");
+    };
+    $ejecutarVencimientos();
+    $ejecutarVencimientos();
+    comprobarStartup($orden() === 0
+        && array_map('intval', $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores
+            WHERE idMicrocontrolador IN (10, 11) ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_COLUMN)) === [1, 1]
+        && $pdo->query('SELECT cantidadAperturasExitosas, ultimaApertura FROM microcontroladores
+            WHERE idMicrocontrolador IN (10, 11) ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC) === $exitosAntesFallo,
+        'El fallo sin navegador no limpia la orden, se duplica o modifica exitos/ultima apertura.');
+    $response = $request($permisoFallido + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'fallida',
+        'La pantalla confunde el restablecimiento por fallo con un exito.');
+    $request([], $restore, post: $credencial);
+    comprobarStartup($pdo->query('SELECT cantidadAperturasExitosas, ultimaApertura FROM microcontroladores
+        WHERE idMicrocontrolador IN (10, 11) ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC) === $exitosAntesFallo,
+        'Una confirmacion tardia contabiliza un fallo tambien como exito.');
     unset($orden, $ultimaConsulta);
-    $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador = 10');
+    $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador IN (10, 11)');
     $pdo->exec("UPDATE accesos SET ejecutado = 0 WHERE token = 'TokenPrueba'");
     $pdo->exec('UPDATE locales SET accionar = 0 WHERE idLocal = 1');
     $response = $request([], 'recuperacion.php');
@@ -477,9 +530,9 @@ recFin();
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
         VALUES (4, 3, 'Local <especial>', 'Direccion')");
     $pdo->exec("INSERT INTO microcontroladores VALUES
-        (101, 3, 3, datetime('now'), '2025-01-02 03:04:05', 1, 27),
-        (102, 4, 3, NULL, NULL, 0, 0),
-        (103, 1, 1, datetime('now'), NULL, 1, 5)");
+        (101, 3, 3, datetime('now'), '2025-01-02 03:04:05', 1, 27, 2),
+        (102, 4, 3, NULL, NULL, 0, 0, 0),
+        (103, 1, 1, datetime('now'), NULL, 1, 5, 0)");
     $dashboard = 'ModoAnfitrion/OpenDoors/Dashboard/resumen';
     $pdo->exec("UPDATE locales SET zonaHoraria = 'Asia/Tokyo' WHERE idLocal = 3");
     $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = '2025-01-02 12:00:00' WHERE idMicrocontrolador = 101");
@@ -518,9 +571,10 @@ recFin();
         && str_contains($tarjetas[1][0], '<h2>Dispositivo de Local del anfitrion</h2>')
         && str_contains($tarjetas[1][0], '<dt>Local</dt><dd>Local del anfitrion</dd>')
         && str_contains($tarjetas[1][0], '<dt>Dirección</dt><dd>Direccion del anfitrion</dd>')
-        && str_contains($tarjetas[1][0], '<dt>Veces ejecutado</dt><dd>27</dd>')
+        && str_contains($tarjetas[1][0], '<dt>Aperturas exitosas</dt><dd>27</dd>')
+        && str_contains($tarjetas[1][0], '<dt>Aperturas fallidas</dt><dd>2</dd>')
         && str_contains($tarjetas[1][1], '<h2>Dispositivo de Local &lt;especial&gt;</h2>')
-        && str_contains($tarjetas[1][1], '<dt>Veces ejecutado</dt><dd>0</dd>'),
+        && str_contains($tarjetas[1][1], '<dt>Aperturas exitosas</dt><dd>0</dd>'),
         'La actividad no muestra una tarjeta con los datos correspondientes a cada dispositivo de la empresa.');
     $response = $request([], $vistaDispositivos);
     comprobarStartup($response['status'] === 200
@@ -732,10 +786,10 @@ recFin();
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal, eliminado)
         VALUES (5, 3, 'Local eliminado de prueba', 'Direccion', 1)");
     $pdo->exec("INSERT INTO microcontroladores VALUES
-        (201, 3, 3, NULL, '2020-01-01 00:00:00', 1, 7),
-        (202, 4, 3, NULL, '2020-01-01 00:00:00', 1, 8),
-        (203, 5, 3, NULL, '2020-01-01 00:00:00', 1, 9),
-        (204, 1, 1, NULL, '2020-01-01 00:00:00', 1, 10)");
+        (201, 3, 3, NULL, '2020-01-01 00:00:00', 1, 7, 3),
+        (202, 4, 3, NULL, '2020-01-01 00:00:00', 1, 8, 4),
+        (203, 5, 3, NULL, '2020-01-01 00:00:00', 1, 9, 5),
+        (204, 1, 1, NULL, '2020-01-01 00:00:00', 1, 10, 6)");
     $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta, ejecutado) VALUES
         ('RestVencido', 3, 3, '2000-01-01 00:00:00', '2000-02-01 00:00:00', 0),
         ('RestUsado', 4, 3, '2000-01-01 00:00:00', '2099-12-31 00:00:00', 1),
@@ -750,27 +804,28 @@ recFin();
         && str_contains($formInfo['body'], '<option value="3">Local del anfitrion</option>')
         && !str_contains($formInfo['body'], 'Local eliminado de prueba') && !str_contains($formInfo['body'], 'Local de prueba'),
         'Restaurar información no selecciona todos por defecto o muestra opciones de locales incorrectas.');
-    $postInfo = ['csrf' => $csrf($formInfo), 'alcance' => '3', 'campos' => ['cantidadAperturas']];
-    foreach ([['alcance' => '5'], ['alcance' => '1'], ['campos' => []], ['campos' => ['cantidadAperturas', 'ultimaConsulta']]] as $invalido) {
+    $postInfo = ['csrf' => $csrf($formInfo), 'alcance' => '3', 'campos' => ['cantidadAperturasExitosas']];
+    foreach ([['alcance' => '5'], ['alcance' => '1'], ['campos' => []], ['campos' => ['cantidadAperturasExitosas', 'ultimaConsulta']]] as $invalido) {
         comprobarStartup($request($embedInfo, $restaurarInfo, post: array_replace($postInfo, $invalido))['status'] === 422,
             'Restaurar información aceptó un local o un campo inválido.');
     }
     comprobarStartup($request($embedInfo, $restaurarInfo, post: array_replace($postInfo, ['csrf' => '']))['status'] === 403
-        && (int) $pdo->query('SELECT cantidadAperturas FROM microcontroladores WHERE idMicrocontrolador = 201')->fetchColumn() === 7,
+        && (int) $pdo->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador = 201')->fetchColumn() === 7,
         'Una restauración inválida o sin CSRF modificó datos.');
     $contadoresInfo = fn(PDO $db) => array_map('intval', $db->query(
-        'SELECT idMicrocontrolador, cantidadAperturas FROM microcontroladores
+        'SELECT idMicrocontrolador, cantidadAperturasExitosas FROM microcontroladores
          WHERE idMicrocontrolador BETWEEN 201 AND 204 ORDER BY idMicrocontrolador'
     )->fetchAll(PDO::FETCH_KEY_PAIR));
     $response = $request($embedInfo, $restaurarInfo, post: $postInfo);
     comprobarStartup($response['status'] === 303 && $response['location'] === 'RestaurarInformacion.php?embed=1'
         && $contadoresInfo($pdo) === [201 => 0, 202 => 8, 203 => 9, 204 => 10]
+        && (int) $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores WHERE idMicrocontrolador = 201')->fetchColumn() === 3
         && $pdo->query('SELECT ultimaApertura FROM microcontroladores WHERE idMicrocontrolador = 201')->fetchColumn() === '2020-01-01 00:00:00'
         && (int) $pdo->query("SELECT habilitado FROM accesos WHERE token = 'RestVencido'")->fetchColumn() === 1,
         'La restauración individual alteró un local o campo no seleccionado.');
     $desdeInfo = gmdate('Y-m-d H:i:s');
     $response = $request($embedInfo, $restaurarInfo, post: array_replace($postInfo, [
-        'alcance' => 'todos', 'campos' => ['ultimaApertura', 'cantidadAperturas', 'accesosInservibles'],
+        'alcance' => 'todos', 'campos' => ['ultimaApertura', 'cantidadAperturasExitosas', 'cantidadAperturasFallidas', 'accesosInservibles'],
     ]));
     $hastaInfo = gmdate('Y-m-d H:i:s');
     $aperturasInfo = $pdo->query('SELECT idMicrocontrolador, ultimaApertura FROM microcontroladores
@@ -779,6 +834,8 @@ recFin();
     comprobarStartup($response['status'] === 303
         && str_contains($request($embedInfo, $restaurarInfo)['body'], 'Información restaurada.')
         && $contadoresInfo($pdo) === [201 => 0, 202 => 0, 203 => 9, 204 => 10]
+        && array_map('intval', $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores
+            WHERE idMicrocontrolador BETWEEN 201 AND 204 ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_COLUMN)) === [0, 0, 5, 6]
         && $aperturasInfo[201] >= $desdeInfo && $aperturasInfo[201] <= $hastaInfo
         && $aperturasInfo[202] === $aperturasInfo[201]
         && $aperturasInfo[203] === '2020-01-01 00:00:00' && $aperturasInfo[204] === '2020-01-01 00:00:00'
@@ -786,6 +843,32 @@ recFin();
             'RestFuturo' => 1, 'RestEliminado' => 1, 'RestAjeno' => 1],
         'Restaurar todos no respetó la hora UTC, la vigencia de accesos o el alcance por empresa y local.');
     $pdo->exec("DELETE FROM accesos WHERE token LIKE 'Rest%'");
+    $localApertura = 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado';
+    $formApertura = $request(['id' => '3'], $localApertura);
+    $postApertura = ['csrf' => $csrf($formApertura), 'accion' => 'abrir_puerta'];
+    $antesCancelar = $pdo->query('SELECT cantidadAperturasExitosas, cantidadAperturasFallidas, ultimaApertura
+        FROM microcontroladores WHERE idLocal = 3 ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC);
+    $response = $request(['id' => '3'], $localApertura, post: $postApertura);
+    comprobarStartup($response['status'] === 302, 'No emite la apertura manual con seguimiento.');
+    $solicitudCancelada = [];
+    parse_str((string) parse_url($response['location'], PHP_URL_QUERY), $solicitudCancelada);
+    comprobarStartup($request(['id' => '3'], $localApertura, post: $postApertura)['status'] === 409,
+        'Una segunda apertura pisa el seguimiento de una solicitud pendiente.');
+    $response = $request(['id' => '3'], $localApertura,
+        post: array_replace($postApertura, ['accion' => 'anular_apertura']));
+    comprobarStartup(str_contains($response['body'], 'fue anulada')
+        && $pdo->query('SELECT cantidadAperturasExitosas, cantidadAperturasFallidas, ultimaApertura
+            FROM microcontroladores WHERE idLocal = 3 ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC) === $antesCancelar,
+        'La anulacion manual modifica los contadores o ultima apertura.');
+    $response = $request($solicitudCancelada + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'cancelada',
+        'La pantalla confunde una anulacion manual con una apertura exitosa.');
+    $request(['id' => '3'], $localApertura, post: $postApertura);
+    $response = $request($solicitudCancelada + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'cancelada',
+        'Una pantalla antigua consulta el resultado de otra solicitud.');
+    $request(['id' => '3'], $localApertura,
+        post: array_replace($postApertura, ['accion' => 'anular_apertura']));
     $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador BETWEEN 201 AND 204');
     $pdo->exec('DELETE FROM locales WHERE idLocal = 5');
     $pdo->exec('DELETE FROM empresas_modulos WHERE idEmpresa = 3 AND idModulo IN (1, 2)');

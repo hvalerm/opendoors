@@ -11,7 +11,8 @@ $error = '';
 // Solo dispositivos de apertura de la empresa de la cuenta con sesión iniciada
 try {
     $stmt = getOpenDoorsPDO()->prepare(
-        'SELECT m.idMicrocontrolador AS id_microcontrolador, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, m.cantidadAperturas
+        'SELECT m.idMicrocontrolador AS id_microcontrolador, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local,
+                m.cantidadAperturasExitosas, m.cantidadAperturasFallidas
          FROM microcontroladores m
          INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
          WHERE m.idEmpresa = ?
@@ -62,7 +63,8 @@ try {
                         <h2>Dispositivo de <?= $h($u['nombre_local']) ?></h2>
                         <dl>
                             <div><dt>Local</dt><dd><?= $h($u['nombre_local']) ?></dd></div>
-                            <div><dt>Veces ejecutado</dt><dd><?= (int) $u['cantidadAperturas'] ?></dd></div>
+                            <div><dt>Aperturas exitosas</dt><dd><?= (int) $u['cantidadAperturasExitosas'] ?></dd></div>
+                            <div><dt>Aperturas fallidas</dt><dd><?= (int) $u['cantidadAperturasFallidas'] ?></dd></div>
                             <div class="direccion"><dt>Dirección</dt><dd><?= $h($u['direccion_local']) ?></dd></div>
                         </dl>
                     </article>

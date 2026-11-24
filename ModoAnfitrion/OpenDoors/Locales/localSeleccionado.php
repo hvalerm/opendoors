@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
 require_once __DIR__ . '/../util/db.php';
+require_once __DIR__ . '/../util/aperturas.php';
 requerirSesion();
 
 $idEmpresa = (int) $_SESSION['empresa_id'];
@@ -43,15 +44,25 @@ try {
                 $mensaje = 'El local está deshabilitado.';
                 $esError = true;
             } else {
-                $stmt = getOpenDoorsPDO()->prepare('UPDATE locales SET accionar = 1 WHERE idLocal = ? AND idEmpresa = ?');
-                $stmt->execute([$local['id_local'], $local['id_empresa']]);
-                header('Location: ../puertaAccionada?id=' . $local['id_local'] . ($embed ? '&embed=1' : ''));
+                $pdo = getOpenDoorsPDO();
+                $pdo->beginTransaction();
+                $idSolicitud = emitirSolicitudApertura($pdo, (int) $local['id_local'], $idEmpresa);
+                $pdo->commit();
+                header('Location: ../puertaAccionada?id=' . $local['id_local'] . '&solicitud=' . $idSolicitud . ($embed ? '&embed=1' : ''));
                 exit;
             }
         } elseif (($_POST['accion'] ?? '') === 'anular_apertura') {
-            $stmt = getOpenDoorsPDO()->prepare('UPDATE locales SET accionar = 0 WHERE idLocal = ? AND idEmpresa = ? AND accionar = 1');
-            $stmt->execute([$local['id_local'], $local['id_empresa']]);
-            if ($stmt->rowCount() > 0) {
+            $pdo = getOpenDoorsPDO();
+            $pdo->beginTransaction();
+            $bloqueado = bloquearLocalApertura($pdo, (int) $local['id_local'], $idEmpresa);
+            $ahora = ahoraAperturas($pdo);
+            $solicitud = $bloqueado ? reconciliarSolicitudApertura($pdo, $bloqueado, $ahora) : null;
+            $cancelada = $solicitud && $solicitud['estado'] === 'pendiente';
+            if ($cancelada) {
+                finalizarSolicitudApertura($pdo, $solicitud, ResultadoApertura::Cancelada, $ahora);
+            }
+            $pdo->commit();
+            if ($cancelada) {
                 $mensaje = 'La apertura de puerta fue anulada.';
             } else {
                 $mensaje = 'No hay una apertura pendiente para anular.';
@@ -64,7 +75,17 @@ try {
             $esError = true;
         }
     }
-} catch (PDOException $e) {
+} catch (DomainException $e) {
+    if (isset($pdo) && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    http_response_code(409);
+    $mensaje = $e->getMessage();
+    $esError = true;
+} catch (PDOException | LogicException $e) {
+    if (isset($pdo) && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     error_log('Error en localSeleccionado: ' . $e->getMessage());
     $mensaje = 'No se pudo completar la operación. Inténtalo más tarde.';
     $esError = true;

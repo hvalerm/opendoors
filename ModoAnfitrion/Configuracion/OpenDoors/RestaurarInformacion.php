@@ -8,7 +8,8 @@ $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8
 $embed = isset($_GET['embed']);
 $opciones = [
     'ultimaApertura' => ['Hora de última apertura', 'La fecha y hora se sustituirán por las del restablecimiento.'],
-    'cantidadAperturas' => ['Aperturas calculadas', 'El contador de aperturas de cada dispositivo se pondrá en cero.'],
+    'cantidadAperturasExitosas' => ['Aperturas exitosas', 'El contador de aperturas exitosas de cada dispositivo se pondrá en cero.'],
+    'cantidadAperturasFallidas' => ['Aperturas fallidas', 'El contador de aperturas fallidas de cada dispositivo se pondrá en cero.'],
     'accesosInservibles' => ['Accesos que ya no sirven', 'Se deshabilitarán los accesos vencidos o ya usados. No se borrarán registros.'],
 ];
 $locales = [];
@@ -73,8 +74,12 @@ try {
                         $pdo->prepare('UPDATE microcontroladores SET ultimaApertura = ?' . $filtro)
                             ->execute([$ahora, ...$parametros]);
                     }
-                    if (isset($seleccion['cantidadAperturas'])) {
-                        $pdo->prepare('UPDATE microcontroladores SET cantidadAperturas = 0' . $filtro)
+                    if (isset($seleccion['cantidadAperturasExitosas'])) {
+                        $pdo->prepare('UPDATE microcontroladores SET cantidadAperturasExitosas = 0' . $filtro)
+                            ->execute($parametros);
+                    }
+                    if (isset($seleccion['cantidadAperturasFallidas'])) {
+                        $pdo->prepare('UPDATE microcontroladores SET cantidadAperturasFallidas = 0' . $filtro)
                             ->execute($parametros);
                     }
                     if (isset($seleccion['accesosInservibles'])) {
