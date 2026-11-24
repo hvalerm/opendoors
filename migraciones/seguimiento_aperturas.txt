@@ -7,7 +7,7 @@ Antes del despliegue:
 - La migracion normaliza contadores NULL a cero y fija INT NOT NULL DEFAULT 0.
 - Ejecutar seguimiento_aperturas.sql sobre opendoors. Elimina el antiguo
   trigger de conteo y agrega solicitudes persistentes con vencimiento UTC.
-- El usuario PHP necesita SELECT, INSERT y UPDATE en solicitudes_apertura,
+- El usuario PHP necesita SELECT, INSERT, UPDATE y DELETE en solicitudes_apertura,
   ademas de sus permisos existentes sobre locales y microcontroladores.
 
 El sistema suma un exito y actualiza ultimaApertura en UTC al confirmar
@@ -17,6 +17,11 @@ modifica contadores ni ultimaApertura. Los reintentos no duplican resultados.
 No se emite una segunda orden mientras la anterior siga pendiente.
 Cada pantalla consulta su propia solicitud: un fallo o anulacion no se
 presenta como exito solo porque accionar haya vuelto a cero.
+La primera consulta de la pantalla que obtiene el resultado final elimina
+la solicitud. Las pendientes no se eliminan y los contadores no se modifican.
+Una vez eliminada, ya no se puede volver a consultar el resultado individual.
+Si nadie consulta el resultado, la solicitud finalizada permanece en la BD.
+Si la respuesta se pierde tras eliminarla, no se puede recuperar el resultado.
 
 PROCESO OBLIGATORIO DE VENCIMIENTO
 

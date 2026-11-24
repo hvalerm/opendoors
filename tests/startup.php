@@ -271,6 +271,10 @@ recFin();
         && str_contains($response['body'], 'id="cerrarVentana" hidden')
         && str_contains($response['body'], 'id="avisoCierre" role="status" hidden'),
         'La confirmacion del huesped no ofrece el cierre inicialmente oculto.');
+    $response = $request($confirmacion + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'pendiente'
+        && (int) $pdo->query("SELECT COUNT(*) FROM solicitudes_apertura WHERE estado = 'pendiente'")->fetchColumn() === 1,
+        'Consultar una solicitud pendiente no debe eliminarla.');
     $response = $request(['confirmacion' => 'invalida'], 'ModoAnfitrion/OpenDoors/puertaAccionada.php');
     comprobarStartup(!str_contains($response['body'], 'id="cerrarVentana"'),
         'Una confirmacion invalida muestra el boton de cierre.');
@@ -300,6 +304,13 @@ recFin();
         'Restablecer no limpia la orden o modifica la ultima consulta.');
     comprobarStartup((int) $pdo->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn() === 1,
         'La confirmacion no incrementa aperturas exitosas sin trigger.');
+    $response = $request($confirmacion, 'ModoAnfitrion/OpenDoors/puertaAccionada');
+    comprobarStartup(str_contains($response['body'], '"estado":"exitosa"')
+        && (int) $pdo->query("SELECT COUNT(*) FROM solicitudes_apertura WHERE estado = 'exitosa'")->fetchColumn() === 0,
+        'La pantalla inicial no entrega y elimina la solicitud exitosa.');
+    $response = $request($confirmacion + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'sin_solicitud',
+        'Una solicitud exitosa ya consultada no debe poder consultarse de nuevo.');
     $request([], $restore, post: $credencial);
     comprobarStartup((int) $pdo->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn() === 1,
         'El reintento de confirmacion duplica el contador.');
@@ -333,7 +344,13 @@ recFin();
         fclose($pipes[2]);
         comprobarStartup(proc_close($worker) === 0, "Fallo del procesador: $salida $error");
     };
+    $pdo->exec("INSERT INTO solicitudes_apertura
+        (idSolicitud, idLocal, idEmpresa, estado, solicitadaEn, venceEn, finalizadaEn) VALUES
+        ('sin-consultar', NULL, 1, 'exitosa', datetime('now', '-2 days'), datetime('now', '-2 days'), datetime('now', '-25 hours'))");
     $ejecutarVencimientos();
+    comprobarStartup((int) $pdo->query("SELECT COUNT(*) FROM solicitudes_apertura
+        WHERE idSolicitud = 'sin-consultar'")->fetchColumn() === 1,
+        'El procesador no debe eliminar solicitudes finalizadas que no se han consultado.');
     $ejecutarVencimientos();
     comprobarStartup($orden() === 0
         && array_map('intval', $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores
@@ -344,6 +361,9 @@ recFin();
     $response = $request($permisoFallido + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
     comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'fallida',
         'La pantalla confunde el restablecimiento por fallo con un exito.');
+    $response = $request($permisoFallido + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'sin_solicitud',
+        'Una solicitud fallida ya consultada no debe poder consultarse de nuevo.');
     $request([], $restore, post: $credencial);
     comprobarStartup($pdo->query('SELECT cantidadAperturasExitosas, ultimaApertura FROM microcontroladores
         WHERE idMicrocontrolador IN (10, 11) ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC) === $exitosAntesFallo,
@@ -865,8 +885,10 @@ recFin();
         'La pantalla confunde una anulacion manual con una apertura exitosa.');
     $request(['id' => '3'], $localApertura, post: $postApertura);
     $response = $request($solicitudCancelada + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
-    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'cancelada',
-        'Una pantalla antigua consulta el resultado de otra solicitud.');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'sin_solicitud'
+        && (int) $pdo->query("SELECT COUNT(*) FROM solicitudes_apertura
+            WHERE idLocal = 3 AND estado = 'pendiente'")->fetchColumn() === 1,
+        'Una pantalla antigua consulta o elimina la solicitud nueva.');
     $request(['id' => '3'], $localApertura,
         post: array_replace($postApertura, ['accion' => 'anular_apertura']));
     $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador BETWEEN 201 AND 204');

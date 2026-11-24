@@ -63,6 +63,15 @@ function estadoAperturaLocal(array $local, mixed $idSolicitud): array
             $stmt->execute([$idSolicitud, $local['idLocal'], $local['idEmpresa']]);
             $solicitud = $stmt->fetch() ?: null;
         }
+        if ($solicitud && $solicitud['estado'] !== 'pendiente') {
+            $stmt = $pdo->prepare("DELETE FROM solicitudes_apertura
+                WHERE idSolicitud = ? AND idLocal = ? AND idEmpresa = ?
+                AND estado IN ('exitosa', 'fallida', 'cancelada')");
+            $stmt->execute([$solicitud['idSolicitud'], $local['idLocal'], $local['idEmpresa']]);
+            if ($stmt->rowCount() !== 1) {
+                throw new LogicException('No se pudo eliminar la solicitud finalizada.');
+            }
+        }
         $pdo->commit();
         $restante = $solicitud && $solicitud['estado'] === 'pendiente'
             ? max(0, strtotime($solicitud['venceEn'] . ' UTC') - strtotime($ahora . ' UTC')) : 0;
