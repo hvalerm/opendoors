@@ -32,7 +32,7 @@ que la politica de reinicio del despliegue pueda reiniciarlo.
 Fuera de Docker (incluido XAMPP), ejecutar permanentemente, con las mismas
 variables DB_* del servidor web:
 
-php ModoAnfitrion\OpenDoors\util\procesar_aperturas.php
+php Modulos\OpenDoors\Nucleo\util\procesar_aperturas.php
 
 Configurar su inicio automatico y reinicio ante errores en el gestor de
 servicios del servidor. Comprueba los vencimientos cada segundo incluso
@@ -41,7 +41,7 @@ pendientes al arrancar. Las API tambien revisan el plazo antes de confirmar.
 Sin este proceso no se garantiza el registro puntual si no llegan peticiones.
 
 Para una ejecucion puntual o un planificador externo:
-php ModoAnfitrion\OpenDoors\util\procesar_aperturas.php --una-vez
+php Modulos\OpenDoors\Nucleo\util\procesar_aperturas.php --una-vez
 
 Una programacion cada minuto no garantiza el limite de 30 segundos.
 El proceso no debe publicarse por HTTP. Su directorio util esta bloqueado.

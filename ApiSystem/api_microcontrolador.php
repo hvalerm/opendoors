@@ -1,4 +1,2 @@
 <?php
-require_once __DIR__ . '/../util/api_dispositivo.php';
-
-atenderDispositivo(OperacionDispositivo::Consulta);
+require __DIR__ . '/../Modulos/OpenDoors/Nucleo/ApiSystem/api_microcontrolador.php';

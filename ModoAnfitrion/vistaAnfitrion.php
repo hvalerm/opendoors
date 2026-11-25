@@ -22,76 +22,58 @@ try {
     exit('No se pudieron cargar los módulos. Inténtalo más tarde.');
 }
 
-$tieneOpenDoors = false;
-foreach ($modulos as $modulo) {
-    if (strcasecmp(trim($modulo['nombreModulo']), 'OpenDoors') === 0) {
-        $tieneOpenDoors = true;
-        break;
-    }
-}
-
-// Locales de la empresa a la que pertenece la cuenta (sin los eliminados)
-$itemsLocales = [];
-if ($tieneOpenDoors) {
-    require_once __DIR__ . '/OpenDoors/util/db.php';
-    try {
-        $stmt = getOpenDoorsPDO()->prepare(
-            'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local
-             FROM locales l
-             WHERE l.idEmpresa = ? AND l.eliminado = 0
-             ORDER BY l.nombreLocal, l.idLocal'
-        );
-        $stmt->execute([(int) $_SESSION['empresa_id']]);
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $local) {
-            $itemsLocales[] = [$local['nombre_local'], null, 'OpenDoors/Locales/localSeleccionado?id=' . $local['id_local'], 'local-' . $local['id_local']];
-        }
-    } catch (PDOException $e) {
-        error_log('No se pudieron cargar los locales: ' . $e->getMessage());
-        http_response_code(503);
-        exit('No se pudieron cargar los lugares. Intentalo mas tarde.');
-    }
-}
-
-// Menú: [título, icono, hijos]. Hijo: [título, hijos, página, clave, icono SVG, lista de locales dinámica]; '-' es un separador.
+// Menú: [título, icono, hijos]. Hijo: [título, hijos, página, clave, icono SVG, mensaje vacío, ID de lista].
 $menu = [];
-$iconoOpenDoors = 'M5 3h14v18H5zm9 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2z';
-$iconoLocales = 'M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z';
-if ($tieneOpenDoors) {
-    $menu[] = [$nombreWeb, $iconoOpenDoors, [
-        ['Dashboard', null, 'OpenDoors/Dashboard/resumen', 'dashboard', 'M3 3h8v10H3zm10 0h8v6h-8zM3 15h8v6H3zm10-4h8v10h-8z'],
-        ['Lugares', $itemsLocales, null, 'locales', $iconoLocales, true],
-        ['Accesos', [
-            ['Crear', null, 'OpenDoors/Accesos/SeleccionarLocalAcceso'], ['Listar (y editar)', null, 'OpenDoors/Accesos/listarAccesos', 'listar'], ['Habilitar/Deshabilitar', null, 'OpenDoors/Accesos/busquedaAccesoRevocar', 'revocar'],
-        ], null, 'accesos', 'M12.65 10A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'],
-        ['Dispositivos', [
-            ['Ver estado', null, 'OpenDoors/Microcontroladores/verEstado'], ['Ver actividad', null, 'OpenDoors/Microcontroladores/verActividad'],
-        ], null, 'dispositivos-de-apertura', 'M6 6h12v12H6zM9 9v6h6V9zM7 3h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2zM7 18h2v3H7zm4 0h2v3h-2zm4 0h2v3h-2z'],
-    ]];
-}
 $itemsConfiguracion = [];
+$scriptsModulos = [];
+$definicionesModulos = [];
+$noDisponibles = [];
 $iconoModulo = 'M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z';
-$iconoGestalo = 'M2 4h2v9h7V8h7a4 4 0 0 1 4 4v8h-2v-3H4v3H2zM5 10a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0z';
+$carpetasModulos = scandir(__DIR__ . '/../Modulos');
+if ($carpetasModulos === false) {
+    error_log('No se pudo leer el directorio de módulos.');
+    http_response_code(503);
+    exit('No se pudieron cargar los módulos. Inténtalo más tarde.');
+}
 foreach ($modulos as $modulo) {
     $nombreModulo = $modulo['nombreModulo'];
-    $tipoModulo = strtolower(trim($nombreModulo));
     $claveModulo = 'modulo-' . (int) $modulo['idModulo'];
-    if ($tipoModulo !== 'opendoors') {
-        $menu[] = [$nombreModulo, $iconoModulo, [], null, $claveModulo];
-    }
-    if ($tipoModulo === 'opendoors' || $tipoModulo === 'gestalo') {
-        $opcionesModulo = [
-            ['Lugares', null, $tipoModulo === 'opendoors' ? 'Configuracion/OpenDoors/locales.php' : null, 'locales', $iconoLocales],
+    $archivo = __DIR__ . '/../Modulos/' . $nombreModulo . '/menuLateral.php';
+    if ($nombreModulo === '.' || $nombreModulo === '..' || preg_match('~[\\\\/\x00-\x1f\x7f]~', $nombreModulo)
+        || !in_array($nombreModulo, $carpetasModulos, true) || !is_file($archivo)) {
+        error_log('Módulo habilitado sin menú disponible: ' . $nombreModulo);
+        $noDisponibles[$claveModulo] = true;
+        $noDisponibles['configuracion/' . $claveModulo] = true;
+        $definicionesModulos[] = [
+            'principal' => [$nombreModulo, $iconoModulo, [], null, $claveModulo],
+            'configuracion' => [$nombreModulo, null, null, $claveModulo, $iconoModulo],
         ];
-        if ($tipoModulo === 'opendoors') {
-            $opcionesModulo[] = ['Restaurar información', null, 'Configuracion/OpenDoors/RestaurarInformacion.php', 'restaurar-informacion',
-                'M12 5a7 7 0 1 1-6.7 9H3.2A9 9 0 1 0 5 6.4V3H3v7h7V8H6.3A7 7 0 0 1 12 5z'];
+        continue;
+    }
+    try {
+        $construirMenu = require $archivo;
+        if (!is_callable($construirMenu)) {
+            throw new UnexpectedValueException('El archivo de menú no devuelve una función.');
         }
-        $itemsConfiguracion[] = [$nombreModulo, $opcionesModulo, null, $tipoModulo, $tipoModulo === 'gestalo' ? $iconoGestalo : $iconoOpenDoors];
-    } else {
-        $itemsConfiguracion[] = [$nombreModulo, null, null, $claveModulo, $iconoModulo];
+        $definicion = $construirMenu($modulo, $nombreWeb);
+        if (!is_array($definicion) || !isset($definicion['principal'], $definicion['configuracion'])) {
+            throw new UnexpectedValueException('Definición de menú incompleta.');
+        }
+        $definicionesModulos[] = $definicion;
+    } catch (PDOException | UnexpectedValueException $e) {
+        error_log('No se pudo cargar el módulo ' . $nombreModulo . ': ' . $e->getMessage());
+        http_response_code(503);
+        exit('No se pudo cargar el módulo. Inténtalo más tarde.');
     }
 }
-usort($itemsConfiguracion, fn(array $a, array $b): int => ($a[3] !== 'opendoors') <=> ($b[3] !== 'opendoors'));
+usort($definicionesModulos, fn(array $a, array $b): int => ($a['prioridad'] ?? 1) <=> ($b['prioridad'] ?? 1));
+foreach ($definicionesModulos as $definicion) {
+    $menu[] = $definicion['principal'];
+    $itemsConfiguracion[] = $definicion['configuracion'];
+    if (isset($definicion['script'])) {
+        $scriptsModulos[] = $definicion['script'];
+    }
+}
 $menu[] = ['Configuración', 'M3 5h4V3h2v2h12v2H9v2H7V7H3zM3 11h12V9h2v2h4v2h-4v2h-2v-2H3zM3 17h6v-2h2v2h10v2H11v2H9v-2H3z', $itemsConfiguracion, null, 'configuracion'];
 $menu[] = ['Soporte', 'M12 2a10 10 0 0 0-10 10v6h6v-8H4a8 8 0 0 1 16 0h-4v8h4a4 4 0 0 1-4 4h-4v2h4a6 6 0 0 0 6-6v-6A10 10 0 0 0 12 2z', [
     ['Contacto'], ['Enviar Correo'],
@@ -122,12 +104,13 @@ function renderItems(array $items, string $prefix, array $labels, int $depth, ar
         $icono = !empty($item[4])
             ? '<svg class="ico" viewBox="0 0 24 24" fill-rule="evenodd" aria-hidden="true"><path d="' . $h($item[4]) . '"/></svg>'
             : '';
-        $listaLocales = $item[5] ?? false;
-        if ($listaLocales || !empty($item[1])) {
+        $listaDinamica = $item[5] ?? null;
+        if ($listaDinamica !== null || !empty($item[1])) {
             $abierto = str_starts_with($actual, $clave . '/');
-            $atributoLista = $listaLocales ? ' data-locales-opendoors="' . $h($clave) . '"' : '';
-            $contenido = $listaLocales && !$item[1]
-                ? '<li class="sub-vacio">Sin lugares</li>'
+            $atributoLista = $listaDinamica !== null
+                ? ' data-lista-modulo="' . $h($clave) . '" data-lista-id="' . $h($item[6] ?? '') . '"' : '';
+            $contenido = $listaDinamica !== null && !$item[1]
+                ? '<li class="sub-vacio">' . $h($listaDinamica) . '</li>'
                 : renderItems($item[1], $clave, $ruta, $depth + 1, $validas, $actual, $h);
             $out .= '<li class="group' . ($abierto ? ' open' : '') . '"><button type="button" class="item-btn" ' . $pad . ' aria-expanded="' . ($abierto ? 'true' : 'false') . '">'
                 . $icono
@@ -307,32 +290,18 @@ if (!isset($validas[$actual])) {
             <section class="panel">
                 <?php if ($actual): ?>
                     <h2><?= $h(implode(' › ', $validas[$actual])) ?></h2>
-                    <p>Sección en construcción.</p>
+                    <p><?= isset($noDisponibles[$actual]) ? 'Módulo no disponible.' : 'Sección en construcción.' ?></p>
                 <?php else: ?>
                     <h2>Bienvenido, <?= $h($usuario['nombre']) ?></h2>
                     <p>Selecciona una opción del menú lateral.</p>
                     <ul class="guia">
-                        <?php if ($tieneOpenDoors): ?>
-                        <li>🚪 <b><?= $h($nombreWeb) ?></b> — <span>Administra tu alojamiento desde un solo lugar.</span>
-                            <ul>
-                                <li>📊 <b>Dashboard</b> — <span>Lo importante de tu negocio de un vistazo.</span></li>
-                                <li>🏠 <b>Lugares</b> — <span>Mira los datos y abre cada local desde aquí.</span></li>
-                                <li>🔑 <b>Accesos</b> — <span>Las llaves digitales para tus huéspedes.</span>
-                                    <ul>
-                                        <li><b>Crear</b> — <span>Genera un enlace de acceso para un huésped.</span></li>
-                                        <li><b>Listar (y editar)</b> — <span>Consulta y edita los accesos y revisa si ya se usaron.</span></li>
-                                        <li><b>Habilitar/Deshabilitar</b> — <span>Controla si un acceso está habilitado para usarse.</span></li>
-                                    </ul>
-                                </li>
-                                <?php endif; ?>
-                                <li>📟 <b>Dispositivos</b> — <span>Los equipos que abren tus puertas.</span>
-                                    <ul>
-                                        <li><b>Ver estado</b> — <span>Mira cuáles están conectados (Activo) o caídos (Inactivo).</span></li>
-                                        <li><b>Ver actividad</b> — <span>Cuenta cuántas veces se ha abierto cada puerta.</span></li>
-                                    </ul>
-                                </li>
-                            </ul>
-                        </li>
+                        <?php foreach ($definicionesModulos as $moduloGuia): ?>
+                            <?php if (isset($moduloGuia['guia'])): ?>
+                                <?php require $moduloGuia['guia']; ?>
+                            <?php else: ?>
+                                <li><b><?= $h($moduloGuia['principal'][0]) ?></b></li>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
                         <li>⚙️ <b>Configuración</b> — <span>Despliega los módulos asignados a tu empresa en el menú lateral.</span></li>
                         <li>🎧 <b>Soporte</b> — <span>Estamos aquí para ayudarte.</span>
                             <ul>
@@ -347,41 +316,11 @@ if (!isset($validas[$actual])) {
         </main>
     </div>
 
+    <?php foreach ($scriptsModulos as $scriptModulo): ?>
+    <script src="<?= $h($scriptModulo) ?>"></script>
+    <?php endforeach; ?>
     <script>
         var body = document.body;
-
-        <?php if ($actual === 'configuracion/opendoors/locales'): ?>
-        window.addEventListener('message', function (evento) {
-            var marco = document.querySelector('iframe.embebida');
-            if (evento.origin !== window.location.origin || evento.source !== marco?.contentWindow
-                || evento.data?.tipo !== 'locales-opendoors-actualizados' || !Array.isArray(evento.data.locales)) return;
-
-            var lista = document.querySelector('[data-locales-opendoors]');
-            if (!lista) return;
-            var locales = evento.data.locales;
-            if (!locales.every(local => Number.isSafeInteger(local?.id) && local.id > 0 && typeof local.nombre === 'string')) return;
-
-            var filas = locales.map(function (local) {
-                var fila = document.createElement('li');
-                var enlace = document.createElement('a');
-                var etiqueta = document.createElement('span');
-                enlace.href = '?seccion=' + lista.dataset.localesOpendoors + '/local-' + local.id;
-                enlace.style.setProperty('--d', '2');
-                etiqueta.className = 'label';
-                etiqueta.textContent = local.nombre;
-                enlace.append(etiqueta);
-                fila.append(enlace);
-                return fila;
-            });
-            if (!filas.length) {
-                var vacio = document.createElement('li');
-                vacio.className = 'sub-vacio';
-                vacio.textContent = 'Sin lugares';
-                filas.push(vacio);
-            }
-            lista.replaceChildren(...filas);
-        });
-        <?php endif; ?>
 
         document.querySelector('nav').addEventListener('click', function (e) {
             var btn = e.target.closest('.item-btn');

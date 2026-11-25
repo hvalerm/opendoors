@@ -1,7 +1,7 @@
 <?php
-require_once __DIR__ . '/../../../util/verificar.php';
+require_once __DIR__ . '/../../../../util/verificar.php';
 require_once __DIR__ . '/../util/db.php';
-require_once __DIR__ . '/../../../util/vigencia_accesos.php';
+require_once __DIR__ . '/../util/vigencia_accesos.php';
 $soloDispositivos = ($_GET['datos'] ?? '') === 'dispositivos';
 if ($soloDispositivos) {
     header('Cache-Control: no-store');

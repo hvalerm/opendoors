@@ -62,7 +62,7 @@ try {
         'DB_NAME_EMPRESAS' => $db, 'DB_NAME_OPENDOORS' => $dbPuertas] as $nombre => $valor) {
         putenv("$nombre=$valor");
     }
-    require_once $root . '/ModoAnfitrion/OpenDoors/util/db.php';
+    require_once $root . '/Modulos/OpenDoors/Nucleo/util/db.php';
     comprobar(!function_exists('getPDO'), 'La conexion de OpenDoors depende de la conexion general.');
     $puertas = getOpenDoorsPDO();
     require_once $root . DIRECTORY_SEPARATOR . 'util' . DIRECTORY_SEPARATOR . 'db.php';

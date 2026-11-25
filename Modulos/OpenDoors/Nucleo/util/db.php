@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../../util/conexion_mysql.php';
+require_once __DIR__ . '/../../../../util/conexion_mysql.php';
 
 define('DB_NAME_OPENDOORS', getenv('DB_NAME_OPENDOORS'));
 

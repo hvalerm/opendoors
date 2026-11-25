@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../../util/verificar.php';
+require_once __DIR__ . '/../../../../util/verificar.php';
 require_once __DIR__ . '/../util/db.php';
 $soloDatos = ($_GET['datos'] ?? '') === '1';
 if ($soloDatos) {

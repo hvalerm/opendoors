@@ -1,19 +1,18 @@
 <?php
 require_once __DIR__ . '/../../../util/verificar.php';
 require_once __DIR__ . '/../../../util/db.php';
-require_once __DIR__ . '/../../OpenDoors/util/db.php';
+require_once __DIR__ . '/../Nucleo/util/db.php';
 
 function empresaConfiguracionLocales(): ?int
 {
     $idEmpresa = (int) $_SESSION['empresa_id'];
     $stmt = getPDO()->prepare(
-        'SELECT 1 FROM empresas_modulos em
+        'SELECT m.nombreModulo FROM empresas_modulos em
          INNER JOIN modulos m ON m.idModulo = em.idModulo
-         WHERE em.idEmpresa = ? AND em.habilitado = 1 AND LOWER(TRIM(m.nombreModulo)) = ?
-         LIMIT 1'
+         WHERE em.idEmpresa = ? AND em.habilitado = 1'
     );
-    $stmt->execute([$idEmpresa, 'opendoors']);
-    return $stmt->fetchColumn() ? $idEmpresa : null;
+    $stmt->execute([$idEmpresa]);
+    return in_array('OpenDoors', $stmt->fetchAll(PDO::FETCH_COLUMN), true) ? $idEmpresa : null;
 }
 
 function datosLocalesConfiguracion(PDO $pdo, int $idEmpresa, ?int $idLocal = null): array

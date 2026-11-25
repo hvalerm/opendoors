@@ -49,7 +49,7 @@ try {
         'DB_PASS' => '', 'DB_NAME_OPENDOORS' => $base] as $nombre => $valor) {
         putenv("$nombre=$valor");
     }
-    require_once $root . '/ModoAnfitrion/OpenDoors/util/aperturas.php';
+    require_once $root . '/Modulos/OpenDoors/Nucleo/util/aperturas.php';
     $pdo = getOpenDoorsPDO();
     $contadores = fn() => $pdo->query('SELECT * FROM microcontroladores ORDER BY idMicrocontrolador')->fetchAll();
     $estado = function (string $id) use ($pdo): string {
@@ -94,7 +94,7 @@ try {
 
     // Dos procesos que observan el mismo cambio deben contabilizarlo solo una vez.
     $pdo->exec('UPDATE locales SET accionar = 0 WHERE idLocal = 1');
-    $script = $root . '/ModoAnfitrion/OpenDoors/util/procesar_aperturas.php';
+    $script = $root . '/Modulos/OpenDoors/Nucleo/util/procesar_aperturas.php';
     for ($i = 0; $i < 6; $i++) {
         $proceso = proc_open([PHP_BINARY, $script, '--una-vez'],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);

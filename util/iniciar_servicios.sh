@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-php /var/www/html/ModoAnfitrion/OpenDoors/util/procesar_aperturas.php &
+php /var/www/html/Modulos/OpenDoors/Nucleo/util/procesar_aperturas.php &
 aperturas_pid=$!
 apache2-foreground &
 apache_pid=$!

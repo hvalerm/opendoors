@@ -1,9 +1,14 @@
 RewriteEngine On
 
-RewriteRule ^ModoAnfitrion/OpenDoors/util(?:/|$) - [F,END]
+RewriteRule ^ModoAnfitrion/OpenDoors/util(?:/|$) - [F,END,NC]
+RewriteRule ^Modulos/[^/]+/(?:(?:menuLateral|guia)\.php(?:/|$)|Nucleo/util(?:/|$)) - [F,END,NC]
+RewriteRule ^Modulos/README\.txt$ - [F,END,NC]
+
+# URLs anteriores conservadas mientras la implementación reside en Modulos.
+RewriteRule ^ModoAnfitrion/OpenDoors/((?:puertaAccionada|Dashboard/resumen|Locales/localSeleccionado|Microcontroladores/(?:verEstado|verActividad)|Accesos/(?:CrearAccesoLocal|SeleccionarLocalAcceso|busquedaAccesoRevocar|listarAccesos|localSeleccionado|revocarAcceso|vetanaDelAcceso)))(?:\.php)?$ Modulos/OpenDoors/Nucleo/$1.php [END]
+RewriteRule ^ModoAnfitrion/Configuracion/OpenDoors/((?:locales|configuracionLocal|RestaurarInformacion)\.php|locales\.css)$ Modulos/OpenDoors/Configuracion/$1 [END]
 
 # Alias internos: conservan los enlaces antiguos, el método HTTP y los datos de la petición.
 RewriteRule ^(index|login|logout|licencia_expirada|accesoPuerta|recuperar_password|verificar_codigo|nueva_password)$ $1.php [END]
 RewriteRule ^(Startup/startup|ModoAnfitrion/vistaAnfitrion)$ $1.php [END]
-RewriteRule ^(ModoAnfitrion/OpenDoors/(?:puertaAccionada|Dashboard/resumen|Locales/localSeleccionado|Microcontroladores/(?:verEstado|verActividad)|Accesos/(?:CrearAccesoLocal|SeleccionarLocalAcceso|busquedaAccesoRevocar|listarAccesos|localSeleccionado|revocarAcceso|vetanaDelAcceso)))$ $1.php [END]
 RewriteRule ^(ApiSystem/(?:api_board|api_microcontrolador|api_restore|ordenDeApertura_porLinkAcceso))$ $1.php [END]

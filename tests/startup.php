@@ -34,23 +34,31 @@ function cifrarStartup(string $value): string
 try {
     foreach (['Startup/startup.php', 'Startup/configuracionInicial.php', 'accesoPuerta.php', 'util/enc.php',
         'util/verificar.php', 'util/seguridad.php', 'util/recuperar_comun.php', 'util/DatosWeb.php', 'util/contacto.php',
-        'util/api_dispositivo.php', 'util/vigencia_accesos.php', 'ApiSystem/api_board.php', 'ApiSystem/api_microcontrolador.php',
+        'ApiSystem/api_board.php', 'ApiSystem/api_microcontrolador.php',
         'ApiSystem/api_restore.php', 'ApiSystem/ordenDeApertura_porLinkAcceso.php',
-        'ModoAnfitrion/vistaAnfitrion.php', 'ModoAnfitrion/OpenDoors/puertaAccionada.php',
-        'ModoAnfitrion/OpenDoors/util/aperturas.php', 'ModoAnfitrion/OpenDoors/util/procesar_aperturas.php',
-        'ModoAnfitrion/Configuracion/OpenDoors/comunLocales.php',
-        'ModoAnfitrion/Configuracion/OpenDoors/locales.php',
-        'ModoAnfitrion/Configuracion/OpenDoors/configuracionLocal.php',
-        'ModoAnfitrion/Configuracion/OpenDoors/RestaurarInformacion.php',
-        'ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php',
-        'ModoAnfitrion/OpenDoors/Microcontroladores/verActividad.php',
-        'ModoAnfitrion/OpenDoors/Dashboard/resumen.php',
-        'ModoAnfitrion/OpenDoors/Locales/localSeleccionado.php',
-        'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal.php',
-        'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php',
-        'ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php',
-        'ModoAnfitrion/OpenDoors/Accesos/busquedaAccesoRevocar.php',
-        'ModoAnfitrion/OpenDoors/Accesos/revocarAcceso.php'] as $file) {
+        'ModoAnfitrion/vistaAnfitrion.php', 'Modulos/OpenDoors/menuLateral.php', 'Modulos/OpenDoors/guia.php',
+        'Modulos/OpenDoors/menuLateral.js', 'Modulos/GESTALO/menuLateral.php',
+        'Modulos/OpenDoors/Nucleo/accesoPuerta.php', 'Modulos/OpenDoors/Nucleo/puertaAccionada.php',
+        'Modulos/OpenDoors/Nucleo/util/api_dispositivo.php',
+        'Modulos/OpenDoors/Nucleo/ApiSystem/api_board.php', 'Modulos/OpenDoors/Nucleo/ApiSystem/api_microcontrolador.php',
+        'Modulos/OpenDoors/Nucleo/ApiSystem/api_restore.php', 'Modulos/OpenDoors/Nucleo/ApiSystem/ordenDeApertura_porLinkAcceso.php',
+        'Modulos/OpenDoors/Nucleo/util/aperturas.php', 'Modulos/OpenDoors/Nucleo/util/vigencia_accesos.php',
+        'Modulos/OpenDoors/Nucleo/util/procesar_aperturas.php',
+        'Modulos/OpenDoors/Configuracion/comunLocales.php',
+        'Modulos/OpenDoors/Configuracion/locales.php', 'Modulos/OpenDoors/Configuracion/locales.css',
+        'Modulos/OpenDoors/Configuracion/configuracionLocal.php',
+        'Modulos/OpenDoors/Configuracion/RestaurarInformacion.php',
+        'Modulos/OpenDoors/Nucleo/Microcontroladores/verEstado.php',
+        'Modulos/OpenDoors/Nucleo/Microcontroladores/verActividad.php',
+        'Modulos/OpenDoors/Nucleo/Dashboard/resumen.php',
+        'Modulos/OpenDoors/Nucleo/Locales/localSeleccionado.php',
+        'Modulos/OpenDoors/Nucleo/Accesos/SeleccionarLocalAcceso.php',
+        'Modulos/OpenDoors/Nucleo/Accesos/localSeleccionado.php',
+        'Modulos/OpenDoors/Nucleo/Accesos/CrearAccesoLocal.php',
+        'Modulos/OpenDoors/Nucleo/Accesos/vetanaDelAcceso.php',
+        'Modulos/OpenDoors/Nucleo/Accesos/listarAccesos.php',
+        'Modulos/OpenDoors/Nucleo/Accesos/busquedaAccesoRevocar.php',
+        'Modulos/OpenDoors/Nucleo/Accesos/revocarAcceso.php'] as $file) {
         if (!is_dir(dirname($tmp . '/' . $file))) {
             mkdir(dirname($tmp . '/' . $file), 0777, true);
         }
@@ -64,23 +72,23 @@ try {
         ["'Puertas & <Prueba>'", "'servicios'", "'entrada'"],
         $datosWeb
     ));
-    $vistaDispositivos = $tmp . '/ModoAnfitrion/OpenDoors/Microcontroladores/verEstado.php';
+    $vistaDispositivos = $tmp . '/Modulos/OpenDoors/Nucleo/Microcontroladores/verEstado.php';
     file_put_contents($vistaDispositivos, str_replace(
         'TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP())',
         'CAST(strftime("%s", "now") - strftime("%s", m.ultimaConsulta) AS INTEGER)',
         file_get_contents($vistaDispositivos)
     ));
-    $vistaDashboard = $tmp . '/ModoAnfitrion/OpenDoors/Dashboard/resumen.php';
+    $vistaDashboard = $tmp . '/Modulos/OpenDoors/Nucleo/Dashboard/resumen.php';
     file_put_contents($vistaDashboard, str_replace(
         'TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP())',
         'CAST(strftime("%s", "now") - strftime("%s", m.ultimaConsulta) AS INTEGER)',
         file_get_contents($vistaDashboard)
     ));
-    $apiDispositivo = $tmp . '/util/api_dispositivo.php';
+    $apiDispositivo = $tmp . '/Modulos/OpenDoors/Nucleo/util/api_dispositivo.php';
     file_put_contents($apiDispositivo, str_replace(
         ['FOR UPDATE', 'UTC_TIMESTAMP()'], ['', 'CURRENT_TIMESTAMP'], file_get_contents($apiDispositivo)
     ));
-    $seguimiento = $tmp . '/ModoAnfitrion/OpenDoors/util/aperturas.php';
+    $seguimiento = $tmp . '/Modulos/OpenDoors/Nucleo/util/aperturas.php';
     file_put_contents($seguimiento, str_replace(
         ['FOR UPDATE', 'UTC_TIMESTAMP()'], ['', 'CURRENT_TIMESTAMP'], file_get_contents($seguimiento)
     ));
@@ -97,8 +105,8 @@ function getPDO(): PDO {
     }
     return $pdo;
 }');
-    file_put_contents($tmp . '/ModoAnfitrion/OpenDoors/util/db.php', '<?php
-require_once __DIR__ . "/../../../util/db.php";
+    file_put_contents($tmp . '/Modulos/OpenDoors/Nucleo/util/db.php', '<?php
+require_once __DIR__ . "/../../../../util/db.php";
 function getOpenDoorsPDO(): PDO {
     return getPDO();
 }');
@@ -332,7 +340,7 @@ recFin();
         WHERE idMicrocontrolador IN (10, 11) ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC);
     $pdo->exec("UPDATE solicitudes_apertura SET venceEn = datetime('now', '-1 second') WHERE estado = 'pendiente'");
     $ejecutarVencimientos = function () use ($tmp): void {
-        $worker = proc_open([PHP_BINARY, $tmp . '/ModoAnfitrion/OpenDoors/util/procesar_aperturas.php', '--una-vez'],
+        $worker = proc_open([PHP_BINARY, $tmp . '/Modulos/OpenDoors/Nucleo/util/procesar_aperturas.php', '--una-vez'],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($worker)) {
             throw new RuntimeException('No se pudo iniciar el procesador de aperturas.');
@@ -679,6 +687,39 @@ recFin();
     comprobarStartup(!str_contains($response['body'], '<iframe')
         && str_contains($response['body'], '<strong>Administrar Alojamiento</strong>'),
         'Muestra una seccion del menu OpenDoors sin el modulo asignado.');
+    $sinCarpeta = $request(['seccion' => 'modulo-3'], $panel);
+    comprobarStartup(str_contains($sinCarpeta['body'], 'Módulo no disponible.'),
+        'Un módulo habilitado sin carpeta debe mostrarse como no disponible.');
+    mkdir($tmp . '/Modulos/ModuloPrueba/Nucleo', 0777, true);
+    file_put_contents($tmp . '/Modulos/ModuloPrueba/menuLateral.php', <<<'PHP'
+<?php
+return static fn(array $modulo, string $nombreWeb): array => [
+    'principal' => ['ModuloPrueba', 'M0 0', [['Prueba', null, '../Modulos/ModuloPrueba/Nucleo/pagina.php', 'prueba']], null, 'modulo-prueba'],
+    'configuracion' => ['ModuloPrueba', [['Ajustes', null, null, 'ajustes']], null, 'modulo-prueba', 'M0 0'],
+];
+PHP);
+    file_put_contents($tmp . '/Modulos/ModuloPrueba/Nucleo/pagina.php', '<?php echo "Modulo funcional";');
+    $pdo->exec("INSERT INTO modulos VALUES (4, 'ModuloPrueba')");
+    $pdo->exec('INSERT INTO empresas_modulos (idEmpresa, idModulo, habilitado) VALUES (3, 4, 1)');
+    $response = $request(['seccion' => 'modulo-prueba/prueba'], $panel);
+    comprobarStartup(str_contains($response['body'], 'src="../Modulos/ModuloPrueba/Nucleo/pagina.php?embed=1"')
+        && str_contains($response['body'], 'configuracion/modulo-prueba/ajustes')
+        && $request([], 'Modulos/ModuloPrueba/Nucleo/pagina.php')['body'] === 'Modulo funcional',
+        'Un módulo nuevo habilitado no carga sus menús y página sin cambios en vistaAnfitrion.');
+    $pdo->exec('UPDATE empresas_modulos SET habilitado = 0 WHERE idEmpresa = 3 AND idModulo = 4');
+    comprobarStartup(!str_contains($request([], $panel)['body'], 'modulo-prueba/prueba'),
+        'Un módulo deshabilitado aparece en el menú.');
+    $pdo->exec("UPDATE modulos SET nombreModulo = 'moduloprueba' WHERE idModulo = 4");
+    $pdo->exec('UPDATE empresas_modulos SET habilitado = 1 WHERE idEmpresa = 3 AND idModulo = 4');
+    $response = $request(['seccion' => 'modulo-4'], $panel);
+    comprobarStartup(str_contains($response['body'], 'Módulo no disponible.')
+        && !str_contains($response['body'], 'modulo-prueba/prueba'),
+        'La carpeta del módulo debe coincidir exactamente, incluidas mayúsculas.');
+    $pdo->exec('DELETE FROM empresas_modulos WHERE idEmpresa = 3 AND idModulo = 4');
+    $pdo->exec('DELETE FROM modulos WHERE idModulo = 4');
+    comprobarStartup($request([], 'Modulos/OpenDoors/menuLateral.php')['status'] === 403
+        && $request([], 'Modulos/OpenDoors/Nucleo/util/db.php')['status'] === 403,
+        'Los archivos internos del módulo no deben publicarse por HTTP.');
     $response = $request(['seccion' => 'configuracion/opendoors/locales'], $panel);
     $listaConfig = 'ModoAnfitrion/Configuracion/OpenDoors/locales.php';
     $editarConfig = 'ModoAnfitrion/Configuracion/OpenDoors/configuracionLocal.php';
@@ -687,9 +728,16 @@ recFin();
         && $request(['id' => '3'], $editarConfig)['status'] === 403,
         'Abre la configuración de Locales con OpenDoors deshabilitado.');
     $pdo->exec('UPDATE empresas_modulos SET habilitado = 1 WHERE idEmpresa = 3 AND idModulo = 1');
+    $pdo->exec("UPDATE modulos SET nombreModulo = 'opendoors' WHERE idModulo = 1");
+    comprobarStartup($request([], $listaConfig)['status'] === 403
+        && str_contains($request(['seccion' => 'modulo-1'], $panel)['body'], 'Módulo no disponible.'),
+        'La configuración y el menú deben respetar las mayúsculas del nombre del módulo.');
+    $pdo->exec("UPDATE modulos SET nombreModulo = 'OpenDoors' WHERE idModulo = 1");
     $response = $request([], $panel);
     comprobarStartup(str_contains($response['body'], '<path d="M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z"/></svg><span class="label">Lugares</span>')
-        && str_contains($response['body'], '<b>Lugares</b>'),
+        && str_contains($response['body'], '<b>Lugares</b>')
+        && str_contains($response['body'], '<script src="../Modulos/OpenDoors/menuLateral.js"></script>')
+        && str_contains($request([], 'Modulos/OpenDoors/menuLateral.js')['body'], 'data-lista-id="opendoors-lugares"'),
         'El menú principal debe mostrar Lugares con su icono original.');
     preg_match('~<span class="label">Configuración</span>(.*?)<span class="label">Soporte</span>~s', $response['body'], $bloque);
     $submenu = $bloque[1] ?? '';
@@ -771,7 +819,7 @@ recFin();
         'El guardado no vuelve al listado embebido o no refleja los cambios con una confirmación única.');
     $panelLocales = $request(['seccion' => 'configuracion/opendoors/locales'], $panel);
     comprobarStartup($leerLocalesMenu($lista) === [['id' => 4, 'nombre' => 'Local <especial>']]
-        && str_contains($panelLocales['body'], 'data-locales-opendoors="puertas-prueba/locales"')
+        && str_contains($panelLocales['body'], 'data-lista-modulo="puertas-prueba/locales"')
         && !str_contains($panelLocales['body'], 'seccion=puertas-prueba/locales/local-3'),
         'El local eliminado no debe aparecer en el menú lateral ni en su actualización embebida.');
     $restauradoConfig = $request(['id' => '3'], $editarConfig, post: [
@@ -1001,7 +1049,7 @@ recFin();
         && $pdo->query("SELECT activoDesde FROM accesos WHERE idAcceso = $idAcceso")->fetchColumn() === '2000-01-01 19:05:06',
         'Cambiar la zona debe cambiar lo mostrado sin mover la vigencia.');
 
-    require_once dirname(__DIR__) . '/util/vigencia_accesos.php';
+    require_once dirname(__DIR__) . '/Modulos/OpenDoors/Nucleo/util/vigencia_accesos.php';
     comprobarStartup(fechaAccesoEnUtc('2026-03-08T02:30', 'America/New_York') === null
         && fechaAccesoEnUtc('2026-11-01T01:30', 'America/New_York') === null
         && fechaAccesoEnUtc('2026-11-01T02:30', 'America/New_York') === '2026-11-01 07:30:00',

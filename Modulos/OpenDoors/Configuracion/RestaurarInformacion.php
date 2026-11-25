@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/comunLocales.php';
-require_once __DIR__ . '/../../../util/vigencia_accesos.php';
+require_once __DIR__ . '/../Nucleo/util/vigencia_accesos.php';
 requerirSesion();
 header('Cache-Control: no-store');
 
