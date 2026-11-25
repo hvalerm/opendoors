@@ -638,6 +638,7 @@ recFin();
     $panel = 'ModoAnfitrion/vistaAnfitrion';
     $response = $request([], $panel);
     comprobarStartup($response['status'] === 200
+        && str_contains($response['body'], '<strong>Administrar Alojamiento</strong>')
         && !str_contains($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>')
         && !str_contains($response['body'], '<span class="label">GESTALO</span>')
         && str_contains($response['body'], '<span class="label">Soporte</span>'),
@@ -652,6 +653,7 @@ recFin();
         'La configuracion de cuenta no aparece antes de cerrar sesion.');
     $response = $request(['seccion' => 'configuracion-cuenta'], $panel);
     comprobarStartup($response['status'] === 200
+        && str_contains($response['body'], '<strong>Configuración de cuenta</strong>')
         && str_contains($response['body'], '<h2>Configuración de cuenta</h2>'),
         'El enlace no abre la seccion de configuracion de cuenta.');
     $sinModulos = $request([], $panel);
@@ -669,11 +671,13 @@ recFin();
         && !str_contains($response['body'], '<span class="label">Puertas &amp; &lt;Prueba&gt;</span>'),
         'No muestra exclusivamente los modulos habilitados o no escapa sus nombres.');
     $response = $request(['seccion' => 'modulo-2'], $panel);
-    comprobarStartup(str_contains($response['body'], '<h2>GESTALO</h2>')
+    comprobarStartup(str_contains($response['body'], '<strong>GESTALO</strong>')
+        && str_contains($response['body'], '<h2>GESTALO</h2>')
         && str_contains($response['body'], 'Sección en construcción.'),
         'El modulo sin pagina no muestra su seccion en construccion.');
     $response = $request(['seccion' => 'puertas-prueba/dashboard'], $panel);
-    comprobarStartup(!str_contains($response['body'], '<iframe'),
+    comprobarStartup(!str_contains($response['body'], '<iframe')
+        && str_contains($response['body'], '<strong>Administrar Alojamiento</strong>'),
         'Muestra una seccion del menu OpenDoors sin el modulo asignado.');
     $response = $request(['seccion' => 'configuracion/opendoors/locales'], $panel);
     $listaConfig = 'ModoAnfitrion/Configuracion/OpenDoors/locales.php';
@@ -708,6 +712,7 @@ recFin();
         'Configuración también debe ofrecer los demás módulos asignados.');
     $response = $request(['seccion' => 'configuracion/opendoors/locales'], $panel);
     comprobarStartup($response['status'] === 200
+        && str_contains($response['body'], '<strong>Configuración › OpenDoors › Lugares</strong>')
         && str_contains($response['body'], 'src="Configuracion/OpenDoors/locales.php?embed=1"'),
         'El enlace Locales no abre su sección dentro de Configuración.');
     $lista = $request(['embed' => '1'], $listaConfig);
@@ -795,14 +800,22 @@ recFin();
         && str_contains($response['body'], '<span class="label">Local del anfitrion</span>'),
         'No muestra OpenDoors con sus opciones antes de los demas modulos.');
     $response = $request(['seccion' => 'puertas-prueba/accesos/revocar'], $panel);
-    comprobarStartup(str_contains($response['body'], 'OpenDoors/Accesos/busquedaAccesoRevocar?embed=1'),
+    comprobarStartup(str_contains($response['body'], '<strong>Puertas &amp; &lt;Prueba&gt; › Accesos › Habilitar/Deshabilitar</strong>')
+        && str_contains($response['body'], 'OpenDoors/Accesos/busquedaAccesoRevocar?embed=1'),
         'El menu de habilitacion no conserva la ruta de la seccion.');
     $response = $request(['seccion' => 'puertas-prueba/accesos/listar'], $panel);
     comprobarStartup(str_contains($response['body'], 'OpenDoors/Accesos/listarAccesos?embed=1'),
         'El menu de listado no conserva la ruta de la seccion.');
     $response = $request(['seccion' => 'puertas-prueba/dashboard'], $panel);
-    comprobarStartup(str_contains($response['body'], 'OpenDoors/Dashboard/resumen?embed=1'),
+    comprobarStartup(str_contains($response['body'], '<strong>Puertas &amp; &lt;Prueba&gt; › Dashboard</strong>')
+        && str_contains($response['body'], 'OpenDoors/Dashboard/resumen?embed=1'),
         'La seccion de OpenDoors asignada no carga su pagina.');
+    $response = $request(['seccion' => 'puertas-prueba/locales/local-4'], $panel);
+    comprobarStartup(str_contains($response['body'], '<strong>Puertas &amp; &lt;Prueba&gt; › Lugares › Local &lt;especial&gt;</strong>'),
+        'El título no muestra la ruta del lugar seleccionado de forma segura.');
+    $response = $request(['seccion' => 'soporte/contacto'], $panel);
+    comprobarStartup(str_contains($response['body'], '<strong>Soporte › Contacto</strong>'),
+        'El título no identifica la sección de soporte.');
     $restaurarInfo = 'ModoAnfitrion/Configuracion/OpenDoors/RestaurarInformacion.php';
     $embedInfo = ['embed' => '1'];
     $response = $request(['seccion' => 'configuracion/opendoors/restaurar-informacion'], $panel);

@@ -20,7 +20,7 @@ CREATE TABLE solicitudes_apertura (
   idLocal int NOT NULL,
   idEmpresa int NOT NULL,
   estado enum('pendiente', 'exitosa', 'fallida', 'cancelada') NOT NULL,
-  solicitadaEn datetime NOT NULL,
+  solicitadaEn datetime NOT NULL, -- Esto es lo más importante, agregar a tabla locales para registrar cuándo se solicita la apertura y determinar en la api de consulta si ya expiro el timepo para que determine que hacer la api, si mostrar accionar o realizar el proceso de descarte.
   venceEn datetime NOT NULL,
   finalizadaEn datetime NULL,
   KEY ix_solicitudes_estado_vencimiento (estado, venceEn),

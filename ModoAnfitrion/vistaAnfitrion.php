@@ -234,6 +234,7 @@ if (!isset($validas[$actual])) {
 
         .main { margin-left: 260px; transition: margin-left .25s ease; }
         .topbar { display: flex; align-items: center; gap: 14px; padding: 14px 24px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+        .topbar strong { min-width: 0; overflow-wrap: anywhere; }
         .toggle { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; }
         .toggle:hover { background: #e8eef2; }
         .toggle svg { width: 24px; height: 24px; fill: #34444f; display: block; }
@@ -297,7 +298,7 @@ if (!isset($validas[$actual])) {
             <button type="button" class="toggle" id="btnToggle" aria-label="Mostrar u ocultar menú">
                 <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
             </button>
-            <strong>Administrar Alojamiento</strong>
+            <strong><?= $h($actual !== '' ? implode(' › ', $validas[$actual]) : 'Administrar Alojamiento') ?></strong>
         </header>
         <main class="content">
             <?php if ($actual && isset($paginas[$actual])): ?>
