@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/aperturas.php';
-require_once __DIR__ . '/../../../../util/enc.php';
+require_once __DIR__ . '/../../../../util/Seguridad/enc.php';
 
 enum OperacionDispositivo
 {

@@ -1,6 +1,6 @@
 <?php
 // Piezas comunes de las pantallas de recuperación de contraseña.
-require_once __DIR__ . '/DatosWeb.php';
+require_once __DIR__ . '/../Configuracion/DatosWeb.php';
 
 const REC_CODIGO_MINUTOS = 5;
 const REC_VERIFICADO_MINUTOS = 10;

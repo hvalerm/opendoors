@@ -9,7 +9,7 @@ RUN a2enmod headers rewrite \
  && printf '<Directory /var/www/html>\n    Options +FollowSymLinks -MultiViews\n    AllowOverrideList RewriteEngine RewriteRule\n</Directory>\n' >> /etc/apache2/conf-available/seguridad.conf \
  && a2enconf seguridad \
  && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
- && sed -i 's/\r$//' /var/www/html/util/iniciar_servicios.sh \
+ && sed -i 's/\r$//' /var/www/html/util/Servicios/iniciar_servicios.sh \
  && printf 'expose_php=Off\ndisplay_errors=Off\nlog_errors=On\nsession.use_strict_mode=1\nsession.cookie_httponly=1\n' > "$PHP_INI_DIR/conf.d/zz-seguridad.ini"
 EXPOSE 80
-CMD ["bash", "/var/www/html/util/iniciar_servicios.sh"]
+CMD ["bash", "/var/www/html/util/Servicios/iniciar_servicios.sh"]

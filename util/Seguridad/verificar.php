@@ -1,9 +1,9 @@
 <?php
 // Verificación de la sesión del usuario.
-// Uso: require_once __DIR__ . '/../util/verificar.php'; requerirSesion();
+// Uso: require_once __DIR__ . '/../util/Seguridad/verificar.php'; requerirSesion();
 
 const SESION_INACTIVIDAD_MAX = 1800; // 30 minutos
-require_once __DIR__ . '/DatosWeb.php';
+require_once __DIR__ . '/../Configuracion/DatosWeb.php';
 define('URL_LOGIN', $urlLogin);
 require_once __DIR__ . '/seguridad.php';
 
@@ -73,7 +73,7 @@ function haySesionActiva(bool $registrarActividad = true): bool
         return false;
     }
 
-    require_once __DIR__ . '/db.php';
+    require_once __DIR__ . '/../BaseDatos/db.php';
     try {
         $empresa = empresaUnicaCuenta(getPDO(), (int) $_SESSION['usuario_id']);
     } catch (DomainException $e) {

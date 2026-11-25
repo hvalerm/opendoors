@@ -1,13 +1,13 @@
 <?php
 date_default_timezone_set('America/Guayaquil');
-require_once __DIR__ . '/seguridad.php';
+require_once __DIR__ . '/../Seguridad/seguridad.php';
 
 define('DB_HOST', getenv('DB_HOST'));
 define('DB_PORT', getenv('DB_PORT'));
 define('DB_USER', getenv('DB_USER'));
 define('DB_PASS', getenv('DB_PASS'));
 define('DB_CHARSET', 'utf8mb4');
-define('DB_SSL_CA', __DIR__ . '/ca.pem');
+define('DB_SSL_CA', dirname(__DIR__) . '/ca.pem');
 
 function crearConexionPDO(string $nombre, string $zonaHoraria): PDO
 {

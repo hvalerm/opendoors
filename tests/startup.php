@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
-require $root . '/util/DatosWeb.php';
+require $root . '/util/Configuracion/DatosWeb.php';
 $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'opendoors_startup_' . bin2hex(random_bytes(6));
 mkdir($tmp);
 mkdir($tmp . '/Startup');
@@ -32,8 +32,10 @@ function cifrarStartup(string $value): string
 }
 
 try {
-    foreach (['Startup/startup.php', 'Startup/configuracionInicial.php', 'accesoPuerta.php', 'util/enc.php',
-        'util/verificar.php', 'util/seguridad.php', 'util/recuperar_comun.php', 'util/DatosWeb.php', 'util/contacto.php',
+    foreach (['Startup/startup.php', 'Startup/configuracionInicial.php', 'accesoPuerta.php',
+        'util/Seguridad/enc.php', 'util/Seguridad/verificar.php', 'util/Seguridad/seguridad.php',
+        'util/Cuentas/recuperar_comun.php',
+        'util/Configuracion/DatosWeb.php', 'util/Soporte/contacto.php', 'util/BaseDatos/db.php',
         'ApiSystem/api_board.php', 'ApiSystem/api_microcontrolador.php',
         'ApiSystem/api_restore.php', 'ApiSystem/ordenDeApertura_porLinkAcceso.php',
         'ModoAnfitrion/vistaAnfitrion.php', 'Modulos/OpenDoors/menuLateral.php', 'Modulos/OpenDoors/guia.php',
@@ -66,8 +68,8 @@ try {
     }
     $datosWeb = preg_replace('/^\$urlBase\s*=\s*[^;]+;/m',
         "\$urlBase = 'https://puertas.example.test/instalacion/';",
-        file_get_contents($tmp . '/util/DatosWeb.php'), 1);
-    file_put_contents($tmp . '/util/DatosWeb.php', str_replace(
+        file_get_contents($tmp . '/util/Configuracion/DatosWeb.php'), 1);
+    file_put_contents($tmp . '/util/Configuracion/DatosWeb.php', str_replace(
         [var_export($nombreWeb, true), var_export($rutaApi, true), var_export($rutaAccesoPuerta, true)],
         ["'Puertas & <Prueba>'", "'servicios'", "'entrada'"],
         $datosWeb
@@ -92,12 +94,12 @@ try {
     file_put_contents($seguimiento, str_replace(
         ['FOR UPDATE', 'UTC_TIMESTAMP()'], ['', 'CURRENT_TIMESTAMP'], file_get_contents($seguimiento)
     ));
-    file_put_contents($tmp . '/util/db.php', '<?php
-require_once __DIR__ . "/seguridad.php";
+    file_put_contents($tmp . '/util/BaseDatos/db.php', '<?php
+require_once __DIR__ . "/../Seguridad/seguridad.php";
 function getPDO(): PDO {
     static $pdo;
     if (!$pdo) {
-        $pdo = new PDO("sqlite:" . __DIR__ . "/../test.sqlite", null, null, [
+        $pdo = new PDO("sqlite:" . __DIR__ . "/../../test.sqlite", null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
@@ -106,7 +108,7 @@ function getPDO(): PDO {
     return $pdo;
 }');
     file_put_contents($tmp . '/Modulos/OpenDoors/Nucleo/util/db.php', '<?php
-require_once __DIR__ . "/../../../../util/db.php";
+require_once __DIR__ . "/../../../../util/BaseDatos/db.php";
 function getOpenDoorsPDO(): PDO {
     return getPDO();
 }');
@@ -117,17 +119,17 @@ if (($_SERVER["HTTP_X_STARTUP_TEST_MODE"] ?? "") === "sin-clave") putenv("OPENDO
 return require __DIR__ . "/routerRutas.php";
 ');
     file_put_contents($tmp . '/sesion.php', '<?php
-require __DIR__ . "/util/verificar.php";
+require __DIR__ . "/util/Seguridad/verificar.php";
 iniciarSesionSegura();
 header("Content-Type: application/json");
 echo json_encode($_SESSION);
 ');
     file_put_contents($tmp . '/protegida.php', '<?php
-require __DIR__ . "/util/verificar.php";
+require __DIR__ . "/util/Seguridad/verificar.php";
 requerirSesion();
 ');
     file_put_contents($tmp . '/recuperacion.php', '<?php
-require __DIR__ . "/util/recuperar_comun.php";
+require __DIR__ . "/util/Cuentas/recuperar_comun.php";
 recInicio("Recuperar", "Prueba");
 recFin();
 ');

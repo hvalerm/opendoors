@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/util/db.php';
-require_once __DIR__ . '/../../../util/DatosWeb.php';
+require_once __DIR__ . '/../../../util/Configuracion/DatosWeb.php';
 require_once __DIR__ . '/util/vigencia_accesos.php';
 
 header('Cache-Control: no-store');

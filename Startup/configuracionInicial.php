@@ -7,9 +7,9 @@ if (!isset($idEmpresa) || !is_int($idEmpresa) || $idEmpresa <= 0) {
     exit('Solicitud no encontrada');
 }
 
-require_once __DIR__ . '/../util/db.php';
-require_once __DIR__ . '/../util/verificar.php';
-require_once __DIR__ . '/../util/recuperar_comun.php';
+require_once __DIR__ . '/../util/BaseDatos/db.php';
+require_once __DIR__ . '/../util/Seguridad/verificar.php';
+require_once __DIR__ . '/../util/Cuentas/recuperar_comun.php';
 iniciarSesionSegura();
 header('Referrer-Policy: no-referrer');
 header('X-Robots-Tag: noindex, nofollow');

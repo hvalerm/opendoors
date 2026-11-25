@@ -3,7 +3,7 @@
 // Variables de entorno: RESEND_API_KEY (obligatoria) y RESEND_FROM (opcional).
 // Sin RESEND_FROM se usa onboarding@resend.dev, que solo entrega al correo dueño de la cuenta de Resend;
 // para enviar a cualquier destinatario hay que verificar un dominio en Resend y usar un remitente de ese dominio.
-require_once __DIR__ . '/DatosWeb.php';
+require_once __DIR__ . '/../Configuracion/DatosWeb.php';
 
 function smtpConfigurado(): bool
 {

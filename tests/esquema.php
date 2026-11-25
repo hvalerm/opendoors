@@ -65,7 +65,7 @@ try {
     require_once $root . '/Modulos/OpenDoors/Nucleo/util/db.php';
     comprobar(!function_exists('getPDO'), 'La conexion de OpenDoors depende de la conexion general.');
     $puertas = getOpenDoorsPDO();
-    require_once $root . DIRECTORY_SEPARATOR . 'util' . DIRECTORY_SEPARATOR . 'db.php';
+    require_once $root . DIRECTORY_SEPARATOR . 'util' . DIRECTORY_SEPARATOR . 'BaseDatos' . DIRECTORY_SEPARATOR . 'db.php';
     $pdo = getPDO();
     $migracionAperturas = file($root . '/migraciones/seguimiento_aperturas.sql');
     $sqlAperturas = implode('', array_filter($migracionAperturas, fn($linea) => !str_starts_with($linea, '--')));
@@ -162,7 +162,7 @@ try {
         copy($file->getPathname(), $target);
     }
     $mailFile = $tmp . DIRECTORY_SEPARATOR . 'mail.txt';
-    file_put_contents($app . DIRECTORY_SEPARATOR . 'util' . DIRECTORY_SEPARATOR . 'correo.php',
+    file_put_contents($app . DIRECTORY_SEPARATOR . 'util' . DIRECTORY_SEPARATOR . 'Correo' . DIRECTORY_SEPARATOR . 'correo.php',
         "<?php\nfunction smtpConfigurado(): bool { return true; }\n"
         . 'function enviarCorreo($destino, $asunto, $texto): bool { file_put_contents('
         . var_export($mailFile, true) . ', $texto); return true; }');
@@ -240,7 +240,7 @@ try {
             'csrf' => $csrf($request('login.php'))]);
     };
 
-    require_once $root . DIRECTORY_SEPARATOR . 'util' . DIRECTORY_SEPARATOR . 'intentos_login.php';
+    require_once $root . DIRECTORY_SEPARATOR . 'util' . DIRECTORY_SEPARATOR . 'Seguridad' . DIRECTORY_SEPARATOR . 'intentos_login.php';
     comprobar(registrarFallo($pdo, 'fallo@example.test') === LOGIN_MAX_INTENTOS - 1, 'No registra el primer fallo.');
     for ($i = 1; $i < LOGIN_MAX_INTENTOS; $i++) registrarFallo($pdo, 'fallo@example.test');
     comprobar(segundosBloqueado($pdo, 'fallo@example.test') > 0, 'No bloquea los intentos de login.');

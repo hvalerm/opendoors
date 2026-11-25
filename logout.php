@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/util/verificar.php';
+require_once __DIR__ . '/util/Seguridad/verificar.php';
 
 // Solo por POST con token CSRF, para que otro sitio no pueda cerrar la sesión
 iniciarSesionSegura();

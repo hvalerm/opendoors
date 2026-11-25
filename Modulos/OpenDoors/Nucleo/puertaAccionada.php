@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/../../../util/verificar.php';
-require_once __DIR__ . '/../../../util/db.php';
+require_once __DIR__ . '/../../../util/Seguridad/verificar.php';
+require_once __DIR__ . '/../../../util/BaseDatos/db.php';
 require_once __DIR__ . '/util/db.php';
 require_once __DIR__ . '/util/aperturas.php';
-require_once __DIR__ . '/../../../util/contacto.php';
+require_once __DIR__ . '/../../../util/Soporte/contacto.php';
 
 header('Cache-Control: no-store');
 header('Referrer-Policy: no-referrer');

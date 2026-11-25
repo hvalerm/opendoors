@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/aperturas.php';
-require_once __DIR__ . '/../../../../util/verificar.php';
+require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 
 header('Content-Type: application/json; charset=utf-8');
