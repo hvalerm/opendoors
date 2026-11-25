@@ -22,7 +22,7 @@ try {
 } catch (PDOException $e) {
     error_log('Error al listar locales en Configuración: ' . $e->getMessage());
     http_response_code(503);
-    $error = 'No se pudieron cargar los locales. Inténtalo más tarde.';
+    $error = 'No se pudieron cargar los lugares. Inténtalo más tarde.';
 }
 session_write_close();
 ?>
@@ -31,20 +31,20 @@ session_write_close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Locales | Configuración de OpenDoors</title>
+    <title>Lugares | Configuración de OpenDoors</title>
     <link rel="icon" type="image/png" href="../../../img/OpenDoors.png">
     <link rel="stylesheet" href="locales.css">
 </head>
 <body<?= $embed ? ' class="embebida"' : '' ?>>
     <main class="panel">
-        <h1>Configuración › OpenDoors › Locales</h1>
+        <h1>Configuración › OpenDoors › Lugares</h1>
         <?php if ($guardado): ?>
             <p class="aviso" role="status">Cambios guardados.</p>
         <?php endif; ?>
         <?php if ($error !== ''): ?>
             <p class="aviso error" role="alert"><?= $h($error) ?></p>
         <?php elseif (!$locales): ?>
-            <p>Tu empresa no tiene locales registrados.</p>
+            <p>Tu empresa no tiene lugares registrados.</p>
         <?php else: ?>
             <p class="intro">Selecciona un local para editar su configuración.</p>
             <div class="tarjetas">

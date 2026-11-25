@@ -19,7 +19,7 @@ try {
     $locales = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en SeleccionarLocalAcceso: ' . $e->getMessage());
-    $error = 'No se pudieron cargar los locales. Inténtalo más tarde.';
+    $error = 'No se pudieron cargar los lugares. Inténtalo más tarde.';
 }
 ?>
 <!DOCTYPE html>
@@ -58,7 +58,7 @@ try {
         <?php if ($error): ?>
             <p class="vacio"><?= $h($error) ?></p>
         <?php elseif (!$locales): ?>
-            <p class="vacio">Tu empresa no tiene locales registrados.</p>
+            <p class="vacio">Tu empresa no tiene lugares registrados.</p>
         <?php else: ?>
             <div class="filtros">
                 <div>
@@ -114,7 +114,7 @@ try {
                     if (ok) visibles++;
                 });
                 sinResultados.hidden = visibles !== 0;
-                contador.textContent = visibles + ' de ' + datos.length + ' locales';
+                contador.textContent = visibles + ' de ' + datos.length + ' lugares';
             }
 
             fNombre.addEventListener('input', filtrar);

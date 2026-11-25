@@ -48,7 +48,7 @@ if ($tieneOpenDoors) {
     } catch (PDOException $e) {
         error_log('No se pudieron cargar los locales: ' . $e->getMessage());
         http_response_code(503);
-        exit('No se pudieron cargar los locales. Intentalo mas tarde.');
+        exit('No se pudieron cargar los lugares. Intentalo mas tarde.');
     }
 }
 
@@ -59,7 +59,7 @@ $iconoLocales = 'M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z';
 if ($tieneOpenDoors) {
     $menu[] = [$nombreWeb, $iconoOpenDoors, [
         ['Dashboard', null, 'OpenDoors/Dashboard/resumen', 'dashboard', 'M3 3h8v10H3zm10 0h8v6h-8zM3 15h8v6H3zm10-4h8v10h-8z'],
-        ['Locales', $itemsLocales, null, 'locales', $iconoLocales, true],
+        ['Lugares', $itemsLocales, null, 'locales', $iconoLocales, true],
         ['Accesos', [
             ['Crear', null, 'OpenDoors/Accesos/SeleccionarLocalAcceso'], ['Listar (y editar)', null, 'OpenDoors/Accesos/listarAccesos', 'listar'], ['Habilitar/Deshabilitar', null, 'OpenDoors/Accesos/busquedaAccesoRevocar', 'revocar'],
         ], null, 'accesos', 'M12.65 10A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'],
@@ -80,7 +80,7 @@ foreach ($modulos as $modulo) {
     }
     if ($tipoModulo === 'opendoors' || $tipoModulo === 'gestalo') {
         $opcionesModulo = [
-            ['Locales', null, $tipoModulo === 'opendoors' ? 'Configuracion/OpenDoors/locales.php' : null, 'locales', $iconoLocales],
+            ['Lugares', null, $tipoModulo === 'opendoors' ? 'Configuracion/OpenDoors/locales.php' : null, 'locales', $iconoLocales],
         ];
         if ($tipoModulo === 'opendoors') {
             $opcionesModulo[] = ['Restaurar información', null, 'Configuracion/OpenDoors/RestaurarInformacion.php', 'restaurar-informacion',
@@ -127,7 +127,7 @@ function renderItems(array $items, string $prefix, array $labels, int $depth, ar
             $abierto = str_starts_with($actual, $clave . '/');
             $atributoLista = $listaLocales ? ' data-locales-opendoors="' . $h($clave) . '"' : '';
             $contenido = $listaLocales && !$item[1]
-                ? '<li class="sub-vacio">Sin locales</li>'
+                ? '<li class="sub-vacio">Sin lugares</li>'
                 : renderItems($item[1], $clave, $ruta, $depth + 1, $validas, $actual, $h);
             $out .= '<li class="group' . ($abierto ? ' open' : '') . '"><button type="button" class="item-btn" ' . $pad . ' aria-expanded="' . ($abierto ? 'true' : 'false') . '">'
                 . $icono
@@ -315,7 +315,7 @@ if (!isset($validas[$actual])) {
                         <li>🚪 <b><?= $h($nombreWeb) ?></b> — <span>Administra tu alojamiento desde un solo lugar.</span>
                             <ul>
                                 <li>📊 <b>Dashboard</b> — <span>Lo importante de tu negocio de un vistazo.</span></li>
-                                <li>🏠 <b>Locales</b> — <span>Mira los datos y abre cada local desde aquí.</span></li>
+                                <li>🏠 <b>Lugares</b> — <span>Mira los datos y abre cada local desde aquí.</span></li>
                                 <li>🔑 <b>Accesos</b> — <span>Las llaves digitales para tus huéspedes.</span>
                                     <ul>
                                         <li><b>Crear</b> — <span>Genera un enlace de acceso para un huésped.</span></li>
@@ -375,7 +375,7 @@ if (!isset($validas[$actual])) {
             if (!filas.length) {
                 var vacio = document.createElement('li');
                 vacio.className = 'sub-vacio';
-                vacio.textContent = 'Sin locales';
+                vacio.textContent = 'Sin lugares';
                 filas.push(vacio);
             }
             lista.replaceChildren(...filas);

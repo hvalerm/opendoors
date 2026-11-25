@@ -83,7 +83,7 @@ session_write_close();
 </head>
 <body<?= $embed ? ' class="embebida"' : '' ?>>
     <main class="panel panel-edicion">
-        <a class="volver" href="<?= $h($listaUrl) ?>">← Volver a Locales</a>
+        <a class="volver" href="<?= $h($listaUrl) ?>">← Volver a Lugares</a>
         <h1>Configurar local</h1>
         <?php if ($error !== ''): ?>
             <p class="aviso error" role="alert"><?= $h($error) ?></p>

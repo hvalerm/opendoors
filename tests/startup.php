@@ -558,6 +558,7 @@ recFin();
     $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = '2025-01-02 12:00:00' WHERE idMicrocontrolador = 101");
     $resumen = $request([], $dashboard);
     comprobarStartup($resumen['status'] === 200
+        && str_contains($resumen['body'], '<div class="t">Lugares habilitados</div>')
         && str_contains($resumen['body'], '<h2>Dispositivo(s) de local(es)</h2>')
         && str_contains($resumen['body'], '<th>Local</th><th>Estado</th><th>Última consulta</th><th>Última apertura</th>')
         && str_contains($resumen['body'], '<td>Local del anfitrion (Asia/Tokyo)</td>')
@@ -658,7 +659,7 @@ recFin();
         && !str_contains($sinModulos['body'], 'href="?seccion=configuracion"'),
         'Configuración debe desplegarse sin navegar incluso cuando no hay módulos.');
     $response = $request(['seccion' => 'configuracion/gestalo/locales'], $panel);
-    comprobarStartup(!str_contains($response['body'], '<h2>Configuración › GESTALO › Locales</h2>'),
+    comprobarStartup(!str_contains($response['body'], '<h2>Configuración › GESTALO › Lugares</h2>'),
         'Abre la configuración de Locales sin tener GESTALO asignado.');
     $pdo->exec('INSERT INTO empresas_modulos (idEmpresa, idModulo, habilitado) VALUES (3, 1, 0), (3, 2, 1), (3, 3, 1)');
     $response = $request([], $panel);
@@ -683,6 +684,9 @@ recFin();
         'Abre la configuración de Locales con OpenDoors deshabilitado.');
     $pdo->exec('UPDATE empresas_modulos SET habilitado = 1 WHERE idEmpresa = 3 AND idModulo = 1');
     $response = $request([], $panel);
+    comprobarStartup(str_contains($response['body'], '<path d="M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z"/></svg><span class="label">Lugares</span>')
+        && str_contains($response['body'], '<b>Lugares</b>'),
+        'El menú principal debe mostrar Lugares con su icono original.');
     preg_match('~<span class="label">Configuración</span>(.*?)<span class="label">Soporte</span>~s', $response['body'], $bloque);
     $submenu = $bloque[1] ?? '';
     $posOpenDoorsConfig = strpos($submenu, '<span class="label">OpenDoors</span>');
@@ -696,7 +700,7 @@ recFin();
     foreach (['OpenDoors' => 'opendoors', 'GESTALO' => 'gestalo'] as $nombre => $clave) {
         comprobarStartup(preg_match('~<button[^>]*aria-expanded="false"[^>]*><svg class="ico"[^>]*><path d="[^"]+"/></svg><span class="label">' . $nombre
             . '</span>(?:(?!</button>).)*</button><div class="sub"><ul><li><a href="\?seccion=configuracion/' . $clave
-            . '/locales"[^>]*><svg class="ico"[^>]*><path d="[^"]+"/></svg><span class="label">Locales</span>~s', $submenu) === 1,
+            . '/locales"[^>]*><svg class="ico"[^>]*><path d="M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z"/></svg><span class="label">Lugares</span>~s', $submenu) === 1,
             'Configuración debe desplegar ' . $nombre . ' con su imagen y el submenú Locales con su icono.');
     }
     comprobarStartup(str_contains($submenu, 'href="?seccion=configuracion/modulo-3"')
@@ -709,6 +713,7 @@ recFin();
     $lista = $request(['embed' => '1'], $listaConfig);
     $empresaConfig = htmlspecialchars($pdo->query('SELECT nombreEmpresa FROM empresas WHERE idEmpresa = 3')->fetchColumn(), ENT_QUOTES, 'UTF-8');
     comprobarStartup($lista['status'] === 200
+        && str_contains($lista['body'], '<h1>Configuración › OpenDoors › Lugares</h1>')
         && str_contains($lista['body'], 'href="configuracionLocal.php?id=3&amp;embed=1"')
         && str_contains($lista['body'], '<h2>Local del anfitrion</h2>')
         && str_contains($lista['body'], '<dt>Dirección</dt><dd>Direccion del anfitrion</dd>')
@@ -726,7 +731,7 @@ recFin();
         && str_contains($formConfig['body'], '<option value="America/Guayaquil" selected>')
         && str_contains($formConfig['body'], 'id="nombreEmpresa" value="' . $empresaConfig . '" readonly')
         && str_contains($formConfig['body'], '<option value="0" selected>No</option>')
-        && str_contains($formConfig['body'], 'href="locales.php?embed=1"'),
+        && str_contains($formConfig['body'], 'href="locales.php?embed=1">← Volver a Lugares</a>'),
         'El formulario no precarga el local seleccionado o pierde la navegación embebida.');
     $cambiosConfig = [
         'csrf' => $csrf($formConfig), 'nombreLocal' => 'Casa & Mar', 'direccionLocal' => 'Calle 123',
@@ -777,7 +782,7 @@ recFin();
     ], 'El local restaurado debe volver a incluirse en la actualización del menú lateral.');
     $response = $request(['seccion' => 'configuracion/gestalo/locales'], $panel);
     comprobarStartup($response['status'] === 200
-        && str_contains($response['body'], '<h2>Configuración › GESTALO › Locales</h2>')
+        && str_contains($response['body'], '<h2>Configuración › GESTALO › Lugares</h2>')
         && str_contains($response['body'], 'href="?seccion=configuracion/gestalo/locales" style="--d:2" class="active"'),
         'El enlace Locales de GESTALO no abre su propia sección dentro de Configuración.');
     $response = $request([], $panel);
@@ -819,7 +824,7 @@ recFin();
         ('RestAjeno', 1, 1, '2000-01-01 00:00:00', '2000-02-01 00:00:00', 0)");
     $formInfo = $request($embedInfo, $restaurarInfo);
     comprobarStartup($formInfo['status'] === 200
-        && str_contains($formInfo['body'], '<option value="todos" selected>Todos los locales no eliminados</option>')
+        && str_contains($formInfo['body'], '<option value="todos" selected>Todos los lugares no eliminados</option>')
         && !str_contains($formInfo['body'], 'Selecciona un local o todos')
         && str_contains($formInfo['body'], '<option value="3">Local del anfitrion</option>')
         && !str_contains($formInfo['body'], 'Local eliminado de prueba') && !str_contains($formInfo['body'], 'Local de prueba'),

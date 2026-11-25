@@ -216,7 +216,7 @@ try {
             </div>
 
             <div class="tarjetas">
-                <div class="tarjeta"><div class="n"><?= $k['locales_ok'] ?>/<?= $k['locales'] ?></div><div class="t">Locales habilitados</div><div class="d">Alojamientos listos para recibir huéspedes</div></div>
+                <div class="tarjeta"><div class="n"><?= $k['locales_ok'] ?>/<?= $k['locales'] ?></div><div class="t">Lugares habilitados</div><div class="d">Alojamientos listos para recibir huéspedes</div></div>
                 <div class="tarjeta <?= $k['disp'] && $k['disp_activos'] === $k['disp'] ? 'verde' : 'rojo' ?>"><div class="n"><?= $k['disp_activos'] ?>/<?= $k['disp'] ?></div><div class="t">Dispositivos activos</div><div class="d">Equipos conectados ahora mismo</div></div>
                 <div class="tarjeta verde"><div class="n"><?= $k['vigentes'] ?></div><div class="t">Accesos vigentes</div><div class="d">Huéspedes que pueden entrar ahora</div></div>
                 <div class="tarjeta naranja"><div class="n"><?= $k['proximos'] ?></div><div class="t">Próximos accesos</div><div class="d">Llegadas programadas</div></div>

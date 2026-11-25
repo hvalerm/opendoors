@@ -55,7 +55,7 @@ try {
 
                 if (!$locales || ($alcance !== 'todos' && !isset($locales[$alcance]))) {
                     http_response_code(422);
-                    $error = 'Selecciona un local no eliminado de tu empresa o todos los locales disponibles.';
+                    $error = 'Selecciona un local no eliminado de tu empresa o todos los lugares disponibles.';
                 } elseif (!$validos) {
                     http_response_code(422);
                     $error = 'Selecciona al menos un dato válido para restaurar.';
@@ -126,12 +126,12 @@ session_write_close();
             <p class="aviso" role="status">Información restaurada.</p>
         <?php endif; ?>
         <?php if ($locales): ?>
-            <p class="intro">Elige el alcance y marca solo los datos que quieras restablecer. Los locales eliminados no se incluyen.</p>
+            <p class="intro">Elige el alcance y marca solo los datos que quieras restablecer. Los lugares eliminados no se incluyen.</p>
             <form method="post">
                 <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
-                <label for="alcance">Locales</label>
+                <label for="alcance">Lugares</label>
                 <select id="alcance" name="alcance" required>
-                    <option value="todos"<?= !isset($locales[$alcance]) ? ' selected' : '' ?>>Todos los locales no eliminados</option>
+                    <option value="todos"<?= !isset($locales[$alcance]) ? ' selected' : '' ?>>Todos los lugares no eliminados</option>
                     <?php foreach ($locales as $id => $nombre): ?>
                         <option value="<?= $h($id) ?>"<?= $alcance === (string) $id ? ' selected' : '' ?>><?= $h($nombre) ?></option>
                     <?php endforeach; ?>
@@ -156,7 +156,7 @@ session_write_close();
                 <button type="submit">Restaurar</button>
             </form>
         <?php elseif ($error === ''): ?>
-            <p>Tu empresa no tiene locales no eliminados.</p>
+            <p>Tu empresa no tiene lugares no eliminados.</p>
         <?php endif; ?>
     </main>
     <?php if ($locales): ?>
