@@ -1,7 +1,7 @@
 <?php
 // Ejecutar: php tests\esquema.php [puerto MariaDB aislado; por defecto 13316].
 // Requiere PHP con pdo_mysql, mysqli, openssl y mbstring, y un servidor local de pruebas
-// con TLS y usuario root sin clave. Crea y elimina solo dos BD opendoors_test_* propias.
+// con TLS y usuario root sin clave. Crea y elimina solo BD opendoors_test_* propias.
 // Usa las conexiones reales de empresas y OpenDoors; no envia emails.
 declare(strict_types=1);
 
@@ -13,6 +13,7 @@ if (!$port || $port < 1024 || $port > 65535) {
 }
 $db = 'opendoors_test_' . bin2hex(random_bytes(6));
 $dbPuertas = $db . '_modulo';
+$dbGestalo = $db . '_gestalo';
 $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $db;
 $pdo = new PDO("mysql:host=127.0.0.1;port=$port;charset=utf8mb4", 'root', '', [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -22,6 +23,7 @@ $pdo = new PDO("mysql:host=127.0.0.1;port=$port;charset=utf8mb4", 'root', '', [
 $server = null;
 $created = false;
 $createdPuertas = false;
+$createdGestalo = false;
 $checks = 0;
 function comprobar(bool $condition, string $message): void
 {
@@ -37,12 +39,14 @@ try {
     $created = true;
     $pdo->exec("CREATE DATABASE `$dbPuertas` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $createdPuertas = true;
-    foreach (['opendoors' => $dbPuertas, 'empresas' => $db] as $esquema => $destino) {
+    $pdo->exec("CREATE DATABASE `$dbGestalo` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $createdGestalo = true;
+    foreach (['empresas' => $db, 'opendoors' => $dbPuertas] as $esquema => $destino) {
         $pdo->exec("USE `$destino`");
         $pdo->exec("SET time_zone = '" . ($esquema === 'empresas' ? '-05:00' : '+00:00') . "'");
         $delimiter = ';';
         $sql = '';
-        foreach (file($root . DIRECTORY_SEPARATOR . 'bds' . DIRECTORY_SEPARATOR . $esquema . '.sql') as $line) {
+        foreach (file($root . DIRECTORY_SEPARATOR . 'DBs' . DIRECTORY_SEPARATOR . $esquema . '.sql') as $line) {
             if (preg_match('/^\s*DELIMITER\s+(\S+)/', $line, $m)) {
                 $delimiter = $m[1];
                 continue;
@@ -50,13 +54,18 @@ try {
             if (preg_match('/^\s*(--|$|CREATE DATABASE|USE )/i', $line)) {
                 continue;
             }
-            $sql .= str_replace('opendoors.', "`$dbPuertas`.", $line);
+            $sql .= str_replace(['opendoors_v2.', 'empresas.empresas', 'gestalo.'],
+                ["`$dbPuertas`.", "`$db`.empresas", "`$dbGestalo`."], $line);
             if (str_ends_with(rtrim($sql), $delimiter)) {
                 $pdo->exec(substr(rtrim($sql), 0, -strlen($delimiter)));
                 $sql = '';
             }
         }
         comprobar(trim($sql) === '', "El esquema $esquema no se importo completamente.");
+        if ($esquema === 'empresas') {
+            $pdo->exec("CREATE TABLE `$dbGestalo`.empresas (idEmpresa int NOT NULL PRIMARY KEY,
+                FOREIGN KEY (idEmpresa) REFERENCES `$db`.empresas (idEmpresa) ON DELETE CASCADE) ENGINE=InnoDB");
+        }
     }
     foreach (['DB_HOST' => '127.0.0.1', 'DB_PORT' => (string) $port, 'DB_USER' => 'root', 'DB_PASS' => '',
         'DB_NAME_EMPRESAS' => $db, 'DB_NAME_OPENDOORS' => $dbPuertas] as $nombre => $valor) {
@@ -67,11 +76,6 @@ try {
     $puertas = getOpenDoorsPDO();
     require_once $root . DIRECTORY_SEPARATOR . 'util' . DIRECTORY_SEPARATOR . 'BaseDatos' . DIRECTORY_SEPARATOR . 'db.php';
     $pdo = getPDO();
-    $migracionAperturas = file($root . '/migraciones/seguimiento_aperturas.sql');
-    $sqlAperturas = implode('', array_filter($migracionAperturas, fn($linea) => !str_starts_with($linea, '--')));
-    foreach (array_filter(array_map('trim', explode(';', $sqlAperturas))) as $sentencia) {
-        $puertas->exec($sentencia);
-    }
     comprobar($pdo !== $puertas && $pdo === getPDO() && $puertas === getOpenDoorsPDO(),
         'Las conexiones no estan separadas o no se reutilizan.');
     comprobar($pdo->query('SELECT DATABASE()')->fetchColumn() === $db
@@ -97,49 +101,33 @@ try {
     }
     $pdo->exec('INSERT INTO empresas_cuentas (idEmpresa, idCuenta, idCargo) VALUES
         (1,1,1), (2,2,1), (1,3,1), (2,3,1), (1,5,1), (3,6,1), (4,7,1), (1,8,1)');
-    comprobar((int) $puertas->query('SELECT COUNT(*) FROM empresas')->fetchColumn() === 4,
-        'El trigger no replica las empresas.');
+    comprobar((int) $puertas->query('SELECT COUNT(*) FROM empresas')->fetchColumn() === 4
+        && (int) $pdo->query("SELECT COUNT(*) FROM `$dbGestalo`.empresas")->fetchColumn() === 4,
+        'Los triggers no sincronizan los identificadores de empresa en los módulos.');
     $pdo->beginTransaction();
     $pdo->exec("UPDATE empresas SET nombreEmpresa = 'CambioTemporal' WHERE idEmpresa = 1");
-    comprobar($pdo->query("SELECT nombreEmpresa FROM `$dbPuertas`.empresas WHERE idEmpresa = 1")->fetchColumn() === 'CambioTemporal',
-        'El trigger no sincroniza la actualizacion.');
+    comprobar($pdo->query('SELECT nombreEmpresa FROM empresas WHERE idEmpresa = 1')->fetchColumn() === 'CambioTemporal',
+        'No se actualiza la empresa autoritativa.');
     $pdo->rollBack();
-    comprobar($puertas->query('SELECT nombreEmpresa FROM empresas WHERE idEmpresa = 1')->fetchColumn() === 'EmpresaAlpha',
-        'El rollback no revierte la replica.');
+    comprobar($pdo->query('SELECT nombreEmpresa FROM empresas WHERE idEmpresa = 1')->fetchColumn() === 'EmpresaAlpha',
+        'El rollback no revierte la empresa autoritativa.');
     $puertas->exec("INSERT INTO locales (nombreLocal, direccionLocal, idEmpresa) VALUES
         ('LocalAlpha', 'DireccionAlpha', 1), ('LocalBeta', 'DireccionBeta', 2),
         ('LocalAlphaDos', 'Otra direccion', 1)");
-    $puertas->exec('INSERT INTO microcontroladores (idLocal, idEmpresa) VALUES (1,1), (2,2)');
     comprobar(abs(time() - strtotime($puertas->query('SELECT ultimaConsulta FROM microcontroladores WHERE idMicrocontrolador = 1')->fetchColumn() . ' UTC')) < 10,
         'La fecha predeterminada del dispositivo no esta en UTC.');
     $insertarAcceso = $puertas->prepare('INSERT INTO accesos (activoDesde, activoHasta, idLocal, idEmpresa, token)
         VALUES (?, ?, ?, ?, ?)');
     comprobar($puertas->query('SELECT zonaHoraria FROM locales WHERE idLocal = 1')->fetchColumn() === 'America/Guayaquil',
         'El esquema nuevo no asigna la zona inicial.');
-    $puertas->exec('ALTER TABLE locales DROP COLUMN zonaHoraria');
     $ahora = time();
     $desde = gmdate('Y-m-d H:i:s', $ahora - 3600);
     $hasta = gmdate('Y-m-d H:i:s', $ahora + 86400);
-    $desdeAnterior = gmdate('Y-m-d H:i:s', $ahora - 3600 - 5 * 3600);
-    $hastaAnterior = gmdate('Y-m-d H:i:s', $ahora + 86400 - 5 * 3600);
-    $insertarAcceso->execute([$desdeAnterior, $hastaAnterior, 1, 1, 'TokenAlpha']);
-    $insertarAcceso->execute([$desdeAnterior, $hastaAnterior, 2, 2, 'TokenBeta']);
-    $insertarAcceso->execute([$desdeAnterior, $hastaAnterior, 1, 1, 'TokenAlphaDos']);
+    $insertarAcceso->execute([$desde, $hasta, 1, 1, 'TokenAlpha']);
+    $insertarAcceso->execute([$desde, $hasta, 2, 2, 'TokenBeta']);
+    $insertarAcceso->execute([$desde, $hasta, 1, 1, 'TokenAlphaDos']);
     unset($insertarAcceso);
 
-    $migracion = file($root . DIRECTORY_SEPARATOR . 'migraciones' . DIRECTORY_SEPARATOR . 'vigencia_utc_por_local.sql');
-    $sql = implode('', array_filter($migracion, fn($linea) => !str_starts_with($linea, '--')));
-    $sentencias = array_values(array_filter(array_map('trim', explode(';', $sql))));
-    foreach ($sentencias as $sentencia) {
-        $puertas->exec($sentencia);
-    }
-    // Simular que se retoma la migración después de confirmar la transacción.
-    foreach (array_slice($sentencias, 1) as $sentencia) {
-        $puertas->exec($sentencia);
-    }
-    $migrados = $puertas->query('SELECT activoDesde, activoHasta FROM accesos')->fetchAll();
-    comprobar(count($migrados) === 3 && $migrados === array_fill(0, 3, ['activoDesde' => $desde, 'activoHasta' => $hasta]),
-        'La migración no conserva la vigencia de todos los accesos o los convierte dos veces.');
     comprobar((int) $puertas->query("SELECT COUNT(*) FROM locales WHERE zonaHoraria = 'America/Guayaquil'")->fetchColumn() === 3,
         'La migración no asigna la zona inicial a todos los locales.');
     $puertas->exec("DELETE FROM accesos WHERE token = 'TokenAlphaDos'");
@@ -258,6 +246,22 @@ try {
         'Se confunde el ID de cuenta con el ID de empresa.');
     comprobar($login(1)['location'] === 'ModoAnfitrion/vistaAnfitrion', 'Fallo en login con vinculo unico.');
 
+    $pdo->exec("UPDATE empresas_modulos SET licenciaExpira = DATE_SUB(CURRENT_DATE, INTERVAL 1 DAY)
+        WHERE idEmpresa = 1 AND idModulo = 1");
+    comprobar($request('ModoAnfitrion/OpenDoors/Dashboard/resumen.php')['status'] === 403
+        && $request('ModoAnfitrion/Configuracion/OpenDoors/locales.php')['status'] === 403
+        && !str_contains($request('ModoAnfitrion/vistaAnfitrion.php')['body'], 'LocalAlpha')
+        && (json_decode($request('accesoPuerta.php', ['accion' => 'validar', 'token' => 'TokenAlpha'])['body'], true)['valido'] ?? false),
+        'La licencia vencida debe impedir el panel sin impedir el acceso público.');
+    $pdo->exec('UPDATE empresas_modulos SET licenciaExpira = CURRENT_DATE WHERE idEmpresa = 1 AND idModulo = 1');
+    comprobar($request('ModoAnfitrion/OpenDoors/Dashboard/resumen.php')['status'] === 200,
+        'La licencia debe seguir activa durante el día de su vencimiento.');
+    $pdo->exec('UPDATE empresas_modulos SET licenciaExpira = DATE_ADD(CURRENT_DATE, INTERVAL 7 DAY) WHERE idEmpresa = 1 AND idModulo = 1');
+    $pdo->exec("UPDATE empresas SET nombreEmpresa = 'EmpresaActualizada', telefonoContacto = '+51912345678' WHERE idEmpresa = 1");
+    comprobar(str_contains($request('ModoAnfitrion/Configuracion/OpenDoors/locales.php')['body'], 'EmpresaActualizada')
+        && str_contains($request('ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php')['body'], 'EmpresaActualizada'),
+        'El módulo no consulta el nombre actualizado en la base autoritativa.');
+
     $pages = [
         'ModoAnfitrion/vistaAnfitrion.php',
         'ModoAnfitrion/OpenDoors/Dashboard/resumen.php',
@@ -313,6 +317,8 @@ try {
     $r = $request('ApiSystem/ordenDeApertura_porLinkAcceso.php', ['token' => 'TokenAlpha', 'confirmar' => '1']);
     comprobar($r['status'] === 303, 'No emite la orden por enlace.');
     $confirmation = $r['location'];
+    comprobar(str_contains($request('ModoAnfitrion/OpenDoors/' . basename($confirmation))['body'], 'https://wa.me/51912345678'),
+        'La confirmación no obtiene el teléfono de la empresa autoritativa.');
     comprobar((int) $puertas->query('SELECT ejecutado FROM accesos WHERE idAcceso=1')->fetchColumn() === 1, 'No consume el enlace.');
     comprobar((int) $puertas->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador=1')->fetchColumn() === 0,
         'Se contabiliza una apertura antes de que el dispositivo la confirme.');
@@ -394,9 +400,9 @@ try {
     comprobar($r['status'] === 303 && $r['location'] === '../ModoAnfitrion/vistaAnfitrion',
         'Startup no guarda la configuracion en empresas.');
     $datosEmpresa = $pdo->query("SELECT nombreEmpresa, telefonoContacto, inicio FROM empresas WHERE idEmpresa = $idNuevaEmpresa")->fetch();
-    comprobar($datosEmpresa === $puertas->query("SELECT nombreEmpresa, telefonoContacto, inicio FROM empresas WHERE idEmpresa = $idNuevaEmpresa")->fetch()
+    comprobar((int) $puertas->query("SELECT COUNT(*) FROM empresas WHERE idEmpresa = $idNuevaEmpresa")->fetchColumn() === 1
         && $datosEmpresa['nombreEmpresa'] === 'NuevaEmpresa' && (int) $datosEmpresa['inicio'] === 0,
-        'Startup no conserva la sincronizacion de empresas dentro de su transaccion.');
+        'Startup no conserva el identificador de empresa en OpenDoors.');
     comprobar($request('ModoAnfitrion/vistaAnfitrion.php')['status'] === 200,
         'Una empresa sin OpenDoors asignado no puede entrar al sistema general.');
 
@@ -407,8 +413,9 @@ try {
         proc_terminate($server);
         proc_close($server);
     }
-    if ($created) $pdo->exec("DROP DATABASE `$db`");
     if ($createdPuertas) $pdo->exec("DROP DATABASE `$dbPuertas`");
+    if ($createdGestalo) $pdo->exec("DROP DATABASE `$dbGestalo`");
+    if ($created) $pdo->exec("DROP DATABASE `$db`");
     if (is_dir($tmp)) {
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($tmp, FilesystemIterator::SKIP_DOTS),
             RecursiveIteratorIterator::CHILD_FIRST) as $file) {

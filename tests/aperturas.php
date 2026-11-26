@@ -35,16 +35,33 @@ try {
         UNIQUE KEY uq_local_empresa (idLocal, idEmpresa)) ENGINE=InnoDB');
     $admin->exec('CREATE TABLE microcontroladores (idMicrocontrolador int PRIMARY KEY,
         idLocal int NOT NULL, idEmpresa int NOT NULL, ultimaApertura datetime NULL,
-        cantidadAperturasExitosas int NULL, cantidadAperturasFallidas int NULL) ENGINE=InnoDB');
+        cantidadAperturas int NOT NULL DEFAULT 0) ENGINE=InnoDB');
+    $admin->exec('CREATE TABLE logs_locales (idLocal int, idEmpresa int, descripcionLogLocal text) ENGINE=InnoDB');
+    $admin->exec('CREATE TABLE logs_microcontroladores (idMicrocontrolador int, idLocal int,
+        idEmpresa int, descripcionLogMicrocontrolador text) ENGINE=InnoDB');
+    $admin->exec('CREATE TRIGGER trg_after_update_accionar_local AFTER UPDATE ON locales FOR EACH ROW
+        UPDATE microcontroladores SET cantidadAperturas = cantidadAperturas + 1
+        WHERE idLocal = NEW.idLocal AND idEmpresa = NEW.idEmpresa');
+    $admin->exec('CREATE TRIGGER trg_after_update_cantidadAperturas_microcontrolador AFTER UPDATE ON microcontroladores
+        FOR EACH ROW INSERT INTO logs_microcontroladores VALUES (NEW.idMicrocontrolador, NEW.idLocal, NEW.idEmpresa, NEW.cantidadAperturas)');
     $admin->exec('INSERT INTO locales (idLocal, idEmpresa, accionar) VALUES (1,1,0), (2,2,0), (3,1,1)');
     $admin->exec("INSERT INTO microcontroladores VALUES
-        (1,1,1,'2020-01-01 00:00:00',5,NULL), (2,1,1,'2020-01-01 00:00:00',0,0),
-        (3,2,2,'2020-01-01 00:00:00',7,8)");
-    $sql = implode('', array_filter(file($root . '/migraciones/seguimiento_aperturas.sql'),
-        fn($linea) => !str_starts_with($linea, '--')));
-    foreach (array_filter(array_map('trim', explode(';', $sql))) as $sentencia) {
-        $admin->exec($sentencia);
+        (1,1,1,'2020-01-01 00:00:00',5), (2,1,1,'2020-01-01 00:00:00',0),
+        (3,2,2,'2020-01-01 00:00:00',7)");
+    $delimiter = ';';
+    $sql = '';
+    foreach (file($root . '/migraciones/opendoors_seguimiento_nuevo.sql') as $linea) {
+        if (preg_match('/^\s*DELIMITER\s+(\S+)/', $linea, $m)) {
+            $delimiter = $m[1];
+        } elseif (!preg_match('/^\s*(--|$)/', $linea)) {
+            $sql .= $linea;
+            if (str_ends_with(rtrim($sql), $delimiter)) {
+                $admin->exec(substr(rtrim($sql), 0, -strlen($delimiter)));
+                $sql = '';
+            }
+        }
     }
+    comprobarApertura(trim($sql) === '', 'La migracion no se ejecuto completamente.');
     foreach (['DB_HOST' => '127.0.0.1', 'DB_PORT' => (string) $port, 'DB_USER' => 'root',
         'DB_PASS' => '', 'DB_NAME_OPENDOORS' => $base] as $nombre => $valor) {
         putenv("$nombre=$valor");
@@ -68,8 +85,9 @@ try {
             throw $e;
         }
     };
-    comprobarApertura((int) $contadores()[0]['cantidadAperturasFallidas'] === 0,
-        'La migracion no inicializa el nuevo contador nullable.');
+    comprobarApertura((int) $contadores()[0]['cantidadAperturasExitosas'] === 5
+        && (int) $contadores()[0]['cantidadAperturasFallidas'] === 0,
+        'La migracion no conserva el contador anterior o no inicializa los fallos.');
     comprobarApertura((int) $pdo->query('SELECT TIMESTAMPDIFF(SECOND, solicitadaEn, venceEn)
         FROM solicitudes_apertura WHERE idLocal = 3')->fetchColumn() === 30,
         'La migracion no recupera las ordenes que ya estaban pendientes con un plazo de 30 segundos.');
@@ -158,6 +176,10 @@ try {
         && $despuesFallo[0]['ultimaApertura'] === $despuesExito[0]['ultimaApertura']
         && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 1')->fetchColumn() === 0,
         'El fallo altera la ultima apertura, cuenta otra empresa o deja una orden activa.');
+    comprobarApertura((int) $pdo->query("SELECT COUNT(*) FROM logs_locales WHERE descripcionLogLocal LIKE '%Accionar%'")->fetchColumn() > 0
+        && (int) $pdo->query("SELECT COUNT(*) FROM logs_microcontroladores WHERE descripcionLogMicrocontrolador LIKE '%cantidadAperturasExitosas%'")->fetchColumn() > 0
+        && (int) $pdo->query("SELECT COUNT(*) FROM logs_microcontroladores WHERE descripcionLogMicrocontrolador LIKE '%cantidadAperturasFallidas%'")->fetchColumn() > 0,
+        'La migracion no conserva la auditoria de cambios de aperturas.');
 
     $idSinNavegador = $emitir();
     $venceEn = $pdo->query("SELECT venceEn FROM solicitudes_apertura

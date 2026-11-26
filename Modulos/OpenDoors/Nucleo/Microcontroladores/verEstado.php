@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
+require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 require_once __DIR__ . '/../util/db.php';
 $soloDatos = ($_GET['datos'] ?? '') === '1';
 if ($soloDatos) {
@@ -11,6 +12,7 @@ if ($soloDatos) {
 } else {
     requerirSesion();
 }
+requerirModulo('OpenDoors');
 $idEmpresa = (int) $_SESSION['empresa_id'];
 session_write_close();
 
@@ -22,16 +24,15 @@ $error = '';
 // Solo dispositivos de apertura de la empresa de la cuenta con sesión iniciada
 try {
     $stmt = getOpenDoorsPDO()->prepare(
-        'SELECT m.idMicrocontrolador AS id_microcontrolador, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
+        'SELECT m.idMicrocontrolador AS id_microcontrolador, l.nombreLocal AS nombre_local, ? AS nombre_empresa,
                 m.ultimaConsulta, m.ultimaApertura, m.habilitado,
                 TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP()) AS segundos_sin_consulta
          FROM microcontroladores m
          INNER JOIN locales l ON l.idLocal = m.idLocal AND l.idEmpresa = m.idEmpresa
-         INNER JOIN empresas e ON e.idEmpresa = m.idEmpresa
          WHERE m.idEmpresa = ?
          ORDER BY m.idMicrocontrolador'
     );
-    $stmt->execute([$idEmpresa]);
+    $stmt->execute([$_SESSION['empresa_nombre'], $idEmpresa]);
     $unidades = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en verEstado: ' . $e->getMessage());

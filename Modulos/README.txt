@@ -6,7 +6,9 @@ Cada carpeta contiene menuLateral.php, Nucleo y Configuracion.
 GESTALO conserva estas carpetas preparadas, sin funcionalidad aun.
 
 vistaAnfitrion carga unicamente modulos habilitados para la empresa en
-empresas_modulos. Cada menuLateral.php devuelve una funcion que recibe
+empresas_modulos cuya licencia no haya vencido. La licencia dura hasta el
+final de la fecha en empresas_modulos.licenciaExpira, en la zona de empresas.
+Cada menuLateral.php devuelve una funcion que recibe
 el registro del modulo (idModulo y nombreModulo) y el nombre de la web.
 La funcion devuelve un arreglo con:
 
@@ -26,6 +28,10 @@ Un modulo habilitado sin carpeta o menu se muestra como no disponible y
 se registra el problema. Los archivos del modulo deben comprobar la sesion,
 los permisos de empresa y la habilitacion del modulo cuando corresponda:
 ocultar el menu no protege por si solo sus URL.
+Las paginas privadas deben comprobar tambien la licencia, por ejemplo con
+requerirModulo() en util\Seguridad\modulos.php despues de requerirSesion().
+En OpenDoors el vencimiento limita el panel, no las API de dispositivos ni
+los enlaces publicos de apertura.
 
 Las rutas web anteriores de OpenDoors siguen funcionando por las reglas de
 .htaccess; las API y el acceso publico mantienen sus rutas mediante archivos

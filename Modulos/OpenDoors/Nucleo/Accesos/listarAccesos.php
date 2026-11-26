@@ -2,7 +2,9 @@
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
+require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
+requerirModulo('OpenDoors');
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);
@@ -12,16 +14,15 @@ $error = '';
 // Solo accesos de la empresa de la cuenta con sesión iniciada
 try {
     $stmt = getOpenDoorsPDO()->prepare(
-        'SELECT a.idAcceso AS id_acceso, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
+        'SELECT a.idAcceso AS id_acceso, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, ? AS nombre_empresa,
                 a.ejecutado, a.habilitado, l.zonaHoraria,
                 (? BETWEEN a.activoDesde AND a.activoHasta AND a.habilitado = 1 AND a.ejecutado = 0) AS en_rango
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         INNER JOIN empresas e ON e.idEmpresa = a.idEmpresa
          WHERE a.idEmpresa = ?
          ORDER BY a.idAcceso DESC'
     );
-    $stmt->execute([ahoraVigenciaAccesos(), (int) $_SESSION['empresa_id']]);
+    $stmt->execute([$_SESSION['empresa_nombre'], ahoraVigenciaAccesos(), (int) $_SESSION['empresa_id']]);
     $accesos = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en listarAccesos: ' . $e->getMessage());

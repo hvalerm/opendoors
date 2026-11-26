@@ -1,5 +1,28 @@
 SEGUIMIENTO DE APERTURAS
 
+Instalacion nueva:
+- DBs\opendoors.sql ya incluye solicitudes_apertura, ambos contadores y
+  los triggers de auditoria compatibles. No ejecutar las migraciones de
+  seguimiento sobre ese esquema nuevo.
+- Instalar DBs\empresas.sql, DBs\opendoors.sql y DBs\gestalo.sql en ese orden.
+  Los triggers usan los nombres empresas, opendoors_v2 y gestalo en el mismo
+  servidor; crear gestalo antes de importar su archivo y no insertar empresas
+  hasta instalar los tres. Revisar versiones y permisos indicados en los SQL.
+- empresas_modulos.licenciaExpira controla el panel hasta el final de la
+  fecha guardada, usando la zona SQL de empresas (-05:00). Las API de
+  dispositivos y enlaces publicos permanecen operativos al vencer.
+
+Para una base instalada con la version de DBs\opendoors.sql que tenia
+cantidadAperturas y no tenia solicitudes_apertura, usar
+opendoors_seguimiento_nuevo.sql una sola vez, con respaldo y mantenimiento.
+Conserva el contador anterior en cantidadAperturasExitosas e inicializa
+fallidas en cero. El contador historico podia incluir cancelaciones y no
+permite recuperar la distincion real entre exitos y fallos. El DDL no es
+atomico; detenerse y revisar el estado si ocurre un error. No ejecutar esa
+migracion en instalaciones ya migradas.
+
+El procedimiento siguiente corresponde exclusivamente a una instalacion
+anterior que ya tiene los dos contadores, pero aun no tiene solicitudes:
 Antes del despliegue:
 - Respaldar opendoors y detener temporalmente las ordenes de apertura.
 - Renombrar cantidadAperturas a cantidadAperturasExitosas, conservando valores.
@@ -53,3 +76,7 @@ php tests\startup.php
 php tests\aperturas.php 13316
   MariaDB aislado con TLS y root sin clave. Crea y elimina su propia base,
   prueba concurrencia, rollback y un vencimiento real de 30 segundos sin HTTP.
+php tests\esquema.php 13316
+  Importa DBs\empresas.sql y DBs\opendoors.sql en bases temporales aisladas.
+  Simula solo la tabla gestalo.empresas requerida por el trigger: no valida el
+  esquema completo ni la compatibilidad de DBs\gestalo.sql con MariaDB.

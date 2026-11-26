@@ -11,7 +11,7 @@ try {
         'SELECT m.idModulo, m.nombreModulo
          FROM empresas_modulos em
          INNER JOIN modulos m ON m.idModulo = em.idModulo
-         WHERE em.idEmpresa = ? AND em.habilitado = 1
+         WHERE em.idEmpresa = ? AND em.habilitado = 1 AND DATE(em.licenciaExpira) >= CURRENT_DATE
          ORDER BY m.nombreModulo, m.idModulo'
     );
     $stmt->execute([(int) $_SESSION['empresa_id']]);

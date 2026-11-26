@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/db.php';
+require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
+requerirModulo('OpenDoors');
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $idLocal = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -12,12 +14,11 @@ $local = null;
 try {
     if ($idLocal) {
         $stmt = getOpenDoorsPDO()->prepare(
-            'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, e.nombreEmpresa AS nombre_empresa, l.habilitado
+            'SELECT l.idLocal AS id_local, l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, ? AS nombre_empresa, l.habilitado
              FROM locales l
-             INNER JOIN empresas e ON e.idEmpresa = l.idEmpresa
              WHERE l.idLocal = ? AND l.idEmpresa = ? AND l.eliminado = 0'
         );
-        $stmt->execute([$idLocal, (int) $_SESSION['empresa_id']]);
+        $stmt->execute([$_SESSION['empresa_nombre'], $idLocal, (int) $_SESSION['empresa_id']]);
         $local = $stmt->fetch() ?: null;
     }
 } catch (PDOException $e) {

@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/db.php';
+require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
+requerirModulo('OpenDoors');
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);

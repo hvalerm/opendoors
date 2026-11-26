@@ -33,7 +33,7 @@ function cifrarStartup(string $value): string
 
 try {
     foreach (['Startup/startup.php', 'Startup/configuracionInicial.php', 'accesoPuerta.php',
-        'util/Seguridad/enc.php', 'util/Seguridad/verificar.php', 'util/Seguridad/seguridad.php',
+        'util/Seguridad/enc.php', 'util/Seguridad/verificar.php', 'util/Seguridad/seguridad.php', 'util/Seguridad/modulos.php',
         'util/Cuentas/recuperar_comun.php',
         'util/Configuracion/DatosWeb.php', 'util/Soporte/contacto.php', 'util/BaseDatos/db.php',
         'ApiSystem/api_board.php', 'ApiSystem/api_microcontrolador.php',
@@ -159,6 +159,7 @@ recFin();
     $pdo->exec('CREATE TABLE modulos (idModulo INTEGER PRIMARY KEY, nombreModulo TEXT NOT NULL)');
     $pdo->exec('CREATE TABLE empresas_modulos (idEmpresa INTEGER REFERENCES empresas(idEmpresa),
         idModulo INTEGER REFERENCES modulos(idModulo), habilitado INTEGER NOT NULL DEFAULT 0,
+        licenciaExpira TEXT NOT NULL DEFAULT "2099-12-31 00:00:00",
         PRIMARY KEY (idEmpresa, idModulo))');
     $pdo->exec("INSERT INTO modulos VALUES (1, 'OpenDoors'), (2, 'GESTALO'),
         (3, 'Otro & <modulo>')");
@@ -510,6 +511,7 @@ recFin();
         && $cookies['PHPSESSID'] !== $idSesionAnterior && !isset($sesion['startup_csrf']),
         'No establece una sesion segura para el nuevo anfitrion.');
 
+    $pdo->exec('INSERT INTO empresas_modulos (idEmpresa, idModulo, habilitado) VALUES (3, 1, 1)');
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
         VALUES (3, 3, 'Local del anfitrion', 'Direccion del anfitrion')");
     $insertarVigencia = $pdo->prepare('INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
@@ -531,6 +533,15 @@ recFin();
         }
     }
     $idsVigencia = $pdo->query("SELECT token, idAcceso FROM accesos WHERE token IN ('VigenciaActual', 'VigenciaFutura')")->fetchAll(PDO::FETCH_KEY_PAIR);
+    $pdo->exec("UPDATE empresas_modulos SET licenciaExpira = datetime('now', '-1 day') WHERE idEmpresa = 3 AND idModulo = 1");
+    comprobarStartup($request([], 'ModoAnfitrion/OpenDoors/Dashboard/resumen')['status'] === 403
+        && !str_contains($request([], 'ModoAnfitrion/vistaAnfitrion')['body'], 'puertas-prueba/dashboard')
+        && (json_decode($request([], 'accesoPuerta', post: ['accion' => 'validar', 'token' => 'VigenciaActual'])['body'], true)['valido'] ?? false),
+        'La licencia vencida debe bloquear el panel sin bloquear accesos públicos.');
+    $pdo->exec("UPDATE empresas_modulos SET licenciaExpira = date('now') || ' 00:00:00' WHERE idEmpresa = 3 AND idModulo = 1");
+    comprobarStartup($request([], 'ModoAnfitrion/OpenDoors/Dashboard/resumen')['status'] === 200,
+        'La licencia debe permanecer vigente durante todo el día de vencimiento.');
+    $pdo->exec("UPDATE empresas_modulos SET licenciaExpira = '2099-12-31 00:00:00' WHERE idEmpresa = 3 AND idModulo = 1");
     foreach (['listarAccesos', 'busquedaAccesoRevocar'] as $vistaVigencia) {
         $respuesta = $request([], 'ModoAnfitrion/OpenDoors/Accesos/' . $vistaVigencia);
         $idActual = (int) $idsVigencia['VigenciaActual'];
@@ -646,6 +657,7 @@ recFin();
         && substr_count($fragmento, 'data-col="5">Activo</dd>') === 1,
         'La actualizacion no refleja la reconexion del dispositivo.');
     $panel = 'ModoAnfitrion/vistaAnfitrion';
+    $pdo->exec('DELETE FROM empresas_modulos WHERE idEmpresa = 3 AND idModulo = 1');
     $response = $request([], $panel);
     comprobarStartup($response['status'] === 200
         && str_contains($response['body'], '<strong>Administrar Alojamiento</strong>')
@@ -976,6 +988,9 @@ PHP);
         && str_contains($response['body'], 'No se pudieron cargar los módulos.'),
         'Un error al consultar los modulos no debe ocultarse como una lista vacia.');
 
+    $pdo->exec('CREATE TABLE empresas_modulos (idEmpresa INTEGER, idModulo INTEGER, habilitado INTEGER NOT NULL,
+        licenciaExpira TEXT NOT NULL DEFAULT "2099-12-31 00:00:00", PRIMARY KEY (idEmpresa, idModulo))');
+    $pdo->exec('INSERT INTO empresas_modulos (idEmpresa, idModulo, habilitado) VALUES (3, 1, 1)');
     $pdo->exec("UPDATE locales SET zonaHoraria = 'Asia/Tokyo' WHERE idLocal = 3 AND idEmpresa = 3");
     $fichaLocal = 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado';
     $localConZona = $request(['id' => '3'], $fichaLocal);

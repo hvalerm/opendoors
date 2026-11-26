@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
+require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 $soloDispositivos = ($_GET['datos'] ?? '') === 'dispositivos';
@@ -12,6 +13,7 @@ if ($soloDispositivos) {
 } else {
     requerirSesion();
 }
+requerirModulo('OpenDoors');
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $idEmpresa = (int) $_SESSION['empresa_id'];

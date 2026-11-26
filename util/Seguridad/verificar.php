@@ -91,6 +91,7 @@ function haySesionActiva(bool $registrarActividad = true): bool
         return false;
     }
 
+    $_SESSION['empresa_nombre'] = $empresa['nombre_empresa'];
     return true;
 }
 

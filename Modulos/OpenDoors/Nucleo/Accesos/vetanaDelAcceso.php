@@ -2,7 +2,9 @@
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
+require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
+requerirModulo('OpenDoors');
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $idAcceso = filter_var($_GET['id'] ?? $_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -19,14 +21,13 @@ if (empty($_SESSION['csrf'])) {
 function cargarAcceso(PDO $pdo, int $idAcceso, int $idEmpresa): ?array
 {
     $stmt = $pdo->prepare(
-        'SELECT a.idAcceso AS id_acceso, a.idEmpresa AS id_empresa, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, e.nombreEmpresa AS nombre_empresa,
+        'SELECT a.idAcceso AS id_acceso, a.idEmpresa AS id_empresa, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, ? AS nombre_empresa,
                 a.token, a.ejecutado, a.habilitado, l.zonaHoraria, l.idLocal AS id_local
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         INNER JOIN empresas e ON e.idEmpresa = a.idEmpresa
          WHERE a.idAcceso = ? AND a.idEmpresa = ?'
     );
-    $stmt->execute([$idAcceso, $idEmpresa]);
+    $stmt->execute([$_SESSION['empresa_nombre'], $idAcceso, $idEmpresa]);
     return $stmt->fetch() ?: null;
 }
 
