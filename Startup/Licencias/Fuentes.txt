@@ -1,0 +1,12 @@
+Datos de paises y territorios usados por configuracionInicial.php:
+
+- Prefijos geograficos derivados de libphonenumber, consultado el 27/11/2026:
+  https://github.com/google/libphonenumber/blob/master/resources/PhoneNumberMetadata.xml
+  Copyright 2009 The Libphonenumber Authors. Licencia: Apache-2.0.txt.
+- Nombres en español derivados de Unicode CLDR, consultado el 27/11/2026:
+  https://github.com/unicode-org/cldr-json/blob/main/cldr-json/cldr-localenames-full/main/es/territories.json
+  Copyright 2015-2024 Unicode, Inc. Licencia: Unicode-3.0.txt.
+
+La lista usa codigos internacionales E.164 de una a tres cifras. Los paises
+que comparten codigo, como los del plan +1, requieren el codigo de area como
+parte del numero. "Otro prefijo" permite ingresar codigos no geograficos.

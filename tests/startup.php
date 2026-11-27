@@ -415,6 +415,16 @@ recFin();
         && !str_contains($response['body'], '&lt;Empresa &amp; nueva&gt;')
         && !str_contains($response['body'], '+51000000000'),
         'El formulario inicial no debe cargar el nombre ni el telefono registrados.');
+    preg_match_all('~<option value="([A-Z]{2})"[^>]*>([^<]+)</option>~', $response['body'], $paises);
+    comprobarStartup(count($paises[1]) >= 245 && count(array_unique($paises[1])) === count($paises[1])
+        && str_contains($response['body'], 'Francia (+33)')
+        && str_contains($response['body'], 'Japón (+81)')
+        && str_contains($response['body'], 'Nigeria (+234)')
+        && str_contains($response['body'], 'Nueva Zelanda (+64)')
+        && str_contains($response['body'], 'Niue (+683)')
+        && str_contains($response['body'], 'República Dominicana (+1)')
+        && str_contains($response['body'], 'Canadá (+1)'),
+        'El selector debe incluir paises y territorios de todo el mundo, incluso prefijos compartidos.');
     foreach (['   ', str_repeat('a', 101)] as $nombreInvalido) {
         $stmt = $pdo->prepare('UPDATE empresas SET duenoEmpresa = ? WHERE idEmpresa = 4');
         $stmt->execute([$nombreInvalido]);
@@ -436,7 +446,7 @@ recFin();
         ['paisTelefono' => 'otro'], ['paisTelefono' => 'otro', 'prefijoOtro' => ['+51']],
         ['paisTelefono' => 'otro', 'prefijoOtro' => '51'],
         ['paisTelefono' => 'otro', 'prefijoOtro' => '+012'], ['paisTelefono' => 'otro', 'prefijoOtro' => '+1234'],
-        ['telefonoContacto' => 'abc'], ['telefonoContacto' => '+51 999 888 777'],
+        ['telefonoContacto' => 'abc'], ['telefonoContacto' => '123'], ['telefonoContacto' => '+51 999 888 777'],
         ['telefonoContacto' => str_repeat('9', 28)], ['correoCuenta' => 'no-es-correo'],
         ['correoCuenta' => str_repeat('a', 40) . '@example.test'],
         ['pwd' => 'corta'], ['pwd' => str_repeat('a', 201)], ['pwd' => ['invalido']],
@@ -1175,9 +1185,12 @@ PHP);
         && (int) $pdo->query('SELECT inicio FROM empresas WHERE idEmpresa = 4')->fetchColumn() === 1,
         'El fallo de vinculacion no revierte todos los cambios.');
     $pdo->exec('DROP TRIGGER fallo_vinculo');
+    $post['paisTelefono'] = 'NU';
+    $post['telefonoContacto'] = '1234';
     $response = $request($getFallo, post: $post);
-    comprobarStartup($response['status'] === 303 && $response['location'] === '../login',
-        'No permite reintentar el guardado despues de un fallo.');
+    comprobarStartup($response['status'] === 303 && $response['location'] === '../login'
+        && $pdo->query('SELECT telefonoContacto FROM empresas WHERE idEmpresa = 4')->fetchColumn() === '+683 1234',
+        'No guarda un numero nacional corto con un prefijo de un territorio adicional.');
     $sesion = json_decode($request([], 'sesion.php')['body'], true);
     comprobarStartup(!isset($sesion['usuario_id']),
         'El ingreso manual conserva la sesion de otra cuenta.');
