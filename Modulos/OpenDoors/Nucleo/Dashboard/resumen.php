@@ -5,7 +5,8 @@ require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/estado_dispositivo.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 $soloDispositivos = ($_GET['datos'] ?? '') === 'dispositivos';
-if ($soloDispositivos) {
+$soloResumen = ($_GET['datos'] ?? '') === 'resumen';
+if ($soloDispositivos || $soloResumen) {
     header('Cache-Control: no-store');
     if (!haySesionActiva(false)) {
         http_response_code(401);
@@ -126,16 +127,21 @@ try {
 
     // Accesos vencidos que nunca se usaron
     $q = $pdo->prepare(
+        'SELECT COUNT(*) FROM accesos a
+         INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
+         WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta < ?'
+    );
+    $q->execute([$idEmpresa, $ahora]);
+    $k['no_usados'] = (int) $q->fetchColumn();
+    $q = $pdo->prepare(
         'SELECT l.nombreLocal AS nombre_local, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.zonaHoraria
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
          WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta < ?
-         ORDER BY a.activoHasta DESC'
+         ORDER BY a.activoHasta DESC LIMIT 5'
     );
     $q->execute([$idEmpresa, $ahora]);
     $noUsados = $q->fetchAll();
-    $k['no_usados'] = count($noUsados);
-    $noUsados = array_slice($noUsados, 0, 5);
 
     // Dispositivos y aperturas por local
     foreach (cargarDispositivosDashboard($pdo, $idEmpresa) as $d) {
@@ -164,6 +170,11 @@ try {
     error_log('Error en resumen: ' . $e->getMessage());
     $error = 'No se pudo cargar el resumen.';
 }
+if ($soloResumen && $error) {
+    http_response_code(503);
+    exit;
+}
+if (!$soloResumen):
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -203,6 +214,9 @@ try {
     <section class="panel">
         <h1>Resumen</h1>
         <p class="sub">Lo más importante de tu negocio, de un vistazo.</p>
+        <p class="alerta" id="avisoDashboard" role="status" hidden></p>
+        <div id="resumenDashboard">
+<?php endif; ob_start(); ?>
 
         <?php if ($error): ?>
             <div class="caja"><p class="vacio"><?= $h($error) ?></p></div>
@@ -253,7 +267,6 @@ try {
 
                 <div class="caja">
                     <h2>Dispositivo(s) de local(es)</h2>
-                    <p class="alerta" id="avisoDispositivos" role="status" hidden></p>
                     <div id="dispositivosDashboard"><?= renderDispositivosDashboard($porLocal, $h) ?></div>
                 </div>
             </div>
@@ -282,15 +295,26 @@ try {
                 <p class="vacio"><?= $k['revocados'] ?> acceso(s) revocado(s) sin usar.</p>
             <?php endif; ?>
         <?php endif; ?>
+        <?php
+        $htmlResumen = ob_get_clean();
+        if ($soloResumen) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['resumen' => $htmlResumen], JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            exit;
+        }
+        echo $htmlResumen;
+        ?>
+        </div>
     </section>
-    <?php if (!$error): ?>
     <script>
         (function () {
-            var contenedor = document.getElementById('dispositivosDashboard');
-            var aviso = document.getElementById('avisoDispositivos');
+            var contenedor = document.getElementById('resumenDashboard');
+            var aviso = document.getElementById('avisoDashboard');
             var url = new URL(window.location.href);
-            url.searchParams.set('datos', 'dispositivos');
+            url.searchParams.set('datos', 'resumen');
+            url.hash = '';
             var consultando = false;
+            var ultimoHtml = null;
             var intervalo = setInterval(async function () {
                 if (consultando) return;
                 consultando = true;
@@ -298,17 +322,26 @@ try {
                     var respuesta = await fetch(url, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(10000) });
                     if (respuesta.status === 401) {
                         clearInterval(intervalo);
-                        aviso.textContent = 'Tu sesión ha expirado. Vuelve a iniciar sesión para actualizar los dispositivos.';
+                        aviso.textContent = 'Tu sesión ha expirado. Vuelve a iniciar sesión para actualizar el resumen.';
+                        aviso.hidden = false;
+                        return;
+                    }
+                    if (respuesta.status === 403) {
+                        clearInterval(intervalo);
+                        aviso.textContent = 'El módulo OpenDoors ya no está disponible para esta empresa.';
                         aviso.hidden = false;
                         return;
                     }
                     if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
                     var datos = await respuesta.json();
-                    if (typeof datos?.dispositivos !== 'string') throw new Error('Respuesta inesperada');
-                    if (contenedor.innerHTML !== datos.dispositivos) contenedor.innerHTML = datos.dispositivos;
+                    if (typeof datos?.resumen !== 'string') throw new Error('Respuesta inesperada');
+                    if (ultimoHtml !== datos.resumen) {
+                        contenedor.innerHTML = datos.resumen;
+                        ultimoHtml = datos.resumen;
+                    }
                     aviso.hidden = true;
                 } catch (error) {
-                    aviso.textContent = 'No se pudo actualizar la última consulta de los dispositivos. Reintentando…';
+                    aviso.textContent = 'No se pudo actualizar el resumen. Reintentando…';
                     aviso.hidden = false;
                 } finally {
                     consultando = false;
@@ -316,6 +349,5 @@ try {
             }, 1000);
         })();
     </script>
-    <?php endif; ?>
 </body>
 </html>

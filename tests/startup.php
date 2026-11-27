@@ -699,10 +699,95 @@ recFin();
         && !str_contains($fragmentoDashboard, 'Local de prueba')
         && !str_contains($fragmentoDashboard, '<!DOCTYPE'),
         'La actualización de dispositivos no aplica la zona y horario de verano del local o incluye datos ajenos.');
+    $localAnterior = $pdo->query('SELECT habilitado, accionar FROM locales WHERE idLocal = 3')->fetch(PDO::FETCH_ASSOC);
+    $microAnterior = $pdo->query('SELECT ultimaConsulta, cantidadAperturasExitosas, cantidadAperturasFallidas
+        FROM microcontroladores WHERE idMicrocontrolador = 101')->fetch(PDO::FETCH_ASSOC);
+    $pdo->exec("UPDATE locales SET habilitado = 0, accionar = 1 WHERE idLocal = 3");
+    $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
+        VALUES (300, 3, 'Local sin dispositivo', 'Direccion')");
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now'),
+        cantidadAperturasExitosas = 31, cantidadAperturasFallidas = 7 WHERE idMicrocontrolador = 101");
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta, ejecutado, habilitado) VALUES
+        ('DashboardVigente', 3, 3, datetime('now', '-1 hour'), datetime('now', '+1 hour'), 0, 1),
+        ('DashboardFuturo', 3, 3, datetime('now', '+2 hours'), datetime('now', '+3 hours'), 0, 1),
+        ('DashboardUsado', 3, 3, datetime('now', '-1 hour'), datetime('now', '+1 hour'), 1, 1),
+        ('DashboardRevocado', 3, 3, datetime('now', '-1 hour'), datetime('now', '+1 hour'), 0, 0),
+        ('DashboardAjeno', 1, 1, datetime('now', '-1 hour'), datetime('now', '+1 hour'), 0, 1)");
+    $insertarNoUsado = $pdo->prepare("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
+        VALUES (?, 3, 3, datetime('now', '-2 hours'), datetime('now', '-1 hour'))");
+    foreach (range(1, 6) as $i) {
+        $insertarNoUsado->execute(['DashboardVencido' . $i]);
+    }
+    $ultimaActividad = json_decode($request([], 'sesion.php')['body'], true)['ultima_actividad'];
+    $datosResumen = $request(['datos' => 'resumen'], $dashboard);
+    $fragmentoResumen = json_decode($datosResumen['body'], true)['resumen'] ?? '';
+    foreach ([
+        '2/3' => 'Lugares habilitados',
+        '1/2' => 'Dispositivos activos',
+        '1' => 'Accesos vigentes',
+        '31' => 'Aperturas exitosas',
+        '7' => 'Aperturas fallidas',
+        '6' => 'Accesos sin usar',
+    ] as $valor => $titulo) {
+        comprobarStartup(str_contains($fragmentoResumen, '<div class="n">' . $valor . '</div><div class="t">' . $titulo . '</div>'),
+            'El resumen actualizado no refleja ' . $titulo . '.');
+    }
+    foreach (['Próximos accesos', 'Accesos usados'] as $titulo) {
+        comprobarStartup(str_contains($fragmentoResumen, '<div class="n">1</div><div class="t">' . $titulo . '</div>'),
+            'El resumen actualizado no refleja ' . $titulo . '.');
+    }
+    comprobarStartup($datosResumen['status'] === 200
+        && str_contains($fragmentoResumen, '<h2>Próximas llegadas</h2>')
+        && str_contains($fragmentoResumen, '<span class="chip ahora">Vigente</span>')
+        && str_contains($fragmentoResumen, '<span class="chip luego">Próximo</span>')
+        && str_contains($fragmentoResumen, 'Accesos que no se usaron (últimos 5 de 6)')
+        && str_contains($fragmentoResumen, 'Hay 1 orden(es) de apertura')
+        && str_contains($fragmentoResumen, 'Local sin dispositivo')
+        && str_contains($fragmentoResumen, '1 acceso(s) revocado(s) sin usar.')
+        && str_contains($fragmentoResumen, '<td class="a">Activo</td>')
+        && !str_contains($fragmentoResumen, 'Local de prueba')
+        && !str_contains($fragmentoResumen, '<!DOCTYPE')
+        && json_decode($request([], 'sesion.php')['body'], true)['ultima_actividad'] === $ultimaActividad,
+        'La actualización completa no refleja secciones y alertas, filtra otra empresa o prolonga la sesión.');
+    $pdo->exec("UPDATE locales SET habilitado = 1, accionar = 0 WHERE idLocal = 3");
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now', '-16 seconds') WHERE idMicrocontrolador = 101");
+    $pdo->exec("UPDATE accesos SET ejecutado = 1 WHERE token = 'DashboardVigente'");
+    $pdo->exec('DELETE FROM locales WHERE idLocal = 300');
+    $datosActualizados = json_decode($request(['datos' => 'resumen'], $dashboard)['body'], true)['resumen'] ?? '';
+    comprobarStartup(str_contains($datosActualizados, '<div class="n">2/2</div><div class="t">Lugares habilitados</div>')
+        && str_contains($datosActualizados, '<div class="n">0/2</div><div class="t">Dispositivos activos</div>')
+        && str_contains($datosActualizados, '<div class="n">0</div><div class="t">Accesos vigentes</div>')
+        && str_contains($datosActualizados, '<div class="n">2</div><div class="t">Accesos usados</div>')
+        && str_contains($datosActualizados, 'no responde.')
+        && !str_contains($datosActualizados, 'Hay 1 orden(es) de apertura')
+        && !str_contains($datosActualizados, 'Local sin dispositivo'),
+        'La segunda actualización no refleja cambios ni elimina alertas obsoletas.');
+    $pdo->exec("DELETE FROM accesos WHERE token LIKE 'Dashboard%'");
+    $restaurarLocal = $pdo->prepare('UPDATE locales SET habilitado = ?, accionar = ? WHERE idLocal = 3');
+    $restaurarLocal->execute([$localAnterior['habilitado'], $localAnterior['accionar']]);
+    $restaurarMicro = $pdo->prepare('UPDATE microcontroladores SET ultimaConsulta = ?,
+        cantidadAperturasExitosas = ?, cantidadAperturasFallidas = ? WHERE idMicrocontrolador = 101');
+    $restaurarMicro->execute([$microAnterior['ultimaConsulta'], $microAnterior['cantidadAperturasExitosas'],
+        $microAnterior['cantidadAperturasFallidas']]);
+    unset($insertarNoUsado, $restaurarLocal, $restaurarMicro);
+    touch($marcaConexion);
+    comprobarStartup($request(['datos' => 'resumen'], $dashboard)['status'] === 503,
+        'Un error de base de datos no debe devolver un resumen aparentemente válido.');
+    $inicioFallido = $request([], $dashboard);
+    comprobarStartup(str_contains($inicioFallido['body'], 'No se pudo cargar el resumen.')
+        && str_contains($inicioFallido['body'], "url.searchParams.set('datos', 'resumen')"),
+        'El resumen no permite recuperarse tras un error inicial de base de datos.');
+    unlink($marcaConexion);
+    $pdo->exec('UPDATE empresas_modulos SET habilitado = 0 WHERE idEmpresa = 3 AND idModulo = 1');
+    comprobarStartup($request(['datos' => 'resumen'], $dashboard)['status'] === 403,
+        'La actualización completa no verifica que el módulo esté habilitado.');
+    $pdo->exec('UPDATE empresas_modulos SET habilitado = 1 WHERE idEmpresa = 3 AND idModulo = 1');
     $cookiesDashboard = $cookies;
     $cookies = [];
     comprobarStartup($request(['datos' => 'dispositivos'], $dashboard)['status'] === 401,
         'La actualización de dispositivos del dashboard requiere sesión.');
+    comprobarStartup($request(['datos' => 'resumen'], $dashboard)['status'] === 401,
+        'La actualización completa del dashboard requiere sesión.');
     $cookies = $cookiesDashboard;
     $pdo->exec("UPDATE locales SET zonaHoraria = 'America/Guayaquil' WHERE idLocal = 3");
     $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now'), ultimaApertura = '2025-01-02 03:04:05' WHERE idMicrocontrolador = 101");
