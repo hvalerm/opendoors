@@ -85,12 +85,13 @@ function reconciliarSolicitudApertura(PDO $pdo, array $local, string $ahora): ?a
     return $solicitud;
 }
 
-function reconciliarAccesoPendiente(PDO $pdo, int $idLocal, int $idEmpresa, int $idAcceso): void
+function reconciliarAperturaPendiente(PDO $pdo, int $idLocal, int $idEmpresa, ?int $idAcceso = null): void
 {
     $pdo->beginTransaction();
     try {
         $local = bloquearLocalApertura($pdo, $idLocal, $idEmpresa);
-        if ($local && (int) $local['aperturaIdAcceso'] === $idAcceso && $local['aperturaEstado'] === 'pendiente') {
+        if ($local && $local['aperturaEstado'] === 'pendiente'
+            && ($idAcceso === null || (int) $local['aperturaIdAcceso'] === $idAcceso)) {
             reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
         }
         $pdo->commit();

@@ -16,6 +16,17 @@ function responder(int $codigo, bool $ok, string $mensaje): void
     exit;
 }
 
+function responderAperturaPendiente(bool $confirmar, string $token, string $mensaje): void
+{
+    global $urlAccesoPuerta;
+    if ($confirmar) {
+        session_write_close();
+        header('Location: ' . parse_url($urlAccesoPuerta, PHP_URL_PATH) . '?token=' . rawurlencode($token), true, 303);
+        exit;
+    }
+    responder(409, false, $mensaje);
+}
+
 // Paso 1: recibir el token por POST (un GET lo podría consumir una vista previa del enlace) y validar su formato
 // (solo letras y números, hasta 250 caracteres)
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -51,7 +62,7 @@ try {
         responder(404, false, 'Acceso no encontrado.');
     }
     if ($acceso['local_pendiente'] !== null && $acceso['resolver_pendiente']) {
-        reconciliarAccesoPendiente($pdo, (int) $acceso['local_pendiente'], (int) $acceso['id_empresa'], (int) $acceso['id_acceso']);
+        reconciliarAperturaPendiente($pdo, (int) $acceso['local_pendiente'], (int) $acceso['id_empresa'], (int) $acceso['id_acceso']);
     }
 
     $pdo->beginTransaction();
@@ -61,7 +72,8 @@ try {
     }
     $anterior = reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
     if (($anterior && $anterior['estado'] === 'pendiente') || (!$anterior && $local['accionar'])) {
-        throw new DomainException('Ya hay una apertura pendiente para este local.');
+        $pdo->rollBack();
+        responderAperturaPendiente($confirmar, $token, 'Ya hay una apertura pendiente para este local.');
     }
     $stmt = $pdo->prepare(
         'SELECT idAcceso AS id_acceso, idLocal AS id_local, idEmpresa AS id_empresa,
@@ -93,7 +105,7 @@ try {
     $pendiente->execute([$acceso['id_acceso']]);
     if ($pendiente->fetchColumn() !== false) {
         $pdo->commit();
-        responder(409, false, 'Ya hay una apertura pendiente para este acceso.');
+        responderAperturaPendiente($confirmar, $token, 'Ya hay una apertura pendiente para este acceso.');
     }
     $estadoDispositivo = estadoDispositivoLocal($pdo, (int) $acceso['id_local'], (int) $acceso['id_empresa'], true);
     if ($estadoDispositivo !== 'activo') {

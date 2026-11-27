@@ -327,6 +327,8 @@ recFin();
     comprobarStartup(json_decode($response['body'], true) === ['valido' => false, 'mensaje' => 'Acceso usado.'],
         'La validacion no detecta un acceso ya usado.');
     $pdo->exec("UPDATE accesos SET ejecutado = 0 WHERE token = 'TokenPrueba'");
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
+        VALUES ('TokenSegundo', 1, 1, '2000-01-01 00:00:00', '2099-12-31 23:59:59')");
     $response = $request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', '',
         ['token' => 'TokenPrueba', 'confirmar' => '1']);
     comprobarStartup($response['status'] === 303 && str_contains($response['location'], 'confirmacion='),
@@ -339,14 +341,41 @@ recFin();
     $validacionPendiente = json_decode($request([], 'accesoPuerta.php', '', [
         'accion' => 'validar', 'token' => 'TokenPrueba',
     ])['body'], true);
-    comprobarStartup($validacionPendiente === ['valido' => false, 'mensaje' => 'Ya hay una apertura pendiente para este acceso.']
+    $mensajeEspera = 'Hay una apertura en curso. Por favor, espera unos segundos; normalmente tarda menos de un minuto.';
+    comprobarStartup($validacionPendiente === ['valido' => false, 'mensaje' => $mensajeEspera]
         && $request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', post: ['token' => 'TokenPrueba'])['status'] === 409,
         'No debe permitirse otra orden del mismo acceso mientras esta pendiente.');
+    $vistaSegundo = $request(['token' => 'TokenSegundo'], 'accesoPuerta');
+    $estadoSegundo = json_decode($request([], 'accesoPuerta.php', '', [
+        'accion' => 'validar', 'token' => 'TokenSegundo',
+    ])['body'], true);
+    comprobarStartup($vistaSegundo['status'] === 200 && str_contains($vistaSegundo['body'], $mensajeEspera)
+        && preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $vistaSegundo['body']) === 1
+        && $estadoSegundo === ['valido' => false, 'mensaje' => $mensajeEspera]
+        && (int) $pdo->query("SELECT ejecutado FROM accesos WHERE token = 'TokenSegundo'")->fetchColumn() === 0,
+        'Otra persona debe esperar mientras el mismo local tenga una apertura pendiente.');
+    $respuestaSimultanea = $request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', post: [
+        'token' => 'TokenSegundo', 'confirmar' => '1',
+    ]);
+    comprobarStartup($respuestaSimultanea['status'] === 303
+        && $respuestaSimultanea['location'] === '/instalacion/entrada?token=TokenSegundo'
+        && $request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', post: ['token' => 'TokenSegundo'])['status'] === 409,
+        'Un clic simultaneo debe devolver al huesped al enlace y conservar el rechazo de la API.');
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal) VALUES (9, 1, 'Otro local', 'Direccion')");
+    $pdo->exec("INSERT INTO microcontroladores (idMicrocontrolador, idLocal, idEmpresa, ultimaConsulta, habilitado)
+        VALUES (12, 9, 1, datetime('now'), 1)");
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
+        VALUES ('TokenOtroLocal', 9, 1, '2000-01-01 00:00:00', '2099-12-31 23:59:59')");
+    comprobarStartup(json_decode($request([], 'accesoPuerta.php', '', [
+        'accion' => 'validar', 'token' => 'TokenOtroLocal',
+    ])['body'], true) === ['valido' => true, 'mensaje' => ''],
+        'La apertura pendiente de otro local no debe bloquear el acceso.');
     $pdo->exec("UPDATE accesos SET idLocal = 9 WHERE token = 'TokenPrueba'");
     comprobarStartup($request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', post: ['token' => 'TokenPrueba'])['status'] === 409,
         'Cambiar el local no debe permitir una segunda orden del mismo acceso.');
     $pdo->exec("UPDATE accesos SET idLocal = 1 WHERE token = 'TokenPrueba'");
+    $pdo->exec("DELETE FROM accesos WHERE token = 'TokenOtroLocal'");
+    $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador = 12');
     $pdo->exec('DELETE FROM locales WHERE idLocal = 9');
     comprobarStartup(str_starts_with($response['location'], '../ModoAnfitrion/OpenDoors/puertaAccionada?'),
         'La confirmacion se redirige a una ruta con extension.');
@@ -420,6 +449,15 @@ recFin();
         && (int) $pdo->query("SELECT ejecutado FROM accesos WHERE token = 'TokenPrueba'")->fetchColumn() === 1
         && $pdo->query('SELECT aperturaIdAcceso FROM locales WHERE idLocal = 1')->fetchColumn() === null,
         'Restablecer no limpia la orden o modifica la ultima consulta.');
+    comprobarStartup((json_decode($request([], 'accesoPuerta.php', '', [
+        'accion' => 'validar', 'token' => 'TokenSegundo',
+    ])['body'], true)['valido'] ?? true) === false,
+        'La finalizacion no debe habilitar el acceso si el dispositivo esta inactivo.');
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now') WHERE idMicrocontrolador = 10");
+    comprobarStartup(json_decode($request([], 'accesoPuerta.php', '', [
+        'accion' => 'validar', 'token' => 'TokenSegundo',
+    ])['body'], true) === ['valido' => true, 'mensaje' => ''],
+        'El segundo acceso debe habilitarse al confirmarse la primera apertura.');
     comprobarStartup($request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', post: ['token' => 'TokenPrueba'])['status'] === 404,
         'Un acceso confirmado no debe poder utilizarse nuevamente.');
     comprobarStartup((int) $pdo->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn() === 1,
@@ -493,16 +531,45 @@ recFin();
         'La consulta de un resultado anterior afecta la nueva apertura.');
     $pdo->exec("UPDATE locales SET aperturaVenceEn = datetime('now', '-1 second') WHERE idLocal = 1");
     $validacionTrasFallo = json_decode($request([], 'accesoPuerta.php', '', [
-        'accion' => 'validar', 'token' => 'TokenPrueba',
+        'accion' => 'validar', 'token' => 'TokenSegundo',
     ])['body'], true);
     comprobarStartup($validacionTrasFallo === ['valido' => true, 'mensaje' => '']
         && (int) $pdo->query("SELECT ejecutado FROM accesos WHERE token = 'TokenPrueba'")->fetchColumn() === 0,
-        'Consultar el enlace debe resolver un fallo pendiente y permitir reintentar sin el proceso temporal.');
+        'El segundo enlace debe resolver un fallo y habilitarse sin el proceso temporal.');
     $response = $request($credencial, $consulta);
     comprobarStartup(json_decode($response['body'], true) === ['ok' => true, 'accionar' => 0]
         && (int) $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn() === 2,
         'El dispositivo recibe una orden vencida o no registra el fallo.');
+    $pdo->exec("UPDATE locales SET aperturaId = '" . str_repeat('c', 64) . "', aperturaEstado = 'pendiente',
+        aperturaVenceEn = datetime('now', '+30 seconds'), aperturaIdAcceso = NULL, accionar = 1 WHERE idLocal = 1");
+    comprobarStartup(json_decode($request([], 'accesoPuerta.php', '', [
+        'accion' => 'validar', 'token' => 'TokenSegundo',
+    ])['body'], true) === ['valido' => false, 'mensaje' => $mensajeEspera],
+        'Una orden manual pendiente tambien debe bloquear el acceso.');
+    $pdo->exec("UPDATE locales SET aperturaVenceEn = datetime('now', '-1 second') WHERE idLocal = 1");
+    comprobarStartup(json_decode($request([], 'accesoPuerta.php', '', [
+        'accion' => 'validar', 'token' => 'TokenSegundo',
+    ])['body'], true) === ['valido' => true, 'mensaje' => '']
+        && $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'fallida',
+        'El segundo huesped debe recuperar una orden manual vencida si se interrumpio el seguimiento.');
+    $pdo->exec("UPDATE locales SET aperturaEstado = 'pendiente', aperturaVenceEn = datetime('now', '+30 seconds'),
+        accionar = 1 WHERE idLocal = 1");
+    $pdo->exec("UPDATE locales SET aperturaEstado = 'cancelada', accionar = 0 WHERE idLocal = 1");
+    comprobarStartup(json_decode($request([], 'accesoPuerta.php', '', [
+        'accion' => 'validar', 'token' => 'TokenSegundo',
+    ])['body'], true) === ['valido' => true, 'mensaje' => ''],
+        'La cancelacion debe liberar el acceso del segundo huesped.');
+    $idPrimerAcceso = (int) $pdo->query("SELECT idAcceso FROM accesos WHERE token = 'TokenPrueba'")->fetchColumn();
+    $pdo->exec("UPDATE locales SET aperturaEstado = 'pendiente', aperturaVenceEn = datetime('now', '+30 seconds'),
+        aperturaIdAcceso = $idPrimerAcceso, accionar = 0 WHERE idLocal = 1");
+    comprobarStartup(json_decode($request([], 'accesoPuerta.php', '', [
+        'accion' => 'validar', 'token' => 'TokenSegundo',
+    ])['body'], true) === ['valido' => true, 'mensaje' => '']
+        && (int) $pdo->query("SELECT ejecutado FROM accesos WHERE token = 'TokenPrueba'")->fetchColumn() === 1
+        && (int) $pdo->query("SELECT ejecutado FROM accesos WHERE token = 'TokenSegundo'")->fetchColumn() === 0,
+        'La consulta del segundo huesped debe resolver el exito sin consumir su propio acceso.');
     unset($orden, $ultimaConsulta);
+    $pdo->exec("DELETE FROM accesos WHERE token = 'TokenSegundo'");
     $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador IN (10, 11)');
     $pdo->exec("UPDATE accesos SET ejecutado = 0 WHERE token = 'TokenPrueba'");
     $pdo->exec('UPDATE locales SET accionar = 0 WHERE idLocal = 1');

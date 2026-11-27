@@ -92,6 +92,13 @@ este disponible. Si se interrumpe el proceso temporal, volver a consultar el
 enlace tambien resuelve un vencimiento pendiente. Un administrador conserva
 las opciones existentes de editar o deshabilitar el acceso.
 
+La pagina publica tambien consulta si hay una apertura pendiente del mismo
+local, aunque proceda de otro acceso o de una orden manual. Mientras espera,
+deshabilita el boton y muestra un aviso. El monitor existente consulta cada
+1,5 segundos mientras la pagina esta visible; una vez finalizada la apertura
+vuelve a comprobar la vigencia del enlace y la disponibilidad del dispositivo.
+La comprobacion en el servidor sigue evitando solicitudes simultaneas.
+
 Para impedir duplicados en la base, revisar primero la consulta de
 dispositivo_unico_por_local.sql, resolver manualmente los duplicados y
 ejecutar esa migracion una sola vez. No elimina ni modifica dispositivos.

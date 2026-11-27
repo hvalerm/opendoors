@@ -388,7 +388,7 @@ try {
         comprobarApertura($e->getCode() === '23000', 'La referencia no protege el acceso pendiente.');
     }
     $pdo->exec('UPDATE locales SET aperturaVenceEn = UTC_TIMESTAMP() WHERE idLocal = 1');
-    reconciliarAccesoPendiente($pdo, 1, 1, 1);
+    reconciliarAperturaPendiente($pdo, 1, 1, 1);
     comprobarApertura($pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'fallida'
         && (int) $pdo->query('SELECT ejecutado FROM accesos WHERE idAcceso = 1')->fetchColumn() === 0,
         'No se recupero el acceso despues de un fallo sin proceso temporal.');
@@ -421,7 +421,7 @@ try {
     $pdo->exec('INSERT INTO locales (idLocal, idEmpresa) VALUES (3, 1)');
     $pdo->exec('UPDATE accesos SET idLocal = 3 WHERE idAcceso = 1');
     $pdo->exec('UPDATE locales SET accionar = 0 WHERE idLocal = 1');
-    reconciliarAccesoPendiente($pdo, 1, 1, 1);
+    reconciliarAperturaPendiente($pdo, 1, 1, 1);
     comprobarApertura((int) $pdo->query('SELECT ejecutado FROM accesos WHERE idAcceso = 1')->fetchColumn() === 1
         && $pdo->query('SELECT aperturaIdAcceso FROM locales WHERE idLocal = 1')->fetchColumn() === null,
         'La confirmacion no consumio el acceso original despues de cambiar su local.');

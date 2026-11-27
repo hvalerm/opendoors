@@ -54,7 +54,7 @@
                 }
             } catch (error) {
                 if (visible() && !enviando && controller === actual) {
-                    mostrar(false, 'No se pudo verificar el dispositivo. Revisa tu conexión e inténtalo nuevamente.');
+                    mostrar(false, 'No se pudo verificar la disponibilidad. Revisa tu conexión e inténtalo nuevamente.');
                 }
             } finally {
                 clearTimeout(plazo);
@@ -64,7 +64,7 @@
 
         function iniciar() {
             if (!visible() || timer !== null || enviando) return;
-            mostrar(false, 'Comprobando dispositivo...');
+            mostrar(false, 'Comprobando disponibilidad...');
             consultar();
             timer = setInterval(consultar, 1500);
         }

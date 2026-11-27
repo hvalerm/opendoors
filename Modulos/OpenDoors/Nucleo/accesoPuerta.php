@@ -25,6 +25,8 @@ if (is_string($token) && preg_match('/^[A-Za-z0-9]{1,250}$/', $token)) {
             'SELECT a.idAcceso AS id_acceso, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, a.ejecutado, a.habilitado,
                     a.idLocal AS id_local, a.idEmpresa AS id_empresa,
                     l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, l.zonaHoraria,
+                    l.aperturaEstado AS apertura_estado_local, l.accionar AS accionar_local,
+                    (l.aperturaEstado = \'pendiente\' AND (l.accionar = 0 OR l.aperturaVenceEn <= UTC_TIMESTAMP())) AS resolver_local,
                     pendiente.idLocal AS local_pendiente,
                     (pendiente.accionar = 0 OR pendiente.aperturaVenceEn <= UTC_TIMESTAMP()) AS resolver_pendiente
              FROM accesos a
@@ -35,8 +37,13 @@ if (is_string($token) && preg_match('/^[A-Za-z0-9]{1,250}$/', $token)) {
         );
         $stmt->execute([$token]);
         $acceso = $stmt->fetch();
+        if ($acceso && $acceso['resolver_local']) {
+            reconciliarAperturaPendiente($pdo, (int) $acceso['id_local'], (int) $acceso['id_empresa']);
+            $stmt->execute([$token]);
+            $acceso = $stmt->fetch();
+        }
         if ($acceso && $acceso['local_pendiente'] !== null && $acceso['resolver_pendiente']) {
-            reconciliarAccesoPendiente($pdo, (int) $acceso['local_pendiente'], (int) $acceso['id_empresa'], (int) $acceso['id_acceso']);
+            reconciliarAperturaPendiente($pdo, (int) $acceso['local_pendiente'], (int) $acceso['id_empresa'], (int) $acceso['id_acceso']);
             $stmt->execute([$token]);
             $acceso = $stmt->fetch();
         }
@@ -74,14 +81,20 @@ $mensajes = [
     'fuera_de_horario' => 'Este acceso no está vigente en este momento.',
     'error' => 'Ocurrió un error. Inténtalo nuevamente en unos minutos.',
 ];
+$aperturaPendiente = $estado === 'valido' && ($acceso['local_pendiente'] !== null
+    || $acceso['apertura_estado_local'] === 'pendiente' || (int) $acceso['accionar_local'] !== 0);
+$mensajeDisponibilidad = $estado === 'valido'
+    ? ($aperturaPendiente
+        ? 'Hay una apertura en curso. Por favor, espera unos segundos; normalmente tarda menos de un minuto.'
+        : mensajeEstadoDispositivo($estadoDispositivo))
+    : $mensajes[$estado];
+$puedeAbrir = $estado === 'valido' && !$aperturaPendiente && $estadoDispositivo === 'activo';
 // Validación previa al clic en "Abrir puerta": responde el estado actual del acceso en JSON
 if ($esValidacion) {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
-        'valido' => $estado === 'valido' && $acceso['local_pendiente'] === null && $estadoDispositivo === 'activo',
-        'mensaje' => $estado === 'valido'
-            ? ($acceso['local_pendiente'] !== null ? 'Ya hay una apertura pendiente para este acceso.' : mensajeEstadoDispositivo($estadoDispositivo))
-            : $mensajes[$estado],
+        'valido' => $puedeAbrir,
+        'mensaje' => $mensajeDisponibilidad,
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -131,9 +144,9 @@ if ($esValidacion) {
             <form method="post" action="<?= $h(parse_url($urlApiOrdenApertura, PHP_URL_PATH)) ?>" id="formAbrir" data-accion-estado="validar">
                 <input type="hidden" name="token" value="<?= $h($token) ?>">
                 <input type="hidden" name="confirmar" value="1">
-                <button type="submit" class="btn" id="btnAbrir" <?= $estadoDispositivo === 'activo' && $acceso['local_pendiente'] === null ? '' : 'disabled' ?>>Abrir puerta</button>
+                <button type="submit" class="btn" id="btnAbrir" <?= $puedeAbrir ? '' : 'disabled' ?>>Abrir puerta</button>
             </form>
-            <div class="estado" id="estadoError" role="status" <?= $estadoDispositivo === 'activo' && $acceso['local_pendiente'] === null ? 'hidden' : '' ?>><?= $h($acceso['local_pendiente'] !== null ? 'Ya hay una apertura pendiente para este acceso.' : mensajeEstadoDispositivo($estadoDispositivo)) ?></div>
+            <div class="estado" id="estadoError" role="status" <?= $puedeAbrir ? 'hidden' : '' ?>><?= $h($mensajeDisponibilidad) ?></div>
         <?php else: ?>
             <h1>Acceso al alojamiento</h1>
             <div class="estado"><?= $h($mensajes[$estado]) ?></div>
