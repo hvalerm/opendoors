@@ -5,11 +5,15 @@ La coincidencia distingue mayusculas y minusculas incluso en Windows.
 Cada carpeta contiene menuLateral.php, Nucleo y Configuracion.
 GESTALO conserva estas carpetas preparadas, sin funcionalidad aun.
 
-vistaAnfitrion carga unicamente modulos habilitados para la empresa en
-empresas_modulos cuya licencia no haya vencido. La licencia dura hasta el
-final de la fecha en empresas_modulos.licenciaExpira, en la zona de empresas.
+El inicio de sesion no depende de la licencia de la empresa. vistaAnfitrion
+muestra los modulos habilitados de las empresas habilitadas vinculadas a la
+cuenta. Para cuentas multempresa, cada modulo agrupa sus opciones por empresa;
+si la licencia del modulo ha vencido, el grupo muestra el aviso de vencimiento
+sin exponer sus opciones. La licencia dura hasta el final de la fecha en
+empresas_modulos.licenciaExpira, en la zona de empresas.
 Cada menuLateral.php devuelve una funcion que recibe
-el registro del modulo (idModulo y nombreModulo) y el nombre de la web.
+el registro del modulo (incluido idEmpresa) y el nombre de la web. Debe
+construir sus opciones para la empresa recibida, no para la empresa de sesion.
 La funcion devuelve un arreglo con:
 
 - principal: [titulo, icono SVG (path), hijos, pagina opcional, clave opcional]
@@ -28,8 +32,10 @@ Un modulo habilitado sin carpeta o menu se muestra como no disponible y
 se registra el problema. Los archivos del modulo deben comprobar la sesion,
 los permisos de empresa y la habilitacion del modulo cuando corresponda:
 ocultar el menu no protege por si solo sus URL.
-Las paginas privadas deben comprobar tambien la licencia, por ejemplo con
-requerirModulo() en util\Seguridad\modulos.php despues de requerirSesion().
+Las paginas privadas deben comprobar tambien la empresa vinculada, la
+habilitacion y la licencia con empresaModulo(nombreModulo), despues de
+requerirSesion(). Deben conservar el parametro empresa en enlaces, formularios,
+redirecciones y consultas posteriores, sin confiar en el valor sin validarlo.
 En OpenDoors el vencimiento limita el panel, no las API de dispositivos ni
 los enlaces publicos de apertura.
 

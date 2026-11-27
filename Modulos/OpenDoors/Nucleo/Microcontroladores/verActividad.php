@@ -3,7 +3,7 @@ require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
-requerirModulo('OpenDoors');
+$empresaOpenDoors = empresaOpenDoors();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);
@@ -20,7 +20,7 @@ try {
          WHERE m.idEmpresa = ?
          ORDER BY m.idMicrocontrolador'
     );
-    $stmt->execute([(int) $_SESSION['empresa_id']]);
+    $stmt->execute([(int) $empresaOpenDoors['id_empresa']]);
     $unidades = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en verActividad: ' . $e->getMessage());

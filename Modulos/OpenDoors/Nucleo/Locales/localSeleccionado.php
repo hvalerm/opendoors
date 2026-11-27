@@ -6,9 +6,9 @@ require_once __DIR__ . '/../util/iniciar_seguimiento.php';
 require_once __DIR__ . '/../util/estado_dispositivo.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
-requerirModulo('OpenDoors');
+$empresaOpenDoors = empresaOpenDoors();
 
-$idEmpresa = (int) $_SESSION['empresa_id'];
+$idEmpresa = (int) $empresaOpenDoors['id_empresa'];
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $idLocal = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $embed = isset($_GET['embed']);
@@ -30,7 +30,7 @@ function cargarLocal(int $idLocal, int $idEmpresa): ?array
          FROM locales l
          WHERE l.idLocal = ? AND l.idEmpresa = ? AND l.eliminado = 0'
     );
-    $stmt->execute([$_SESSION['empresa_nombre'], $idLocal, $idEmpresa]);
+    $stmt->execute([empresaOpenDoors()['nombre_empresa'], $idLocal, $idEmpresa]);
     return $stmt->fetch() ?: null;
 }
 
@@ -76,7 +76,7 @@ try {
                 $idSolicitud = emitirSolicitudApertura($pdo, (int) $local['id_local'], $idEmpresa);
                 iniciarSeguimientoApertura((int) $local['id_local'], $idEmpresa, $idSolicitud);
                 $pdo->commit();
-                header('Location: ../puertaAccionada?id=' . $local['id_local'] . '&solicitud=' . $idSolicitud . ($embed ? '&embed=1' : ''));
+                header('Location: ' . urlEmpresaOpenDoors('../puertaAccionada?id=' . $local['id_local'] . '&solicitud=' . $idSolicitud . ($embed ? '&embed=1' : ''), $idEmpresa));
                 exit;
             }
         } elseif (($_POST['accion'] ?? '') === 'anular_apertura') {
@@ -178,15 +178,17 @@ try {
             <div class="acciones">
                 <form method="post" action="" id="formAbrir" data-accion-estado="estado_dispositivo">
                     <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf'] ?? '') ?>">
+                    <input type="hidden" name="empresa" value="<?= $idEmpresa ?>">
                     <input type="hidden" name="accion" value="abrir_puerta">
                     <button type="submit" class="btn" id="btnAbrir" <?= $local['habilitado'] && $estadoDispositivo === 'activo' ? '' : 'disabled' ?>>Abrir puerta</button>
                 </form>
                 <form method="post" action="">
                     <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf'] ?? '') ?>">
+                    <input type="hidden" name="empresa" value="<?= $idEmpresa ?>">
                     <input type="hidden" name="accion" value="anular_apertura">
                     <button type="submit" class="btn peligro" <?= (int) $local['accionar'] === 1 ? '' : 'disabled' ?>>Anular apertura de puerta</button>
                 </form>
-                <a class="btn secundario" href="../Accesos/CrearAccesoLocal?id=<?= (int) $local['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">Crear Acceso</a>
+                <a class="btn secundario" href="<?= $h(urlEmpresaOpenDoors('../Accesos/CrearAccesoLocal?id=' . (int) $local['id_local'] . ($embed ? '&embed=1' : ''), $idEmpresa)) ?>">Crear Acceso</a>
             </div>
         <?php endif; ?>
     </section>

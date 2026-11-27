@@ -4,7 +4,7 @@ require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
-requerirModulo('OpenDoors');
+$empresaOpenDoors = empresaOpenDoors();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $idAcceso = filter_var($_GET['id'] ?? $_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -27,7 +27,7 @@ function cargarAcceso(PDO $pdo, int $idAcceso, int $idEmpresa): ?array
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
          WHERE a.idAcceso = ? AND a.idEmpresa = ?'
     );
-    $stmt->execute([$_SESSION['empresa_nombre'], $idAcceso, $idEmpresa]);
+    $stmt->execute([empresaOpenDoors()['nombre_empresa'], $idAcceso, $idEmpresa]);
     return $stmt->fetch() ?: null;
 }
 
@@ -36,7 +36,7 @@ $hasta = null;
 $idLocalNuevo = null;
 try {
     $pdo = getOpenDoorsPDO();
-    $idEmpresa = (int) $_SESSION['empresa_id'];
+    $idEmpresa = (int) $empresaOpenDoors['id_empresa'];
     if ($idAcceso) {
         $acceso = cargarAcceso($pdo, $idAcceso, $idEmpresa);
     }
@@ -104,7 +104,7 @@ try {
     $error = 'Ocurrió un error al actualizar el acceso.';
 }
 
-$urlLista = 'listarAccesos' . ($embed ? '?embed=1' : '');
+$urlLista = urlEmpresaOpenDoors('listarAccesos' . ($embed ? '?embed=1' : ''), (int) $empresaOpenDoors['id_empresa']);
 $locales = [];
 if ($acceso) {
     try {
@@ -163,6 +163,7 @@ $valHasta = $hasta ?? ($acceso ? mostrarFechaAcceso($acceso['activo_hasta'], $ac
             <?php if ($mensaje): ?><div class="exito"><?= $h($mensaje) ?></div><?php endif; ?>
 
             <form method="post" action="vetanaDelAcceso">
+                <input type="hidden" name="empresa" value="<?= (int) $empresaOpenDoors['id_empresa'] ?>">
                 <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
                 <input type="hidden" name="id" value="<?= (int) $acceso['id_acceso'] ?>">
                 <input type="hidden" name="accion" value="actualizar">

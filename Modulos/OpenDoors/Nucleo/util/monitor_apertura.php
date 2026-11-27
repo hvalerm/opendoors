@@ -40,6 +40,8 @@
                 var datos = new URLSearchParams({ accion: form.dataset.accionEstado });
                 var token = form.querySelector('[name="token"]');
                 if (token) datos.set('token', token.value);
+                var empresa = form.querySelector('[name="empresa"]');
+                if (empresa) datos.set('empresa', empresa.value);
                 var res = await fetch(window.location.href, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

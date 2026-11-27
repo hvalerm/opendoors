@@ -82,10 +82,8 @@ if (isset($_GET['estado'])) {
         echo json_encode(['error' => 'sesion']);
         exit;
     }
-    if (!$esHuesped) {
-        requerirModulo('OpenDoors');
-    }
-    $empresaEstado = $esHuesped ? ($permiso['id_empresa'] ?? null) : ($_SESSION['empresa_id'] ?? null);
+    $empresaOpenDoors = $esHuesped ? null : empresaOpenDoors();
+    $empresaEstado = $esHuesped ? ($permiso['id_empresa'] ?? null) : $empresaOpenDoors['id_empresa'];
     if ($idLocal && is_numeric($empresaEstado) && (int) $empresaEstado > 0
         && is_string($idSolicitud) && preg_match('/^[a-f0-9]{64}$/D', $idSolicitud)) {
         try {
@@ -99,7 +97,7 @@ if (isset($_GET['estado'])) {
         }
     }
     try {
-        $local = $idLocal ? obtenerLocal($idLocal, $esHuesped ? null : (int) $_SESSION['empresa_id']) : null;
+        $local = $idLocal ? obtenerLocal($idLocal, $esHuesped ? null : (int) $empresaOpenDoors['id_empresa']) : null;
         $estadoApertura = $local ? estadoAperturaLocal($local, $idSolicitud) : null;
     } catch (PDOException | LogicException $e) {
         error_log('Error en puertaAccionada: ' . $e->getMessage());
@@ -118,14 +116,14 @@ if (isset($_GET['estado'])) {
 
 if (!$esHuesped) {
     requerirSesion();
-    requerirModulo('OpenDoors');
+    $empresaOpenDoors = empresaOpenDoors();
 }
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);
 $local = null;
 $estadoApertura = null;
 try {
-    $local = $idLocal ? obtenerLocal($idLocal, $esHuesped ? null : (int) $_SESSION['empresa_id']) : null;
+    $local = $idLocal ? obtenerLocal($idLocal, $esHuesped ? null : (int) $empresaOpenDoors['id_empresa']) : null;
     $estadoApertura = $local ? estadoAperturaLocal($local, $idSolicitud) : null;
     if ($local) {
         $empresa = getPDO()->prepare('SELECT telefonoContacto FROM empresas WHERE idEmpresa = ?');
@@ -157,8 +155,13 @@ if (is_string($idSolicitud)) {
 }
 if ($esHuesped && $autorizado) {
     $urlEstado = 'puertaAccionada?estado=1&confirmacion=' . rawurlencode($confirmacion);
+} elseif (!$esHuesped) {
+    $urlEstado = urlEmpresaOpenDoors($urlEstado, (int) $empresaOpenDoors['id_empresa']);
 }
 $urlVolver = 'Locales/localSeleccionado?id=' . (int) $idLocal . ($embed ? '&embed=1' : '');
+if (!$esHuesped) {
+    $urlVolver = urlEmpresaOpenDoors($urlVolver, (int) $empresaOpenDoors['id_empresa']);
+}
 $urlReintentar = $esHuesped && $autorizado && isset($permiso['token_acceso'])
     ? $urlAccesoPuerta . '?token=' . rawurlencode($permiso['token_acceso'])
     : null;

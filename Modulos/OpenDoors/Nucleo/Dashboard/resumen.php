@@ -15,10 +15,10 @@ if ($soloDispositivos || $soloResumen) {
 } else {
     requerirSesion();
 }
-requerirModulo('OpenDoors');
+$empresaOpenDoors = empresaOpenDoors();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
-$idEmpresa = (int) $_SESSION['empresa_id'];
+$idEmpresa = (int) $empresaOpenDoors['id_empresa'];
 session_write_close();
 
 function cargarDispositivosDashboard(PDO $pdo, int $idEmpresa): array

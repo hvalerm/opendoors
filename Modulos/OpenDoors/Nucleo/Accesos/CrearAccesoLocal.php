@@ -4,7 +4,7 @@ require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
-requerirModulo('OpenDoors');
+$empresaOpenDoors = empresaOpenDoors();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $idLocal = filter_var($_GET['id'] ?? $_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -38,7 +38,7 @@ try {
              FROM locales l
              WHERE l.idLocal = ? AND l.idEmpresa = ? AND l.eliminado = 0'
         );
-        $stmt->execute([$_SESSION['empresa_nombre'], $idLocal, (int) $_SESSION['empresa_id']]);
+        $stmt->execute([$empresaOpenDoors['nombre_empresa'], $idLocal, (int) $empresaOpenDoors['id_empresa']]);
         $local = $stmt->fetch() ?: null;
     }
 
@@ -79,8 +79,8 @@ try {
     error_log('Error en CrearAccesoLocal: ' . $e->getMessage());
     $error = 'Ocurrió un error al guardar el acceso.';
 }
-$q = $embed ? '?embed=1' : '';
-$urlVolver = '../Locales/localSeleccionado?id=' . (int) $idLocal . ($embed ? '&embed=1' : '');
+$urlLista = urlEmpresaOpenDoors('SeleccionarLocalAcceso' . ($embed ? '?embed=1' : ''), (int) $empresaOpenDoors['id_empresa']);
+$urlVolver = urlEmpresaOpenDoors('../Locales/localSeleccionado?id=' . (int) $idLocal . ($embed ? '&embed=1' : ''), (int) $empresaOpenDoors['id_empresa']);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -116,7 +116,7 @@ $urlVolver = '../Locales/localSeleccionado?id=' . (int) $idLocal . ($embed ? '&e
         <?php if (!$local): ?>
             <h1>Local no encontrado</h1>
             <p>El local no existe o no pertenece a tu empresa.</p>
-            <div class="acciones" style="margin-top:18px"><a class="btn enlace" href="SeleccionarLocalAcceso<?= $h($q) ?>">Volver a la lista</a></div>
+            <div class="acciones" style="margin-top:18px"><a class="btn enlace" href="<?= $h($urlLista) ?>">Volver a la lista</a></div>
         <?php else: ?>
             <h1>Crear acceso</h1>
             <dl>
@@ -137,7 +137,7 @@ $urlVolver = '../Locales/localSeleccionado?id=' . (int) $idLocal . ($embed ? '&e
                     </div>
                 </div>
                 <div class="acciones">
-                    <a class="btn" href="CrearAccesoLocal?id=<?= (int) $local['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">Crear otro acceso</a>
+                    <a class="btn" href="<?= $h(urlEmpresaOpenDoors('CrearAccesoLocal?id=' . (int) $local['id_local'] . ($embed ? '&embed=1' : ''), (int) $empresaOpenDoors['id_empresa'])) ?>">Crear otro acceso</a>
                     <a class="btn enlace" href="<?= $h($urlVolver) ?>">Volver al local</a>
                 </div>
             <?php else: ?>
@@ -146,6 +146,7 @@ $urlVolver = '../Locales/localSeleccionado?id=' . (int) $idLocal . ($embed ? '&e
                 <?php if ($error): ?><div class="error"><?= $h($error) ?></div><?php endif; ?>
                 <form method="post" action="CrearAccesoLocal">
                     <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
+                    <input type="hidden" name="empresa" value="<?= (int) $empresaOpenDoors['id_empresa'] ?>">
                     <input type="hidden" name="id" value="<?= (int) $local['id_local'] ?>">
                     <?php if ($embed): ?><input type="hidden" name="embed" value="1"><?php endif; ?>
                     <label>Activo desde

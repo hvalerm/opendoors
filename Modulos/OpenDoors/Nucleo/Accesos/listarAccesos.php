@@ -4,7 +4,7 @@ require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
-requerirModulo('OpenDoors');
+$empresaOpenDoors = empresaOpenDoors();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);
@@ -24,7 +24,7 @@ try {
          WHERE a.idEmpresa = ?
          ORDER BY a.idAcceso DESC'
     );
-    $stmt->execute([$_SESSION['empresa_nombre'], ahoraVigenciaAccesos(), (int) $_SESSION['empresa_id']]);
+    $stmt->execute([$empresaOpenDoors['nombre_empresa'], ahoraVigenciaAccesos(), (int) $empresaOpenDoors['id_empresa']]);
     $accesos = $stmt->fetchAll();
     $stmt = getOpenDoorsPDO()->prepare(
         'SELECT l.idLocal, l.nombreLocal, l.direccionLocal
@@ -34,7 +34,7 @@ try {
          ))
          ORDER BY l.nombreLocal, l.direccionLocal, l.idLocal'
     );
-    $stmt->execute([(int) $_SESSION['empresa_id']]);
+    $stmt->execute([(int) $empresaOpenDoors['id_empresa']]);
     $locales = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en listarAccesos: ' . $e->getMessage());
@@ -133,8 +133,8 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                     </thead>
                     <tbody id="cuerpo">
                         <?php foreach ($accesos as $a): $zona = $a['zonaHoraria']; ?>
-                            <tr class="fila" data-href="vetanaDelAcceso?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>" data-local-id="<?= (int) $a['id_local'] ?>" data-desde="<?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'Y-m-d')) ?>" data-hasta="<?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'Y-m-d')) ?>">
-                                <td><a class="enlace-id" href="vetanaDelAcceso?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>"><?= (int) $a['id_acceso'] ?></a></td>
+                            <tr class="fila" data-href="<?= $h(urlEmpresaOpenDoors('vetanaDelAcceso?id=' . (int) $a['id_acceso'] . ($embed ? '&embed=1' : ''), (int) $empresaOpenDoors['id_empresa'])) ?>" data-local-id="<?= (int) $a['id_local'] ?>" data-desde="<?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'Y-m-d')) ?>" data-hasta="<?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'Y-m-d')) ?>">
+                                <td><a class="enlace-id" href="<?= $h(urlEmpresaOpenDoors('vetanaDelAcceso?id=' . (int) $a['id_acceso'] . ($embed ? '&embed=1' : ''), (int) $empresaOpenDoors['id_empresa'])) ?>"><?= (int) $a['id_acceso'] ?></a></td>
                                 <td><?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'd/m/Y H:i T')) ?></td>
                                 <td><?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'd/m/Y H:i T')) ?></td>
                                 <td data-busqueda="<?= $h($a['nombre_local'] . ' - ' . $a['direccion_local']) ?>"><?= $h($a['nombre_local']) ?></td>

@@ -3,7 +3,9 @@ window.addEventListener('message', function (evento) {
     if (evento.origin !== window.location.origin || evento.source !== marco?.contentWindow
         || evento.data?.tipo !== 'locales-opendoors-actualizados' || !Array.isArray(evento.data.locales)) return;
 
-    var lista = document.querySelector('[data-lista-id="opendoors-lugares"]');
+    if (!Number.isSafeInteger(evento.data.empresa) || evento.data.empresa <= 0) return;
+    var lista = document.querySelector('[data-lista-id="opendoors-lugares-' + evento.data.empresa + '"]')
+        || document.querySelector('[data-lista-id="opendoors-lugares"]');
     if (!lista) return;
     var locales = evento.data.locales;
     if (!locales.every(local => Number.isSafeInteger(local?.id) && local.id > 0 && typeof local.nombre === 'string')) return;
@@ -13,7 +15,7 @@ window.addEventListener('message', function (evento) {
         var enlace = document.createElement('a');
         var etiqueta = document.createElement('span');
         enlace.href = '?seccion=' + lista.dataset.listaModulo + '/local-' + local.id;
-        enlace.style.setProperty('--d', '2');
+        enlace.style.setProperty('--d', lista.dataset.listaId === 'opendoors-lugares' ? '2' : '3');
         etiqueta.className = 'label';
         etiqueta.textContent = local.nombre;
         enlace.append(etiqueta);

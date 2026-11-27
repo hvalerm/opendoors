@@ -4,7 +4,7 @@ require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
-requerirModulo('OpenDoors');
+$empresaOpenDoors = empresaOpenDoors();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);
@@ -22,7 +22,7 @@ try {
          WHERE a.idEmpresa = ?
          ORDER BY a.idAcceso DESC'
     );
-    $stmt->execute([$_SESSION['empresa_nombre'], ahoraVigenciaAccesos(), (int) $_SESSION['empresa_id']]);
+    $stmt->execute([$empresaOpenDoors['nombre_empresa'], ahoraVigenciaAccesos(), (int) $empresaOpenDoors['id_empresa']]);
     $accesos = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en listarAccesos: ' . $e->getMessage());
@@ -100,7 +100,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                                 <td><?= $si($a['ejecutado']) ?></td>
                                 <td><?= $si($a['habilitado']) ?></td>
                                 <td class="<?= $a['en_rango'] ? 'si' : 'no' ?>"><?= $si($a['en_rango']) ?></td>
-                                <td><a class="btn-fila <?= $a['habilitado'] ? 'revocar' : 'conceder' ?>" href="revocarAcceso?id=<?= (int) $a['id_acceso'] ?>&amp;origen=busqueda<?= $embed ? '&amp;embed=1' : '' ?>"><?= $a['habilitado'] ? 'Deshabilitar' : 'Habilitar' ?></a></td>
+                                <td><a class="btn-fila <?= $a['habilitado'] ? 'revocar' : 'conceder' ?>" href="<?= $h(urlEmpresaOpenDoors('revocarAcceso?id=' . (int) $a['id_acceso'] . '&origen=busqueda' . ($embed ? '&embed=1' : ''), (int) $empresaOpenDoors['id_empresa'])) ?>"><?= $a['habilitado'] ? 'Deshabilitar' : 'Habilitar' ?></a></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

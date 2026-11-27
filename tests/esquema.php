@@ -251,12 +251,12 @@ try {
     limpiarIntentos($pdo, 'fallo@example.test');
     comprobar(segundosBloqueado($pdo, 'fallo@example.test') === 0, 'No limpia los intentos.');
     comprobar(str_contains($login(1, 'incorrecta')['body'], 'incorrectos'), 'No rechaza la clave incorrecta.');
-    comprobar(str_contains($login(3)['body'], 'varias empresas'), 'No bloquea una cuenta multempresa.');
+    comprobar($login(3)['location'] === 'ModoAnfitrion/vistaAnfitrion', 'No permite el ingreso multempresa.');
     comprobar(str_contains($login(4)['body'], 'no tiene una empresa'), 'No informa la falta de vinculo.');
     $r = $login(5);
     comprobar($r['status'] === 200 && str_contains($r['body'], 'incorrectos'), 'Permite la cuenta deshabilitada.');
     comprobar(str_contains($login(6)['body'], 'deshabilitada'), 'Permite la empresa deshabilitada.');
-    comprobar($login(7)['location'] === 'licencia_expirada', 'No detecta la licencia vencida.');
+    comprobar($login(7)['location'] === 'ModoAnfitrion/vistaAnfitrion', 'La licencia de empresa no debe bloquear el ingreso.');
     comprobar($login(8)['location'] === 'ModoAnfitrion/vistaAnfitrion'
         && str_contains($request('ModoAnfitrion/OpenDoors/Accesos/listarAccesos.php')['body'], 'LocalAlpha'),
         'Se confunde el ID de cuenta con el ID de empresa.');
@@ -377,9 +377,9 @@ try {
         'La configuracion o el menu no consultan las asignaciones en empresas.');
     $pdo->exec('UPDATE empresas_modulos SET habilitado = 1 WHERE idEmpresa = 1 AND idModulo = 1');
 
-    // Un segundo vinculo invalida tambien una sesion abierta, no solo el login.
+    // Un segundo vínculo no invalida una sesión abierta.
     $pdo->exec('INSERT INTO empresas_cuentas (idEmpresa, idCuenta, idCargo) VALUES (2,1,1)');
-    comprobar($request('ModoAnfitrion/OpenDoors/Dashboard/resumen.php')['status'] === 302, 'La sesion abierta admite multiples empresas.');
+    comprobar($request('ModoAnfitrion/OpenDoors/Dashboard/resumen.php')['status'] === 200, 'La sesión abierta no admite múltiples empresas.');
     $pdo->exec('DELETE FROM empresas_cuentas WHERE idEmpresa=2 AND idCuenta=1');
 
     comprobar($login(1)['status'] === 302, 'No restablece el ingreso con un solo vinculo.');

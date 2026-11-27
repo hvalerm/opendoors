@@ -36,8 +36,8 @@ function cifrarStartup(string $value): string
 }
 
 try {
-    foreach (['Startup/startup.php', 'Startup/configuracionInicial.php', 'accesoPuerta.php',
-        'util/Seguridad/enc.php', 'util/Seguridad/verificar.php', 'util/Seguridad/seguridad.php', 'util/Seguridad/modulos.php',
+    foreach (['Startup/startup.php', 'Startup/configuracionInicial.php', 'accesoPuerta.php', 'login.php',
+        'util/Seguridad/enc.php', 'util/Seguridad/verificar.php', 'util/Seguridad/seguridad.php', 'util/Seguridad/modulos.php', 'util/Seguridad/intentos_login.php',
         'util/Cuentas/recuperar_comun.php',
         'util/Configuracion/DatosWeb.php', 'util/Soporte/contacto.php', 'util/BaseDatos/db.php',
         'ApiSystem/api_board.php', 'ApiSystem/api_microcontrolador.php',
@@ -738,6 +738,7 @@ recFin();
     $pdo->exec("UPDATE empresas_modulos SET licenciaExpira = datetime('now', '-1 day') WHERE idEmpresa = 3 AND idModulo = 1");
     comprobarStartup($request([], 'ModoAnfitrion/OpenDoors/Dashboard/resumen')['status'] === 403
         && !str_contains($request([], 'ModoAnfitrion/vistaAnfitrion')['body'], 'puertas-prueba/dashboard')
+        && str_contains($request([], 'ModoAnfitrion/vistaAnfitrion')['body'], 'La licencia del módulo expiró.')
         && (json_decode($request([], 'accesoPuerta', post: ['accion' => 'validar', 'token' => 'VigenciaActual'])['body'], true)['valido'] ?? false),
         'La licencia vencida debe bloquear el panel sin bloquear accesos públicos.');
     $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador = 200');
@@ -1490,7 +1491,7 @@ PHP);
             'La accion no actualiza el estado o no vuelve a la lista.');
     }
 
-    foreach ([5, 6] as $idEmpresa) {
+    foreach ([6] as $idEmpresa) {
         $getInhabilitada = ['id' => cifrarStartup((string) $idEmpresa)];
         $post['csrf'] = $csrf($request($getInhabilitada));
         $post['correoCuenta'] = "empresa$idEmpresa@example.test";
@@ -1498,7 +1499,7 @@ PHP);
         comprobarStartup($response['status'] === 422
             && (int) $pdo->query("SELECT inicio FROM empresas WHERE idEmpresa = $idEmpresa")->fetchColumn() === 1
             && (int) $pdo->query('SELECT COUNT(*) FROM cuentas')->fetchColumn() === 2,
-            'El ingreso automatico ignora la licencia o el estado de la empresa.');
+            'El ingreso automatico permite una empresa deshabilitada.');
     }
     $getFallo = ['id' => cifrarStartup('4')];
     $post['csrf'] = $csrf($request($getFallo));
@@ -1526,6 +1527,96 @@ PHP);
         'Permite acceder directamente con un ID sin cifrar.');
     comprobarStartup($request($getFallo, mode: 'sin-clave')['status'] === 500,
         'Oculta la falta de configuracion de cifrado.');
+    $getVencida = ['id' => cifrarStartup('5')];
+    $post['csrf'] = $csrf($request($getVencida));
+    $post['correoCuenta'] = 'empresa5@example.test';
+    $post['ingreso'] = 'automatico';
+    $response = $request($getVencida, post: $post);
+    comprobarStartup($response['status'] === 303 && $response['location'] === '../ModoAnfitrion/vistaAnfitrion'
+        && $request([], 'protegida.php')['status'] === 200,
+        'La licencia de la empresa no debe impedir el ingreso.');
+    $cookies = [];
+    $loginVencida = $request([], 'login', post: [
+        'usuario' => 'empresa5@example.test', 'password' => 'ClaveSegura123!',
+        'csrf' => $csrf($request([], 'login')),
+    ]);
+    comprobarStartup($loginVencida['location'] === 'ModoAnfitrion/vistaAnfitrion'
+        && $request([], 'protegida.php')['status'] === 200,
+        'El login debe permitir una empresa cuya licencia ha vencido.');
+
+    $idCuentaMulti = (int) $pdo->query("SELECT idCuenta FROM cuentas WHERE correoCuenta = 'automatico@example.test'")->fetchColumn();
+    $pdo->exec("INSERT INTO empresas_cuentas (idEmpresa, idCuenta, idCargo) VALUES (1, $idCuentaMulti, 1), (2, $idCuentaMulti, 1)");
+    $pdo->exec("UPDATE empresas SET licenciaExpira = '2000-01-01 00:00:00', nombreEmpresa = 'ZZ Empresa uno' WHERE idEmpresa = 1");
+    $pdo->exec("INSERT INTO empresas_modulos (idEmpresa, idModulo, habilitado, licenciaExpira) VALUES
+        (1, 1, 1, '2099-12-31 00:00:00'), (1, 2, 1, '2099-12-31 00:00:00'),
+        (2, 1, 1, '2000-01-01 00:00:00'), (2, 2, 1, '2000-01-01 00:00:00'),
+        (3, 2, 1, '2099-12-31 00:00:00')");
+    $cookies = [];
+    $respuestaLogin = $request([], 'login', post: [
+        'usuario' => 'automatico@example.test', 'password' => 'ClaveSegura123!',
+        'csrf' => $csrf($request([], 'login')),
+    ]);
+    comprobarStartup($respuestaLogin['location'] === 'ModoAnfitrion/vistaAnfitrion',
+        'La cuenta multempresa debe iniciar sesión sin seleccionar empresa ni exigir licencia de empresa.');
+    comprobarStartup((int) json_decode($request([], 'sesion.php')['body'], true)['empresa_id'] !== 1,
+        'La prueba debe iniciar con otra empresa activa para comprobar el aislamiento.');
+    $panelMulti = $request([], 'ModoAnfitrion/vistaAnfitrion');
+    comprobarStartup(str_contains($panelMulti['body'], 'puertas-prueba/empresa-1/locales/local-1'),
+        'El menú no muestra el lugar de la primera empresa.');
+    comprobarStartup(str_contains($panelMulti['body'], 'puertas-prueba/empresa-3/locales/'),
+        'El menú no muestra los lugares de la tercera empresa.');
+    comprobarStartup(str_contains($panelMulti['body'], 'La licencia del módulo expiró.')
+        && !str_contains($panelMulti['body'], 'puertas-prueba/empresa-2/dashboard'),
+        'Un módulo vencido no debe mostrar funciones y debe explicar el vencimiento.');
+    comprobarStartup(str_contains($panelMulti['body'], 'configuracion/gestalo/empresa-2'),
+        'La licencia vencida debe mostrarse también en los demás módulos.');
+    $seccionEmpresa = $request(['seccion' => 'puertas-prueba/empresa-1/dashboard'], 'ModoAnfitrion/vistaAnfitrion');
+    comprobarStartup(str_contains($seccionEmpresa['body'], 'OpenDoors/Dashboard/resumen?empresa=1&amp;embed=1'),
+        'El submenu debe abrir la página con el contexto de la empresa seleccionada.');
+    $selector = 'ModoAnfitrion/OpenDoors/Accesos/SeleccionarLocalAcceso';
+    $listaUno = $request(['empresa' => '1'], $selector);
+    $listaTres = $request(['empresa' => '3'], $selector);
+    comprobarStartup(str_contains($listaUno['body'], 'Local de prueba')
+        && !str_contains($listaUno['body'], 'Local del anfitrion')
+        && str_contains($listaTres['body'], 'Local del anfitrion')
+        && !str_contains($listaTres['body'], 'Local de prueba'),
+        'Los lugares de cada submenu deben pertenecer solo a su empresa.');
+    comprobarStartup($request(['empresa' => '2'], $selector)['status'] === 403
+        && $request(['empresa' => '5'], $selector)['status'] === 403,
+        'No debe permitir módulos vencidos ni empresas ajenas a la cuenta.');
+    comprobarStartup($request(['empresa' => '1'], $selector, post: ['empresa' => '3'])['status'] === 400,
+        'No debe aceptar empresas distintas en la URL y el formulario.');
+    $crear = 'ModoAnfitrion/OpenDoors/Accesos/CrearAccesoLocal';
+    $formulario = $request(['empresa' => '1', 'id' => '1'], $crear);
+    comprobarStartup(str_contains($formulario['body'], 'name="empresa" value="1"')
+        && str_contains($request(['empresa' => '1', 'id' => '3'], $crear)['body'], 'Local no encontrado'),
+        'El formulario debe conservar la empresa y rechazar lugares de otra empresa.');
+    $creacion = $request([], $crear, post: [
+        'empresa' => '1', 'id' => '1', 'csrf' => $csrf($formulario),
+        'activo_desde' => '2050-01-01T10:00', 'activo_hasta' => '2050-01-01T11:00',
+    ]);
+    comprobarStartup(str_contains($creacion['body'], 'Acceso creado correctamente')
+        && (int) $pdo->query("SELECT COUNT(*) FROM accesos WHERE idEmpresa = 1 AND idLocal = 1 AND activoDesde LIKE '2050-01-01%'")->fetchColumn() === 1,
+        'Crear acceso debe guardar la empresa del submenu, no otra empresa de la sesión.');
+    $configEmpresa = $request(['empresa' => '1', 'id' => '1', 'embed' => '1'], 'ModoAnfitrion/Configuracion/OpenDoors/configuracionLocal.php');
+    comprobarStartup(str_contains($configEmpresa['body'], 'name="empresa" value="1"')
+        && str_contains($configEmpresa['body'], 'Local de prueba')
+        && $request(['empresa' => '1', 'id' => '3'], 'ModoAnfitrion/Configuracion/OpenDoors/configuracionLocal.php')['status'] === 404,
+        'La configuración debe conservar el contexto y rechazar lugares de otra empresa.');
+    $pdo->exec("INSERT INTO microcontroladores (idMicrocontrolador, idLocal, idEmpresa, ultimaConsulta, habilitado)
+        VALUES (500, 1, 1, datetime('now'), 1)");
+    $fichaMulti = $request(['empresa' => '1', 'id' => '1'], 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado');
+    $aperturaMulti = $request(['empresa' => '1', 'id' => '1'], 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado',
+        post: ['empresa' => '1', 'accion' => 'abrir_puerta', 'csrf' => $csrf($fichaMulti)]);
+    comprobarStartup($aperturaMulti['status'] === 302 && str_contains($aperturaMulti['location'], 'empresa=1')
+        && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 1')->fetchColumn() === 1,
+        'La apertura debe dirigirse al lugar y empresa del submenu.');
+    $respuestaApi = $request(['cifrado' => cifrarStartup('500')], 'ApiSystem/api_microcontrolador');
+    comprobarStartup($respuestaApi['status'] === 200 && (json_decode($respuestaApi['body'], true)['accionar'] ?? null) === 1,
+        'La API del dispositivo debe recibir la orden de su empresa sin cambiar su interfaz.');
+    $pdo->exec('UPDATE empresas_modulos SET habilitado = 0 WHERE idEmpresa = 1 AND idModulo = 1');
+    comprobarStartup($request(['empresa' => '1'], $selector)['status'] === 403,
+        'La revocación del módulo debe aplicarse a las solicitudes posteriores.');
     echo "OK: $checks comprobaciones.\n";
 } finally {
     if (is_resource($server)) {

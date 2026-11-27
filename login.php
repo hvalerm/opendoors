@@ -52,18 +52,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$usuario]);
             $row = $stmt->fetch();
             if ($row && password_verify($password, $row['password'])) {
-                $row += empresaUnicaCuenta($pdo, (int) $row['id']);
+                $vinculos = empresasCuenta($pdo, (int) $row['id']);
+                $empresas = array_values(array_filter($vinculos,
+                    fn(array $empresa): bool => (bool) $empresa['empresa_habilitada'] && (bool) $empresa['cuenta_habilitada']));
+                if (!$empresas) {
+                    throw new DomainException($vinculos
+                        ? 'La cuenta o sus empresas están deshabilitadas. Contacta al administrador.'
+                        : 'La cuenta no tiene una empresa vinculada. Contacta al administrador.');
+                }
+                $row += $empresas[0];
                 if ($limitarIntentos) {
                     limpiarIntentos($pdo, $clave);
-                }
-                if (new DateTime($row['licencia_expira']) < new DateTime()) {
-                    session_regenerate_id(true);
-                    $_SESSION['licencia_expirada'] = [
-                        'empresa' => $row['nombre_empresa'],
-                        'fecha'   => $row['licencia_expira'],
-                    ];
-                    header('Location: licencia_expirada');
-                    exit;
                 }
                 session_regenerate_id(true);
                 $_SESSION['usuario_id'] = $row['id'];
@@ -73,14 +72,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['huella'] = hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? '');
                 header('Location: ModoAnfitrion/vistaAnfitrion');
                 exit;
-            }
-            $error = 'Usuario o contraseña incorrectos.';
-            if ($limitarIntentos) {
-                $quedan = registrarFallo($pdo, $clave);
-                if ($quedan === 0) {
-                    $error = 'Demasiados intentos fallidos. Inténtalo de nuevo en ' . LOGIN_BLOQUEO_MINUTOS . ' minuto(s).';
-                } else {
-                    $error .= ' Te ' . ($quedan === 1 ? 'queda 1 intento.' : 'quedan ' . $quedan . ' intentos.');
+            } else {
+                $error = 'Usuario o contraseña incorrectos.';
+                if ($limitarIntentos) {
+                    $quedan = registrarFallo($pdo, $clave);
+                    if ($quedan === 0) {
+                        $error = 'Demasiados intentos fallidos. Inténtalo de nuevo en ' . LOGIN_BLOQUEO_MINUTOS . ' minuto(s).';
+                    } else {
+                        $error .= ' Te ' . ($quedan === 1 ? 'queda 1 intento.' : 'quedan ' . $quedan . ' intentos.');
+                    }
                 }
             }
             }

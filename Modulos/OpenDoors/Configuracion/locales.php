@@ -16,8 +16,8 @@ try {
         $error = 'OpenDoors no está habilitado para tu empresa.';
     } else {
         $locales = datosLocalesConfiguracion(getOpenDoorsPDO(), $idEmpresa);
-        $guardado = !empty($_SESSION['configuracion_local_guardado']);
-        unset($_SESSION['configuracion_local_guardado']);
+        $guardado = !empty($_SESSION['configuracion_local_guardado'][$idEmpresa]);
+        unset($_SESSION['configuracion_local_guardado'][$idEmpresa]);
     }
 } catch (PDOException $e) {
     error_log('Error al listar locales en Configuración: ' . $e->getMessage());
@@ -49,7 +49,7 @@ session_write_close();
             <p class="intro">Selecciona un local para editar su configuración.</p>
             <div class="tarjetas">
                 <?php foreach ($locales as $local): ?>
-                    <a class="tarjeta<?= $local['eliminado'] ? ' eliminado' : '' ?>" href="configuracionLocal.php?id=<?= (int) $local['idLocal'] ?><?= $embed ? '&amp;embed=1' : '' ?>">
+                    <a class="tarjeta<?= $local['eliminado'] ? ' eliminado' : '' ?>" href="<?= $h(urlEmpresaOpenDoors('configuracionLocal.php?id=' . (int) $local['idLocal'] . ($embed ? '&embed=1' : ''), $idEmpresa)) ?>">
                         <h2><?= $h($local['nombreLocal']) ?></h2>
                         <dl>
                             <div><dt>Dirección</dt><dd><?= $h($local['direccionLocal']) ?></dd></div>
@@ -75,7 +75,8 @@ session_write_close();
         <script>
             window.parent.postMessage({
                 tipo: 'locales-opendoors-actualizados',
-                locales: <?= json_encode($localesMenu, JSON_HEX_TAG | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR) ?>
+                locales: <?= json_encode($localesMenu, JSON_HEX_TAG | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR) ?>,
+                empresa: <?= (int) $idEmpresa ?>
             }, window.location.origin);
         </script>
     <?php endif; ?>

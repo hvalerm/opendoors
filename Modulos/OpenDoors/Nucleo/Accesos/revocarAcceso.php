@@ -4,7 +4,7 @@ require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
-requerirModulo('OpenDoors');
+$empresaOpenDoors = empresaOpenDoors();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $idAcceso = filter_var($_GET['id'] ?? $_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -27,17 +27,17 @@ function cargarAcceso(PDO $pdo, int $idAcceso, int $idEmpresa): ?array
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
          WHERE a.idAcceso = ? AND a.idEmpresa = ?'
     );
-    $stmt->execute([$_SESSION['empresa_nombre'], $idAcceso, $idEmpresa]);
+    $stmt->execute([empresaOpenDoors()['nombre_empresa'], $idAcceso, $idEmpresa]);
     return $stmt->fetch() ?: null;
 }
 
 $origen = ($_GET['origen'] ?? $_POST['origen'] ?? '') === 'busqueda' ? 'busqueda' : '';
-$urlLista = ($origen ? 'busquedaAccesoRevocar' : 'listarAccesos') . ($embed ? '?embed=1' : '');
+$urlLista = urlEmpresaOpenDoors(($origen ? 'busquedaAccesoRevocar' : 'listarAccesos') . ($embed ? '?embed=1' : ''), (int) $empresaOpenDoors['id_empresa']);
 
 try {
     $pdo = getOpenDoorsPDO();
     if ($idAcceso) {
-        $acceso = cargarAcceso($pdo, $idAcceso, (int) $_SESSION['empresa_id']);
+        $acceso = cargarAcceso($pdo, $idAcceso, (int) $empresaOpenDoors['id_empresa']);
     }
 
     if ($acceso && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -102,6 +102,7 @@ try {
                 <dt>Habilitado</dt><dd><?= $acceso['habilitado'] ? 'Sí' : 'No' ?></dd>
             </dl>
             <form method="post" action="revocarAcceso" class="acciones">
+                <input type="hidden" name="empresa" value="<?= (int) $empresaOpenDoors['id_empresa'] ?>">
                 <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
                 <input type="hidden" name="id" value="<?= (int) $acceso['id_acceso'] ?>">
                 <?php if ($embed): ?><input type="hidden" name="embed" value="1"><?php endif; ?>

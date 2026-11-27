@@ -13,6 +13,7 @@ $zonas = DateTimeZone::listIdentifiers();
 
 try {
     $idEmpresa = empresaConfiguracionLocales();
+    $listaUrl = urlEmpresaOpenDoors($listaUrl, $idEmpresa);
     if ($idEmpresa === null) {
         http_response_code(403);
         $error = 'OpenDoors no está habilitado para tu empresa.';
@@ -58,7 +59,7 @@ try {
                     );
                     $stmt->execute([$local['nombreLocal'], $local['direccionLocal'], $local['zonaHoraria'],
                         $local['eliminado'], $idLocal, $idEmpresa]);
-                    $_SESSION['configuracion_local_guardado'] = true;
+                    $_SESSION['configuracion_local_guardado'][$idEmpresa] = true;
                     header('Location: ' . $listaUrl, true, 303);
                     exit;
                 }
@@ -91,6 +92,7 @@ session_write_close();
         <?php if ($local): ?>
             <form method="post">
                 <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
+                <input type="hidden" name="empresa" value="<?= (int) $idEmpresa ?>">
                 <label for="nombreLocal">Nombre del local</label>
                 <input id="nombreLocal" name="nombreLocal" value="<?= $h($local['nombreLocal']) ?>" maxlength="50" required>
                 <label for="direccionLocal">Dirección</label>

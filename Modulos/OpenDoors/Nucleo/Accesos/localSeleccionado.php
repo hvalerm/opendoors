@@ -3,7 +3,7 @@ require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
-requerirModulo('OpenDoors');
+$empresaOpenDoors = empresaOpenDoors();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $idLocal = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -18,13 +18,13 @@ try {
              FROM locales l
              WHERE l.idLocal = ? AND l.idEmpresa = ? AND l.eliminado = 0'
         );
-        $stmt->execute([$_SESSION['empresa_nombre'], $idLocal, (int) $_SESSION['empresa_id']]);
+        $stmt->execute([$empresaOpenDoors['nombre_empresa'], $idLocal, (int) $empresaOpenDoors['id_empresa']]);
         $local = $stmt->fetch() ?: null;
     }
 } catch (PDOException $e) {
     error_log('Error en Accesos/localSeleccionado: ' . $e->getMessage());
 }
-$urlLista = 'SeleccionarLocalAcceso' . ($embed ? '?embed=1' : '');
+$urlLista = urlEmpresaOpenDoors('SeleccionarLocalAcceso' . ($embed ? '?embed=1' : ''), (int) $empresaOpenDoors['id_empresa']);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -62,7 +62,7 @@ $urlLista = 'SeleccionarLocalAcceso' . ($embed ? '?embed=1' : '');
                 <dt>Habilitado</dt><dd><?= $local['habilitado'] ? 'Sí' : 'No' ?></dd>
             </dl>
             <div class="acciones">
-                <a class="btn" href="CrearAccesoLocal?id=<?= (int) $local['id_local'] ?><?= $embed ? '&amp;embed=1' : '' ?>">Crear Acceso de este local</a>
+                <a class="btn" href="<?= $h(urlEmpresaOpenDoors('CrearAccesoLocal?id=' . (int) $local['id_local'] . ($embed ? '&embed=1' : ''), (int) $empresaOpenDoors['id_empresa'])) ?>">Crear Acceso de este local</a>
                 <a class="btn enlace" href="<?= $h($urlLista) ?>">Volver a la lista</a>
             </div>
         <?php endif; ?>

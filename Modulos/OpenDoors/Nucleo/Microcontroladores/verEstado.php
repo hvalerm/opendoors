@@ -13,8 +13,8 @@ if ($soloDatos) {
 } else {
     requerirSesion();
 }
-requerirModulo('OpenDoors');
-$idEmpresa = (int) $_SESSION['empresa_id'];
+$empresaOpenDoors = empresaOpenDoors();
+$idEmpresa = (int) $empresaOpenDoors['id_empresa'];
 session_write_close();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -33,7 +33,7 @@ try {
          WHERE m.idEmpresa = ?
          ORDER BY m.idMicrocontrolador'
     );
-    $stmt->execute([$_SESSION['empresa_nombre'], $idEmpresa]);
+    $stmt->execute([$empresaOpenDoors['nombre_empresa'], $idEmpresa]);
     $unidades = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en verEstado: ' . $e->getMessage());

@@ -88,14 +88,14 @@ try {
                             ->execute([...$parametros, $ahora]);
                     }
                     $pdo->commit();
-                    $_SESSION['informacion_opendoors_restaurada'] = true;
-                    header('Location: RestaurarInformacion.php' . ($embed ? '?embed=1' : ''), true, 303);
+                    $_SESSION['informacion_opendoors_restaurada'][$idEmpresa] = true;
+                    header('Location: ' . urlEmpresaOpenDoors('RestaurarInformacion.php' . ($embed ? '?embed=1' : ''), $idEmpresa), true, 303);
                     exit;
                 }
             }
-        } elseif (!empty($_SESSION['informacion_opendoors_restaurada'])) {
+        } elseif (!empty($_SESSION['informacion_opendoors_restaurada'][$idEmpresa])) {
             $restaurado = true;
-            unset($_SESSION['informacion_opendoors_restaurada']);
+            unset($_SESSION['informacion_opendoors_restaurada'][$idEmpresa]);
         }
     }
 } catch (PDOException $e) {
@@ -129,6 +129,7 @@ session_write_close();
             <p class="intro">Elige el alcance y marca solo los datos que quieras restablecer. Los lugares eliminados no se incluyen.</p>
             <form method="post">
                 <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
+                <input type="hidden" name="empresa" value="<?= (int) $idEmpresa ?>">
                 <label for="alcance">Lugares</label>
                 <select id="alcance" name="alcance" required>
                     <option value="todos"<?= !isset($locales[$alcance]) ? ' selected' : '' ?>>Todos los lugares no eliminados</option>

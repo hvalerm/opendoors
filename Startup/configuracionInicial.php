@@ -374,10 +374,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ->execute([$idEmpresa, $idCuenta]);
 
             if ($datos['ingreso'] === 'automatico') {
-                $vinculo = empresaUnicaCuenta($pdo, $idCuenta);
-                if (new DateTime($vinculo['licencia_expira']) < new DateTime()) {
-                    throw new DomainException('La licencia de la empresa ha expirado. Elige el ingreso manual para guardar los datos y consulta al administrador para renovar el acceso.');
-                }
+                empresaUnicaCuenta($pdo, $idCuenta);
             }
             $pdo->commit();
         } catch (DomainException $e) {

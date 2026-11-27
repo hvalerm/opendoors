@@ -6,8 +6,7 @@ require_once __DIR__ . '/../Nucleo/util/db.php';
 
 function empresaConfiguracionLocales(): ?int
 {
-    $idEmpresa = (int) $_SESSION['empresa_id'];
-    return moduloDisponible($idEmpresa, 'OpenDoors') ? $idEmpresa : null;
+    return (int) empresaOpenDoors()['id_empresa'];
 }
 
 function datosLocalesConfiguracion(PDO $pdo, int $idEmpresa, ?int $idLocal = null): array
@@ -24,7 +23,7 @@ function datosLocalesConfiguracion(PDO $pdo, int $idEmpresa, ?int $idLocal = nul
     }
     $locales = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($locales as &$local) {
-        $local['nombreEmpresa'] = $_SESSION['empresa_nombre'];
+        $local['nombreEmpresa'] = empresaOpenDoors()['nombre_empresa'];
     }
     return $locales;
 }
