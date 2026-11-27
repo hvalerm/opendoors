@@ -678,6 +678,13 @@ recFin();
     comprobarStartup($request([], 'ModoAnfitrion/OpenDoors/Dashboard/resumen')['status'] === 200,
         'La licencia debe permanecer vigente durante todo el día de vencimiento.');
     $pdo->exec("UPDATE empresas_modulos SET licenciaExpira = '2099-12-31 00:00:00' WHERE idEmpresa = 3 AND idModulo = 1");
+    $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal, eliminado) VALUES
+        (701, 3, 'Casa <nueva>', 'Calle & 10', 0),
+        (702, 3, 'Local anterior', 'Calle anterior', 1),
+        (703, 3, 'Local eliminado sin accesos', 'Calle oculta', 1),
+        (704, 1, 'Local otra empresa', 'Calle privada', 0)");
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
+        VALUES ('FiltroHistorico', 702, 3, '2000-01-01 00:00:00', '2099-12-31 23:59:59')");
     foreach (['listarAccesos', 'busquedaAccesoRevocar'] as $vistaVigencia) {
         $respuesta = $request([], 'ModoAnfitrion/OpenDoors/Accesos/' . $vistaVigencia);
         $idActual = (int) $idsVigencia['VigenciaActual'];
@@ -692,7 +699,19 @@ recFin();
             && str_contains($respuesta['body'], 'id="f-habilitado" data-col="6"')
             && str_contains($respuesta['body'], 'id="f-enrango" data-col="7"'),
             'El listado debe ocultar el token y conservar los índices de los demás filtros.');
+        if ($vistaVigencia === 'listarAccesos') {
+            comprobarStartup(str_contains($respuesta['body'], 'id="f-local" data-col="3" list="opciones-local"')
+                && substr_count($respuesta['body'], 'value="Local del anfitrion - Direccion del anfitrion"') === 1
+                && str_contains($respuesta['body'], 'value="Casa &lt;nueva&gt; - Calle &amp; 10"')
+                && str_contains($respuesta['body'], 'value="Local anterior - Calle anterior"')
+                && str_contains($respuesta['body'], 'data-busqueda="Local del anfitrion - Direccion del anfitrion"')
+                && !str_contains($respuesta['body'], 'Local eliminado sin accesos')
+                && !str_contains($respuesta['body'], 'Local otra empresa'),
+                'El combo debe cargar locales de la empresa con direccion, sin duplicados y escapados.');
+        }
     }
+    $pdo->exec("DELETE FROM accesos WHERE token = 'FiltroHistorico'");
+    $pdo->exec('DELETE FROM locales WHERE idLocal IN (701, 702, 703, 704)');
     $respuesta = $request([], 'ModoAnfitrion/OpenDoors/Dashboard/resumen');
     foreach (['Accesos vigentes', 'Próximos accesos', 'Accesos sin usar'] as $etiqueta) {
         comprobarStartup(str_contains($respuesta['body'], '<div class="n">1</div><div class="t">' . $etiqueta . '</div>'),

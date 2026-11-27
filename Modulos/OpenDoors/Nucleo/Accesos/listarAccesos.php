@@ -9,12 +9,14 @@ requerirModulo('OpenDoors');
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);
 $accesos = [];
+$locales = [];
 $error = '';
 
 // Solo accesos de la empresa de la cuenta con sesión iniciada
 try {
     $stmt = getOpenDoorsPDO()->prepare(
-        'SELECT a.idAcceso AS id_acceso, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.nombreLocal AS nombre_local, ? AS nombre_empresa,
+        'SELECT a.idAcceso AS id_acceso, a.idLocal AS id_local, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta,
+                l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, ? AS nombre_empresa,
                 a.ejecutado, a.habilitado, l.zonaHoraria,
                 (? BETWEEN a.activoDesde AND a.activoHasta AND a.habilitado = 1 AND a.ejecutado = 0) AS en_rango
          FROM accesos a
@@ -24,8 +26,19 @@ try {
     );
     $stmt->execute([$_SESSION['empresa_nombre'], ahoraVigenciaAccesos(), (int) $_SESSION['empresa_id']]);
     $accesos = $stmt->fetchAll();
+    $stmt = getOpenDoorsPDO()->prepare(
+        'SELECT l.idLocal, l.nombreLocal, l.direccionLocal
+         FROM locales l
+         WHERE l.idEmpresa = ? AND (l.eliminado = 0 OR EXISTS (
+             SELECT 1 FROM accesos a WHERE a.idLocal = l.idLocal AND a.idEmpresa = l.idEmpresa
+         ))
+         ORDER BY l.nombreLocal, l.direccionLocal, l.idLocal'
+    );
+    $stmt->execute([(int) $_SESSION['empresa_id']]);
+    $locales = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log('Error en listarAccesos: ' . $e->getMessage());
+    $accesos = [];
     $error = 'No se pudieron cargar los accesos.';
 }
 
@@ -75,7 +88,15 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                 <div><label for="f-id">ID acceso</label><input type="search" id="f-id" data-col="0" autocomplete="off"></div>
                 <div><label for="f-desde">Activo desde (a partir de)</label><input type="date" id="f-desde"></div>
                 <div><label for="f-hasta">Activo hasta (hasta)</label><input type="date" id="f-hasta"></div>
-                <div><label for="f-local">Local</label><input type="search" id="f-local" data-col="3" autocomplete="off"></div>
+                <div>
+                    <label for="f-local">Local</label>
+                    <input type="search" id="f-local" data-col="3" list="opciones-local" placeholder="Nombre o dirección" autocomplete="off">
+                    <datalist id="opciones-local">
+                        <?php foreach ($locales as $local): ?>
+                            <option value="<?= $h($local['nombreLocal'] . ' - ' . $local['direccionLocal']) ?>" data-local-id="<?= (int) $local['idLocal'] ?>"></option>
+                        <?php endforeach; ?>
+                    </datalist>
+                </div>
                 <div><label for="f-empresa">Empresa</label><input type="search" id="f-empresa" data-col="4" autocomplete="off"></div>
                 <div><label for="f-ejecutado">Ejecutado</label>
                     <select id="f-ejecutado" data-col="5" data-exacto="1"><option value="">Todos</option><option>Sí</option><option>No</option></select></div>
@@ -93,11 +114,11 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                     </thead>
                     <tbody id="cuerpo">
                         <?php foreach ($accesos as $a): $zona = $a['zonaHoraria']; ?>
-                            <tr class="fila" data-href="vetanaDelAcceso?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>" data-desde="<?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'Y-m-d')) ?>" data-hasta="<?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'Y-m-d')) ?>">
+                            <tr class="fila" data-href="vetanaDelAcceso?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>" data-local-id="<?= (int) $a['id_local'] ?>" data-desde="<?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'Y-m-d')) ?>" data-hasta="<?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'Y-m-d')) ?>">
                                 <td><a class="enlace-id" href="vetanaDelAcceso?id=<?= (int) $a['id_acceso'] ?><?= $embed ? '&amp;embed=1' : '' ?>"><?= (int) $a['id_acceso'] ?></a></td>
                                 <td><?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'd/m/Y H:i T')) ?></td>
                                 <td><?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'd/m/Y H:i T')) ?></td>
-                                <td><?= $h($a['nombre_local']) ?></td>
+                                <td data-busqueda="<?= $h($a['nombre_local'] . ' - ' . $a['direccion_local']) ?>"><?= $h($a['nombre_local']) ?></td>
                                 <td><?= $h($a['nombre_empresa']) ?></td>
                                 <td><?= $si($a['ejecutado']) ?></td>
                                 <td><?= $si($a['habilitado']) ?></td>
@@ -118,6 +139,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
             var campos = Array.prototype.slice.call(document.querySelectorAll('.filtros [data-col]'));
             var contador = document.getElementById('contador');
             var sinResultados = document.getElementById('sinResultados');
+            var opcionesLocal = Array.prototype.slice.call(document.querySelectorAll('#opciones-local option'));
 
             var fDesde = document.getElementById('f-desde');
             filas.forEach(function (tr) {
@@ -133,9 +155,10 @@ $si = fn($v) => $v ? 'Sí' : 'No';
             var datos = filas.map(function (tr) {
                 return {
                     tr: tr,
+                    localId: tr.dataset.localId,
                     desde: tr.dataset.desde,
                     hasta: tr.dataset.hasta,
-                    celdas: Array.prototype.map.call(tr.cells, function (td) { return norm(td.textContent); })
+                    celdas: Array.prototype.map.call(tr.cells, function (td) { return norm(td.dataset.busqueda || td.textContent); })
                 };
             });
 
@@ -143,10 +166,15 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                 var activos = campos.map(function (c) {
                     return { col: +c.dataset.col, v: norm(c.value), exacto: !!c.dataset.exacto };
                 }).filter(function (f) { return f.v !== ''; });
+                var textoLocal = norm(document.getElementById('f-local').value);
+                var localesElegidos = opcionesLocal.filter(function (opcion) {
+                    return textoLocal !== '' && norm(opcion.value) === textoLocal;
+                }).map(function (opcion) { return opcion.dataset.localId; });
                 var visibles = 0;
                 datos.forEach(function (x) {
                     // El formato yyyy-mm-dd permite comparar como texto
                     var ok = activos.every(function (f) {
+                        if (f.col === 3 && localesElegidos.length) return localesElegidos.indexOf(x.localId) !== -1;
                         return f.exacto ? x.celdas[f.col] === f.v : x.celdas[f.col].indexOf(f.v) !== -1;
                     }) && (!fDesde.value || x.desde >= fDesde.value)
                        && (!fHasta.value || x.hasta <= fHasta.value);
