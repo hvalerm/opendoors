@@ -67,6 +67,22 @@ try {
                 FOREIGN KEY (idEmpresa) REFERENCES `$db`.empresas (idEmpresa) ON DELETE CASCADE) ENGINE=InnoDB");
         }
     }
+    $pdo->exec("USE `$dbPuertas`");
+    $delimiter = ';';
+    $sql = '';
+    foreach (file($root . DIRECTORY_SEPARATOR . 'migraciones' . DIRECTORY_SEPARATOR . 'aperturas_en_locales.sql') as $line) {
+        if (preg_match('/^\s*DELIMITER\s+(\S+)/', $line, $m)) {
+            $delimiter = $m[1];
+        } elseif (!preg_match('/^\s*(--|$)/', $line)) {
+            $sql .= $line;
+            if (str_ends_with(rtrim($sql), $delimiter)) {
+                $pdo->exec(substr(rtrim($sql), 0, -strlen($delimiter)));
+                $sql = '';
+            }
+        }
+    }
+    comprobar(trim($sql) === '', 'La migracion de aperturas no se importo completamente.');
+    $pdo->exec(file_get_contents($root . DIRECTORY_SEPARATOR . 'migraciones' . DIRECTORY_SEPARATOR . 'dispositivo_unico_por_local.sql'));
     foreach (['DB_HOST' => '127.0.0.1', 'DB_PORT' => (string) $port, 'DB_USER' => 'root', 'DB_PASS' => '',
         'DB_NAME_EMPRESAS' => $db, 'DB_NAME_OPENDOORS' => $dbPuertas] as $nombre => $valor) {
         putenv("$nombre=$valor");

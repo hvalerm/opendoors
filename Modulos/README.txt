@@ -35,17 +35,17 @@ los enlaces publicos de apertura.
 
 Las rutas web anteriores de OpenDoors siguen funcionando por las reglas de
 .htaccess; las API y el acceso publico mantienen sus rutas mediante archivos
-de entrada. El servidor debe permitir mod_rewrite y AllowOverride. El proceso
-de aperturas ahora se encuentra en OpenDoors\Nucleo\util\procesar_aperturas.php;
-actualizar cualquier servicio externo que siga usando la ruta anterior.
+de entrada. El servidor debe permitir mod_rewrite y AllowOverride. Las
+aperturas se resuelven al recibir peticiones, sin proceso permanente; ver
+migraciones\seguimiento_aperturas.txt para el despliegue y sus limitaciones.
 
 UTILIDADES GENERALES
 
 Las implementaciones comunes estan agrupadas en util\BaseDatos, Correo,
-Configuracion, Cuentas, Seguridad, Servicios y Soporte. La configuracion de
+Configuracion, Cuentas, Seguridad y Soporte. La configuracion de
 la URL publica se edita en util\Configuracion\DatosWeb.php. El certificado CA
 opcional mantiene su ubicacion anterior en util\ca.pem.
 
 Las referencias PHP y los comandos externos deben usar las rutas de las
 subcarpetas; las rutas anteriores en la raiz de util ya no existen.
-El supervisor de Docker esta en util\Servicios\iniciar_servicios.sh.
+Docker inicia Apache directamente.

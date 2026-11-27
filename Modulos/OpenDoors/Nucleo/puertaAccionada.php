@@ -54,28 +54,14 @@ function estadoAperturaLocal(array $local, mixed $idSolicitud): array
             throw new DomainException('El local ya no existe.');
         }
         $ahora = ahoraAperturas($pdo);
-        $pendiente = reconciliarSolicitudApertura($pdo, $bloqueado, $ahora);
-        $solicitud = $pendiente;
-        if ($idSolicitud !== null) {
-            $stmt = $pdo->prepare('SELECT * FROM solicitudes_apertura
-                WHERE idSolicitud = ? AND idLocal = ? AND idEmpresa = ?');
-            $stmt->execute([$idSolicitud, $local['idLocal'], $local['idEmpresa']]);
-            $solicitud = $stmt->fetch() ?: null;
-        }
-        if ($solicitud && $solicitud['estado'] !== 'pendiente') {
-            $stmt = $pdo->prepare("DELETE FROM solicitudes_apertura
-                WHERE idSolicitud = ? AND idLocal = ? AND idEmpresa = ?
-                AND estado IN ('exitosa', 'fallida', 'cancelada')");
-            $stmt->execute([$solicitud['idSolicitud'], $local['idLocal'], $local['idEmpresa']]);
-            if ($stmt->rowCount() !== 1) {
-                throw new LogicException('No se pudo eliminar la solicitud finalizada.');
-            }
-        }
+        $actual = reconciliarSolicitudApertura($pdo, $bloqueado, $ahora);
+        $solicitud = $actual && ($idSolicitud === null || hash_equals($actual['idSolicitud'], $idSolicitud))
+            ? $actual : null;
         $pdo->commit();
         $restante = $solicitud && $solicitud['estado'] === 'pendiente'
             ? max(0, strtotime($solicitud['venceEn'] . ' UTC') - strtotime($ahora . ' UTC')) : 0;
         return [
-            'accionar' => $pendiente && $pendiente['estado'] !== 'pendiente' ? 0 : (int) $bloqueado['accionar'],
+            'accionar' => $actual && $actual['estado'] !== 'pendiente' ? 0 : (int) $bloqueado['accionar'],
             'estado' => $solicitud['estado'] ?? 'sin_solicitud',
             'segundos_restantes' => $restante,
         ];

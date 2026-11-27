@@ -19,7 +19,8 @@ function bloquearLocalApertura(PDO $pdo, int $idLocal, int $idEmpresa): ?array
     if (!$pdo->inTransaction()) {
         throw new LogicException('El seguimiento de aperturas requiere una transaccion.');
     }
-    $stmt = $pdo->prepare('SELECT idLocal, idEmpresa, accionar, eliminado FROM locales
+    $stmt = $pdo->prepare('SELECT idLocal, idEmpresa, accionar, eliminado, habilitado,
+        aperturaId, aperturaEstado, aperturaVenceEn FROM locales
         WHERE idLocal = ? AND idEmpresa = ? FOR UPDATE');
     $stmt->execute([$idLocal, $idEmpresa]);
     return $stmt->fetch() ?: null;
@@ -27,15 +28,13 @@ function bloquearLocalApertura(PDO $pdo, int $idLocal, int $idEmpresa): ?array
 
 function finalizarSolicitudApertura(PDO $pdo, array $solicitud, ResultadoApertura $resultado, string $ahora): array
 {
-    $stmt = $pdo->prepare("UPDATE solicitudes_apertura SET estado = ?, finalizadaEn = ?
-        WHERE idSolicitud = ? AND estado = 'pendiente'");
-    $stmt->execute([$resultado->value, $ahora, $solicitud['idSolicitud']]);
+    $stmt = $pdo->prepare("UPDATE locales SET aperturaEstado = ?, accionar = 0
+        WHERE idLocal = ? AND idEmpresa = ? AND aperturaId = ? AND aperturaEstado = 'pendiente'");
+    $stmt->execute([$resultado->value, $solicitud['idLocal'], $solicitud['idEmpresa'], $solicitud['idSolicitud']]);
     if ($stmt->rowCount() !== 1) {
         throw new LogicException('La solicitud de apertura ya fue finalizada.');
     }
     $parametros = [$solicitud['idLocal'], $solicitud['idEmpresa']];
-    $pdo->prepare('UPDATE locales SET accionar = 0 WHERE idLocal = ? AND idEmpresa = ?')
-        ->execute($parametros);
     if ($resultado === ResultadoApertura::Exitosa) {
         $pdo->prepare('UPDATE microcontroladores
             SET cantidadAperturasExitosas = cantidadAperturasExitosas + 1, ultimaApertura = ?
@@ -46,18 +45,23 @@ function finalizarSolicitudApertura(PDO $pdo, array $solicitud, ResultadoApertur
             WHERE idLocal = ? AND idEmpresa = ?')->execute($parametros);
     }
     $solicitud['estado'] = $resultado->value;
-    $solicitud['finalizadaEn'] = $ahora;
     return $solicitud;
 }
 
 function reconciliarSolicitudApertura(PDO $pdo, array $local, string $ahora): ?array
 {
-    $stmt = $pdo->prepare("SELECT * FROM solicitudes_apertura
-        WHERE idLocal = ? AND idEmpresa = ? AND estado = 'pendiente' FOR UPDATE");
-    $stmt->execute([$local['idLocal'], $local['idEmpresa']]);
-    $solicitud = $stmt->fetch();
-    if (!$solicitud) {
+    if ($local['aperturaId'] === null) {
         return null;
+    }
+    $solicitud = [
+        'idSolicitud' => $local['aperturaId'],
+        'idLocal' => $local['idLocal'],
+        'idEmpresa' => $local['idEmpresa'],
+        'estado' => $local['aperturaEstado'],
+        'venceEn' => $local['aperturaVenceEn'],
+    ];
+    if ($solicitud['estado'] !== 'pendiente') {
+        return $solicitud;
     }
     if ((int) $local['accionar'] === 0) {
         return finalizarSolicitudApertura($pdo, $solicitud, ResultadoApertura::Exitosa, $ahora);
@@ -82,41 +86,8 @@ function emitirSolicitudApertura(PDO $pdo, int $idLocal, int $idEmpresa): string
     $idSolicitud = bin2hex(random_bytes(32));
     $venceEn = (new DateTimeImmutable($ahora, new DateTimeZone('UTC')))
         ->modify('+30 seconds')->format('Y-m-d H:i:s');
-    $pdo->prepare("INSERT INTO solicitudes_apertura
-        (idSolicitud, idLocal, idEmpresa, estado, solicitadaEn, venceEn)
-        VALUES (?, ?, ?, 'pendiente', ?, ?)")
-        ->execute([$idSolicitud, $idLocal, $idEmpresa, $ahora, $venceEn]);
-    $pdo->prepare('UPDATE locales SET accionar = 1 WHERE idLocal = ? AND idEmpresa = ?')
-        ->execute([$idLocal, $idEmpresa]);
+    $pdo->prepare("UPDATE locales SET accionar = 1, aperturaId = ?, aperturaEstado = 'pendiente',
+        aperturaVenceEn = ? WHERE idLocal = ? AND idEmpresa = ?")
+        ->execute([$idSolicitud, $venceEn, $idLocal, $idEmpresa]);
     return $idSolicitud;
-}
-
-function procesarAperturasPendientes(PDO $pdo): int
-{
-    $stmt = $pdo->prepare("SELECT s.idLocal, s.idEmpresa FROM solicitudes_apertura s
-        INNER JOIN locales l ON l.idLocal = s.idLocal AND l.idEmpresa = s.idEmpresa
-        WHERE s.estado = 'pendiente' AND (s.venceEn <= ? OR l.accionar = 0)
-        ORDER BY s.venceEn, s.idSolicitud LIMIT 100");
-    $stmt->execute([ahoraAperturas($pdo)]);
-    $locales = $stmt->fetchAll();
-    $procesadas = 0;
-    foreach ($locales as $ids) {
-        try {
-            $pdo->beginTransaction();
-            $local = bloquearLocalApertura($pdo, (int) $ids['idLocal'], (int) $ids['idEmpresa']);
-            if ($local) {
-                $solicitud = reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
-                if ($solicitud && $solicitud['estado'] !== 'pendiente') {
-                    $procesadas++;
-                }
-            }
-            $pdo->commit();
-        } catch (PDOException | LogicException $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-            throw $e;
-        }
-    }
-    return $procesadas;
 }

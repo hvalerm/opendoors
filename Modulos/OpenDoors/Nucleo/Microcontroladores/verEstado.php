@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 require_once __DIR__ . '/../util/db.php';
+require_once __DIR__ . '/../util/estado_dispositivo.php';
 $soloDatos = ($_GET['datos'] ?? '') === '1';
 if ($soloDatos) {
     header('Cache-Control: no-store');
@@ -44,11 +45,9 @@ try {
 }
 
 $si = fn($v) => $v ? 'Sí' : 'No';
-// ultimaConsulta es un DATETIME en UTC. Los valores futuros no indican actividad.
-$activo = fn($seg) => $seg !== null && (int) $seg >= 0 && (int) $seg <= 15;
 ob_start();
 foreach ($unidades as $u):
-    $estaActivo = $activo($u['segundos_sin_consulta']);
+    $estaActivo = dispositivoActivo($u['segundos_sin_consulta']);
     $ultimaConsultaUtc = $u['ultimaConsulta'];
     $ultimaAperturaUtc = $u['ultimaApertura'];
 ?>

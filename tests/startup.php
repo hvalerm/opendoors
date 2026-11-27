@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 require $root . '/util/Configuracion/DatosWeb.php';
+require $root . '/Modulos/OpenDoors/Nucleo/util/estado_dispositivo.php';
 $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'opendoors_startup_' . bin2hex(random_bytes(6));
 mkdir($tmp);
 mkdir($tmp . '/Startup');
@@ -45,7 +46,7 @@ try {
         'Modulos/OpenDoors/Nucleo/ApiSystem/api_board.php', 'Modulos/OpenDoors/Nucleo/ApiSystem/api_microcontrolador.php',
         'Modulos/OpenDoors/Nucleo/ApiSystem/api_restore.php', 'Modulos/OpenDoors/Nucleo/ApiSystem/ordenDeApertura_porLinkAcceso.php',
         'Modulos/OpenDoors/Nucleo/util/aperturas.php', 'Modulos/OpenDoors/Nucleo/util/vigencia_accesos.php',
-        'Modulos/OpenDoors/Nucleo/util/procesar_aperturas.php',
+        'Modulos/OpenDoors/Nucleo/util/estado_dispositivo.php',
         'Modulos/OpenDoors/Configuracion/comunLocales.php',
         'Modulos/OpenDoors/Configuracion/locales.php', 'Modulos/OpenDoors/Configuracion/locales.css',
         'Modulos/OpenDoors/Configuracion/configuracionLocal.php',
@@ -93,6 +94,12 @@ try {
     $seguimiento = $tmp . '/Modulos/OpenDoors/Nucleo/util/aperturas.php';
     file_put_contents($seguimiento, str_replace(
         ['FOR UPDATE', 'UTC_TIMESTAMP()'], ['', 'CURRENT_TIMESTAMP'], file_get_contents($seguimiento)
+    ));
+    $estadoDispositivo = $tmp . '/Modulos/OpenDoors/Nucleo/util/estado_dispositivo.php';
+    file_put_contents($estadoDispositivo, str_replace(
+        ['TIMESTAMPDIFF(SECOND, m.ultimaConsulta, UTC_TIMESTAMP())', ' FOR UPDATE'],
+        ['CAST(strftime("%s", "now") - strftime("%s", m.ultimaConsulta) AS INTEGER)', ''],
+        file_get_contents($estadoDispositivo)
     ));
     file_put_contents($tmp . '/util/BaseDatos/db.php', '<?php
 require_once __DIR__ . "/../Seguridad/seguridad.php";
@@ -166,13 +173,12 @@ recFin();
     $pdo->exec('INSERT INTO empresas_modulos (idEmpresa, idModulo, habilitado) VALUES (1, 1, 1), (1, 2, 1)');
     $pdo->exec('CREATE TABLE locales (idLocal INTEGER PRIMARY KEY, idEmpresa INTEGER,
         nombreLocal TEXT, direccionLocal TEXT, eliminado INTEGER DEFAULT 0, habilitado INTEGER DEFAULT 1,
-        accionar INTEGER DEFAULT 0, zonaHoraria TEXT NOT NULL DEFAULT "America/Guayaquil")');
+        accionar INTEGER DEFAULT 0, zonaHoraria TEXT NOT NULL DEFAULT "America/Guayaquil",
+        aperturaId TEXT, aperturaEstado TEXT, aperturaVenceEn TEXT)');
     $pdo->exec('CREATE TABLE soporte (idSoporte INTEGER PRIMARY KEY, telefonoContacto TEXT)');
     $pdo->exec('CREATE TABLE microcontroladores (idMicrocontrolador INTEGER PRIMARY KEY, idLocal INTEGER,
         idEmpresa INTEGER, ultimaConsulta TEXT, ultimaApertura TEXT, habilitado INTEGER,
         cantidadAperturasExitosas INTEGER NOT NULL DEFAULT 0, cantidadAperturasFallidas INTEGER NOT NULL DEFAULT 0)');
-    $pdo->exec("CREATE TABLE solicitudes_apertura (idSolicitud TEXT PRIMARY KEY, idLocal INTEGER, idEmpresa INTEGER,
-        estado TEXT NOT NULL, solicitadaEn TEXT NOT NULL, venceEn TEXT NOT NULL, finalizadaEn TEXT)");
     $pdo->exec('CREATE TABLE accesos (idAcceso INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT UNIQUE, idLocal INTEGER, idEmpresa INTEGER,
         activoDesde TEXT, activoHasta TEXT, ejecutado INTEGER DEFAULT 0, habilitado INTEGER DEFAULT 1)');
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
@@ -284,8 +290,8 @@ recFin();
         'La confirmacion del huesped no ofrece el cierre inicialmente oculto.');
     $response = $request($confirmacion + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
     comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'pendiente'
-        && (int) $pdo->query("SELECT COUNT(*) FROM solicitudes_apertura WHERE estado = 'pendiente'")->fetchColumn() === 1,
-        'Consultar una solicitud pendiente no debe eliminarla.');
+        && $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'pendiente',
+        'Consultar una solicitud pendiente no debe modificarla.');
     $response = $request(['confirmacion' => 'invalida'], 'ModoAnfitrion/OpenDoors/puertaAccionada.php');
     comprobarStartup(!str_contains($response['body'], 'id="cerrarVentana"'),
         'Una confirmacion invalida muestra el boton de cierre.');
@@ -317,11 +323,11 @@ recFin();
         'La confirmacion no incrementa aperturas exitosas sin trigger.');
     $response = $request($confirmacion, 'ModoAnfitrion/OpenDoors/puertaAccionada');
     comprobarStartup(str_contains($response['body'], '"estado":"exitosa"')
-        && (int) $pdo->query("SELECT COUNT(*) FROM solicitudes_apertura WHERE estado = 'exitosa'")->fetchColumn() === 0,
-        'La pantalla inicial no entrega y elimina la solicitud exitosa.');
+        && $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'exitosa',
+        'La pantalla inicial no entrega la solicitud exitosa.');
     $response = $request($confirmacion + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
-    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'sin_solicitud',
-        'Una solicitud exitosa ya consultada no debe poder consultarse de nuevo.');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'exitosa',
+        'El resultado debe seguir disponible hasta la siguiente apertura.');
     $request([], $restore, post: $credencial);
     comprobarStartup((int) $pdo->query('SELECT cantidadAperturasExitosas FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn() === 1,
         'El reintento de confirmacion duplica el contador.');
@@ -341,44 +347,41 @@ recFin();
     parse_str((string) parse_url($response['location'], PHP_URL_QUERY), $permisoFallido);
     $exitosAntesFallo = $pdo->query('SELECT cantidadAperturasExitosas, ultimaApertura FROM microcontroladores
         WHERE idMicrocontrolador IN (10, 11) ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC);
-    $pdo->exec("UPDATE solicitudes_apertura SET venceEn = datetime('now', '-1 second') WHERE estado = 'pendiente'");
-    $ejecutarVencimientos = function () use ($tmp): void {
-        $worker = proc_open([PHP_BINARY, $tmp . '/Modulos/OpenDoors/Nucleo/util/procesar_aperturas.php', '--una-vez'],
-            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-        if (!is_resource($worker)) {
-            throw new RuntimeException('No se pudo iniciar el procesador de aperturas.');
-        }
-        fclose($pipes[0]);
-        $salida = stream_get_contents($pipes[1]);
-        $error = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        comprobarStartup(proc_close($worker) === 0, "Fallo del procesador: $salida $error");
-    };
-    $pdo->exec("INSERT INTO solicitudes_apertura
-        (idSolicitud, idLocal, idEmpresa, estado, solicitadaEn, venceEn, finalizadaEn) VALUES
-        ('sin-consultar', NULL, 1, 'exitosa', datetime('now', '-2 days'), datetime('now', '-2 days'), datetime('now', '-25 hours'))");
-    $ejecutarVencimientos();
-    comprobarStartup((int) $pdo->query("SELECT COUNT(*) FROM solicitudes_apertura
-        WHERE idSolicitud = 'sin-consultar'")->fetchColumn() === 1,
-        'El procesador no debe eliminar solicitudes finalizadas que no se han consultado.');
-    $ejecutarVencimientos();
+    $pdo->exec("UPDATE locales SET aperturaVenceEn = datetime('now', '-1 second') WHERE idLocal = 1");
+    comprobarStartup($orden() === 1 && $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'pendiente',
+        'Sin peticiones el vencimiento no debe procesarse automaticamente.');
+    $response = $request($permisoFallido + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'fallida',
+        'La pantalla no procesa el vencimiento al consultar.');
+    $request($permisoFallido + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
     comprobarStartup($orden() === 0
         && array_map('intval', $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores
             WHERE idMicrocontrolador IN (10, 11) ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_COLUMN)) === [1, 1]
         && $pdo->query('SELECT cantidadAperturasExitosas, ultimaApertura FROM microcontroladores
             WHERE idMicrocontrolador IN (10, 11) ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC) === $exitosAntesFallo,
-        'El fallo sin navegador no limpia la orden, se duplica o modifica exitos/ultima apertura.');
+        'El fallo no limpia la orden, se duplica o modifica exitos/ultima apertura.');
     $response = $request($permisoFallido + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
     comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'fallida',
         'La pantalla confunde el restablecimiento por fallo con un exito.');
     $response = $request($permisoFallido + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
-    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'sin_solicitud',
-        'Una solicitud fallida ya consultada no debe poder consultarse de nuevo.');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'fallida',
+        'El resultado fallido debe seguir disponible hasta la siguiente apertura.');
     $request([], $restore, post: $credencial);
     comprobarStartup($pdo->query('SELECT cantidadAperturasExitosas, ultimaApertura FROM microcontroladores
         WHERE idMicrocontrolador IN (10, 11) ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC) === $exitosAntesFallo,
         'Una confirmacion tardia contabiliza un fallo tambien como exito.');
+    $pdo->exec("UPDATE accesos SET ejecutado = 0 WHERE token = 'TokenPrueba'");
+    $response = $request([], 'ApiSystem/ordenDeApertura_porLinkAcceso', post: ['token' => 'TokenPrueba']);
+    comprobarStartup($response['status'] === 200, 'No se puede reemplazar un resultado finalizado.');
+    $response = $request($permisoFallido + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
+    comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'sin_solicitud'
+        && $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'pendiente',
+        'La consulta de un resultado anterior afecta la nueva apertura.');
+    $pdo->exec("UPDATE locales SET aperturaVenceEn = datetime('now', '-1 second') WHERE idLocal = 1");
+    $response = $request($credencial, $consulta);
+    comprobarStartup(json_decode($response['body'], true) === ['ok' => true, 'accionar' => 0]
+        && (int) $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores WHERE idMicrocontrolador = 10')->fetchColumn() === 2,
+        'El dispositivo recibe una orden vencida o no registra el fallo.');
     unset($orden, $ultimaConsulta);
     $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador IN (10, 11)');
     $pdo->exec("UPDATE accesos SET ejecutado = 0 WHERE token = 'TokenPrueba'");
@@ -885,6 +888,7 @@ PHP);
         'Configuración de OpenDoors no abre Restaurar información.');
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal, eliminado)
         VALUES (5, 3, 'Local eliminado de prueba', 'Direccion', 1)");
+    $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador IN (101, 102, 103)');
     $pdo->exec("INSERT INTO microcontroladores VALUES
         (201, 3, 3, NULL, '2020-01-01 00:00:00', 1, 7, 3),
         (202, 4, 3, NULL, '2020-01-01 00:00:00', 1, 8, 4),
@@ -944,8 +948,64 @@ PHP);
         'Restaurar todos no respetó la hora UTC, la vigencia de accesos o el alcance por empresa y local.');
     $pdo->exec("DELETE FROM accesos WHERE token LIKE 'Rest%'");
     $localApertura = 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado';
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now', '-16 seconds') WHERE idMicrocontrolador = 201");
     $formApertura = $request(['id' => '3'], $localApertura);
     $postApertura = ['csrf' => $csrf($formApertura), 'accion' => 'abrir_puerta'];
+    comprobarStartup(str_contains($formApertura['body'], 'dispositivo de apertura está inactivo')
+        && preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $formApertura['body']) === 1,
+        'Una consulta de hace 16 segundos debe deshabilitar la apertura.');
+    $response = $request(['id' => '3'], $localApertura, post: $postApertura);
+    comprobarStartup($response['status'] === 409
+        && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 3')->fetchColumn() === 0,
+        'Un POST directo no debe abrir con dispositivo inactivo.');
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now', '+5 seconds') WHERE idMicrocontrolador = 201");
+    comprobarStartup(str_contains($request(['id' => '3'], $localApertura)['body'], 'dispositivo de apertura está inactivo'),
+        'Una fecha futura no debe considerarse actividad.');
+    comprobarStartup(dispositivoActivo(15) && !dispositivoActivo(16) && !dispositivoActivo(-1)
+        && !dispositivoActivo(null), 'El limite de actividad debe ser de 0 a 15 segundos.');
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now') WHERE idMicrocontrolador = 201");
+    $formApertura = $request(['id' => '3'], $localApertura);
+    comprobarStartup(preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $formApertura['body']) === 0,
+        'Un dispositivo activo debe habilitar la apertura.');
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now', '-16 seconds') WHERE idMicrocontrolador = 201");
+    $response = $request(['id' => '3'], $localApertura, post: $postApertura);
+    comprobarStartup($response['status'] === 409 && str_contains($response['body'], 'dispositivo de apertura está inactivo')
+        && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 3')->fetchColumn() === 0,
+        'Debe volver a validar la actividad al enviar una pagina cargada como activa.');
+    $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now'), habilitado = 0 WHERE idMicrocontrolador = 201");
+    $response = $request(['id' => '3'], $localApertura, post: $postApertura);
+    comprobarStartup($response['status'] === 409 && str_contains($response['body'], 'dispositivo de apertura está deshabilitado'),
+        'Un dispositivo activo pero deshabilitado no debe permitir abrir.');
+    $pdo->exec("UPDATE microcontroladores SET habilitado = 1 WHERE idMicrocontrolador = 201");
+    $pdo->exec("INSERT INTO microcontroladores (idMicrocontrolador, idLocal, idEmpresa, ultimaConsulta, habilitado)
+        VALUES (205, 3, 3, datetime('now'), 1)");
+    $response = $request(['id' => '3'], $localApertura, post: $postApertura);
+    comprobarStartup($response['status'] === 409 && str_contains($response['body'], 'más de un dispositivo asociado'),
+        'Los dispositivos duplicados deben bloquear la apertura.');
+    $response = $request(['id' => '3'], $localApertura);
+    comprobarStartup(str_contains($response['body'], 'más de un dispositivo asociado')
+        && preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $response['body']) === 1,
+        'La pagina no advierte ni bloquea los dispositivos duplicados.');
+    $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador = 205');
+    $response = $request(['id' => '4'], $localApertura);
+    comprobarStartup(str_contains($response['body'], 'dispositivo de apertura está inactivo'),
+        'El estado del dispositivo debe corresponder al lugar seleccionado.');
+    $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador = 202');
+    $response = $request(['id' => '4'], $localApertura);
+    comprobarStartup(str_contains($response['body'], 'no tiene un dispositivo de apertura asociado')
+        && preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $response['body']) === 1,
+        'Un lugar sin dispositivo no debe permitir abrir.');
+    comprobarStartup($request(['id' => '4'], $localApertura, post: $postApertura)['status'] === 409
+        && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 4')->fetchColumn() === 0,
+        'Un POST directo no debe abrir un lugar sin dispositivo.');
+    $pdo->exec("INSERT INTO microcontroladores VALUES
+        (202, 4, 3, NULL, '2020-01-01 00:00:00', 1, 0, 0)");
+    $pdo->exec('UPDATE locales SET habilitado = 0 WHERE idLocal = 3');
+    $response = $request(['id' => '3'], $localApertura);
+    comprobarStartup(str_contains($response['body'], 'El lugar está deshabilitado.')
+        && preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $response['body']) === 1,
+        'Un lugar deshabilitado no debe permitir abrir aunque el dispositivo este activo.');
+    $pdo->exec('UPDATE locales SET habilitado = 1 WHERE idLocal = 3');
     $antesCancelar = $pdo->query('SELECT cantidadAperturasExitosas, cantidadAperturasFallidas, ultimaApertura
         FROM microcontroladores WHERE idLocal = 3 ORDER BY idMicrocontrolador')->fetchAll(PDO::FETCH_ASSOC);
     $response = $request(['id' => '3'], $localApertura, post: $postApertura);
@@ -966,8 +1026,7 @@ PHP);
     $request(['id' => '3'], $localApertura, post: $postApertura);
     $response = $request($solicitudCancelada + ['estado' => '1'], 'ModoAnfitrion/OpenDoors/puertaAccionada');
     comprobarStartup((json_decode($response['body'], true)['estado'] ?? '') === 'sin_solicitud'
-        && (int) $pdo->query("SELECT COUNT(*) FROM solicitudes_apertura
-            WHERE idLocal = 3 AND estado = 'pendiente'")->fetchColumn() === 1,
+        && $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 3')->fetchColumn() === 'pendiente',
         'Una pantalla antigua consulta o elimina la solicitud nueva.');
     $request(['id' => '3'], $localApertura,
         post: array_replace($postApertura, ['accion' => 'anular_apertura']));

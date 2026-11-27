@@ -14,8 +14,6 @@ $admin = new PDO("mysql:host=127.0.0.1;port=$port;charset=utf8mb4", 'root', '', 
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
 ]);
 $creada = false;
-$worker = null;
-$procesos = [];
 $checks = 0;
 function comprobarApertura(bool $condicion, string $mensaje): void
 {
@@ -32,92 +30,101 @@ try {
     $admin->exec("USE `$base`");
     $admin->exec('CREATE TABLE locales (idLocal int PRIMARY KEY, idEmpresa int NOT NULL,
         accionar boolean NOT NULL DEFAULT 0, eliminado boolean NOT NULL DEFAULT 0,
-        UNIQUE KEY uq_local_empresa (idLocal, idEmpresa)) ENGINE=InnoDB');
+        habilitado boolean NOT NULL DEFAULT 1) ENGINE=InnoDB');
     $admin->exec('CREATE TABLE microcontroladores (idMicrocontrolador int PRIMARY KEY,
         idLocal int NOT NULL, idEmpresa int NOT NULL, ultimaApertura datetime NULL,
-        cantidadAperturas int NOT NULL DEFAULT 0) ENGINE=InnoDB');
-    $admin->exec('CREATE TABLE logs_locales (idLocal int, idEmpresa int, descripcionLogLocal text) ENGINE=InnoDB');
-    $admin->exec('CREATE TABLE logs_microcontroladores (idMicrocontrolador int, idLocal int,
-        idEmpresa int, descripcionLogMicrocontrolador text) ENGINE=InnoDB');
-    $admin->exec('CREATE TRIGGER trg_after_update_accionar_local AFTER UPDATE ON locales FOR EACH ROW
-        UPDATE microcontroladores SET cantidadAperturas = cantidadAperturas + 1
-        WHERE idLocal = NEW.idLocal AND idEmpresa = NEW.idEmpresa');
-    $admin->exec('CREATE TRIGGER trg_after_update_cantidadAperturas_microcontrolador AFTER UPDATE ON microcontroladores
-        FOR EACH ROW INSERT INTO logs_microcontroladores VALUES (NEW.idMicrocontrolador, NEW.idLocal, NEW.idEmpresa, NEW.cantidadAperturas)');
-    $admin->exec('INSERT INTO locales (idLocal, idEmpresa, accionar) VALUES (1,1,0), (2,2,0), (3,1,1)');
-    $admin->exec("INSERT INTO microcontroladores VALUES
-        (1,1,1,'2020-01-01 00:00:00',5), (2,1,1,'2020-01-01 00:00:00',0),
-        (3,2,2,'2020-01-01 00:00:00',7)");
-    $delimiter = ';';
-    $sql = '';
-    foreach (file($root . '/migraciones/opendoors_seguimiento_nuevo.sql') as $linea) {
-        if (preg_match('/^\s*DELIMITER\s+(\S+)/', $linea, $m)) {
-            $delimiter = $m[1];
-        } elseif (!preg_match('/^\s*(--|$)/', $linea)) {
-            $sql .= $linea;
-            if (str_ends_with(rtrim($sql), $delimiter)) {
-                $admin->exec(substr(rtrim($sql), 0, -strlen($delimiter)));
-                $sql = '';
+        cantidadAperturasExitosas int NOT NULL DEFAULT 0,
+        cantidadAperturasFallidas int NOT NULL DEFAULT 0,
+        ultimaConsulta datetime NULL, habilitado boolean NOT NULL DEFAULT 1) ENGINE=InnoDB');
+    $admin->exec('CREATE TABLE solicitudes_apertura (idSolicitud char(64) PRIMARY KEY) ENGINE=InnoDB');
+    $admin->exec("INSERT INTO solicitudes_apertura VALUES ('resultado-antiguo')");
+    $admin->exec('INSERT INTO locales (idLocal,idEmpresa,accionar,eliminado) VALUES (1,1,1,0), (2,2,0,0)');
+    $admin->exec("INSERT INTO microcontroladores (idMicrocontrolador,idLocal,idEmpresa,ultimaApertura,
+        cantidadAperturasExitosas,cantidadAperturasFallidas) VALUES
+        (1,1,1,'2020-01-01 00:00:00',5,0), (2,1,1,'2020-01-01 00:00:00',0,0),
+        (3,2,2,'2020-01-01 00:00:00',7,0)");
+
+    $migrar = function () use ($admin, $root): void {
+        $delimiter = ';';
+        $sql = '';
+        foreach (file($root . '/migraciones/aperturas_en_locales.sql') as $linea) {
+            if (preg_match('/^\s*DELIMITER\s+(\S+)/', $linea, $m)) {
+                $delimiter = $m[1];
+            } elseif (!preg_match('/^\s*(--|$)/', $linea)) {
+                $sql .= $linea;
+                if (str_ends_with(rtrim($sql), $delimiter)) {
+                    $admin->exec(substr(rtrim($sql), 0, -strlen($delimiter)));
+                    $sql = '';
+                }
             }
         }
+        if (trim($sql) !== '') {
+            throw new RuntimeException('La migracion no se ejecuto completamente.');
+        }
+    };
+    try {
+        $migrar();
+        throw new RuntimeException('La migracion acepto una orden pendiente.');
+    } catch (PDOException $e) {
+        comprobarApertura(str_contains($e->getMessage(), 'Hay ordenes pendientes'),
+            'La migracion fallo por un motivo distinto a la orden pendiente.');
     }
-    comprobarApertura(trim($sql) === '', 'La migracion no se ejecuto completamente.');
+    $admin->exec('UPDATE locales SET accionar = 0 WHERE idLocal = 1');
+    $migrar();
+    comprobarApertura($admin->query('SELECT idSolicitud FROM solicitudes_apertura')->fetchColumn() === 'resultado-antiguo',
+        'La migracion altero la tabla anterior.');
     foreach (['DB_HOST' => '127.0.0.1', 'DB_PORT' => (string) $port, 'DB_USER' => 'root',
         'DB_PASS' => '', 'DB_NAME_OPENDOORS' => $base] as $nombre => $valor) {
         putenv("$nombre=$valor");
     }
     require_once $root . '/Modulos/OpenDoors/Nucleo/util/aperturas.php';
+    require_once $root . '/Modulos/OpenDoors/Nucleo/util/estado_dispositivo.php';
     $pdo = getOpenDoorsPDO();
     $contadores = fn() => $pdo->query('SELECT * FROM microcontroladores ORDER BY idMicrocontrolador')->fetchAll();
-    $estado = function (string $id) use ($pdo): string {
-        $stmt = $pdo->prepare('SELECT estado FROM solicitudes_apertura WHERE idSolicitud = ?');
-        $stmt->execute([$id]);
-        return $stmt->fetchColumn();
-    };
     $emitir = function () use ($pdo): string {
         $pdo->beginTransaction();
         try {
             $id = emitirSolicitudApertura($pdo, 1, 1);
             $pdo->commit();
             return $id;
-        } catch (PDOException | LogicException $e) {
+        } catch (Throwable $e) {
             $pdo->rollBack();
             throw $e;
         }
     };
-    comprobarApertura((int) $contadores()[0]['cantidadAperturasExitosas'] === 5
-        && (int) $contadores()[0]['cantidadAperturasFallidas'] === 0,
-        'La migracion no conserva el contador anterior o no inicializa los fallos.');
-    comprobarApertura((int) $pdo->query('SELECT TIMESTAMPDIFF(SECOND, solicitadaEn, venceEn)
-        FROM solicitudes_apertura WHERE idLocal = 3')->fetchColumn() === 30,
-        'La migracion no recupera las ordenes que ya estaban pendientes con un plazo de 30 segundos.');
-    $pdo->beginTransaction();
-    $local = bloquearLocalApertura($pdo, 3, 1);
-    $solicitud = reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
-    finalizarSolicitudApertura($pdo, $solicitud, ResultadoApertura::Cancelada, ahoraAperturas($pdo));
-    $pdo->commit();
-
+    $consultar = function () use ($pdo): ?array {
+        $pdo->beginTransaction();
+        try {
+            $local = bloquearLocalApertura($pdo, 1, 1);
+            $resultado = reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
+            $pdo->commit();
+            return $resultado;
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    };
     $id = $emitir();
-    comprobarApertura((int) $pdo->query("SELECT TIMESTAMPDIFF(SECOND, solicitadaEn, venceEn)
-        FROM solicitudes_apertura WHERE idSolicitud = '$id'")->fetchColumn() === 30,
-        'El plazo de la solicitud no es exactamente 30 segundos.');
+    comprobarApertura((int) $pdo->query('SELECT TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), aperturaVenceEn)
+        FROM locales WHERE idLocal = 1')->fetchColumn() === 30,
+        'El plazo de la solicitud no es 30 segundos.');
     try {
         $emitir();
         throw new RuntimeException('Se permite reemplazar una apertura pendiente.');
     } catch (DomainException $e) {
-        comprobarApertura($estado($id) === 'pendiente', 'El rechazo de una segunda apertura altera la primera.');
+        comprobarApertura($consultar()['idSolicitud'] === $id, 'Se altero la solicitud pendiente.');
     }
-    comprobarApertura(procesarAperturasPendientes($pdo) === 0 && $estado($id) === 'pendiente',
-        'El procesador finaliza una solicitud antes de su vencimiento.');
-
-    // Dos procesos que observan el mismo cambio deben contabilizarlo solo una vez.
     $pdo->exec('UPDATE locales SET accionar = 0 WHERE idLocal = 1');
-    $script = $root . '/Modulos/OpenDoors/Nucleo/util/procesar_aperturas.php';
-    for ($i = 0; $i < 6; $i++) {
-        $proceso = proc_open([PHP_BINARY, $script, '--una-vez'],
+    $codigoConcurrente = 'require ' . var_export($root . '/Modulos/OpenDoors/Nucleo/util/aperturas.php', true)
+        . '; $pdo = getOpenDoorsPDO(); $pdo->beginTransaction();'
+        . ' $local = bloquearLocalApertura($pdo, 1, 1);'
+        . ' reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo)); $pdo->commit();';
+    $procesos = [];
+    for ($i = 0; $i < 4; $i++) {
+        $proceso = proc_open([PHP_BINARY, '-r', $codigoConcurrente],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($proceso)) {
-            throw new RuntimeException('No se pudo iniciar un procesador concurrente.');
+            throw new RuntimeException('No se pudo iniciar una consulta concurrente.');
         }
         fclose($pipes[0]);
         $procesos[] = [$proceso, $pipes];
@@ -127,97 +134,79 @@ try {
         $error = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
-        comprobarApertura(proc_close($proceso) === 0, "Fallo concurrente: $salida $error");
+        comprobarApertura(proc_close($proceso) === 0, "Fallo de consulta concurrente: $salida $error");
     }
-    $procesos = [];
+    comprobarApertura($consultar()['estado'] === 'exitosa' && $consultar()['estado'] === 'exitosa',
+        'No se conserva el resultado exitoso.');
     $despuesExito = $contadores();
-    comprobarApertura($estado($id) === 'exitosa'
-        && (int) $despuesExito[0]['cantidadAperturasExitosas'] === 6
+    comprobarApertura((int) $despuesExito[0]['cantidadAperturasExitosas'] === 6
         && (int) $despuesExito[1]['cantidadAperturasExitosas'] === 1
         && (int) $despuesExito[2]['cantidadAperturasExitosas'] === 7,
-        'Los procesadores concurrentes duplican el exito o mezclan locales/empresas.');
-    comprobarApertura($despuesExito[0]['ultimaApertura'] === $despuesExito[1]['ultimaApertura']
-        && abs(time() - strtotime($despuesExito[0]['ultimaApertura'] . ' UTC')) <= 5,
-        'La confirmacion no actualiza ultimaApertura en UTC para todos los dispositivos del local.');
+        'El exito se contabilizo mas de una vez o en otra empresa.');
 
-    $idCancelada = $emitir();
+    $idFallida = $emitir();
+    comprobarApertura($idFallida !== $id, 'La nueva apertura no reemplazo el resultado anterior.');
+    $pdo->exec('UPDATE locales SET aperturaVenceEn = UTC_TIMESTAMP() WHERE idLocal = 1');
+    $pdo->exec("CREATE TRIGGER fallo_contador BEFORE UPDATE ON microcontroladores
+        FOR EACH ROW BEGIN IF NEW.idMicrocontrolador = 2 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Fallo de prueba'; END IF; END");
+    try {
+        $consultar();
+        throw new RuntimeException('Se oculto el error al modificar el segundo dispositivo.');
+    } catch (PDOException $e) {
+        comprobarApertura(!$pdo->inTransaction()
+            && $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'pendiente'
+            && $contadores() === $despuesExito,
+            'Un error parcial no revierte la orden y todos los contadores.');
+    }
+    $pdo->exec('DROP TRIGGER fallo_contador');
+    comprobarApertura($consultar()['estado'] === 'fallida' && $consultar()['estado'] === 'fallida',
+        'La solicitud no falla al alcanzar su vencimiento.');
+    $despuesFallo = $contadores();
+    comprobarApertura((int) $despuesFallo[0]['cantidadAperturasFallidas'] === 1
+        && (int) $despuesFallo[1]['cantidadAperturasFallidas'] === 1
+        && $despuesFallo[2] === $despuesExito[2]
+        && $despuesFallo[0]['ultimaApertura'] === $despuesExito[0]['ultimaApertura'],
+        'El fallo altera otra empresa, la ultima apertura o cuenta dos veces.');
+    $emitir();
     $pdo->beginTransaction();
     $local = bloquearLocalApertura($pdo, 1, 1);
     $solicitud = reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
     finalizarSolicitudApertura($pdo, $solicitud, ResultadoApertura::Cancelada, ahoraAperturas($pdo));
     $pdo->commit();
-    comprobarApertura($contadores() === $despuesExito && $estado($idCancelada) === 'cancelada'
-        && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 1')->fetchColumn() === 0,
-        'Una cancelacion modifica contadores o ultimaApertura.');
-
-    $idFallida = $emitir();
-    $pdo->exec("UPDATE solicitudes_apertura SET venceEn = UTC_TIMESTAMP() WHERE idSolicitud = '$idFallida'");
-    $pdo->exec("CREATE TRIGGER fallo_contador BEFORE UPDATE ON microcontroladores
-        FOR EACH ROW BEGIN IF NEW.idMicrocontrolador = 2 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Fallo de prueba'; END IF; END");
+    comprobarApertura($consultar()['estado'] === 'cancelada' && $contadores() === $despuesFallo,
+        'La cancelacion modifica contadores.');
+    $indice = file_get_contents($root . '/migraciones/dispositivo_unico_por_local.sql');
     try {
-        procesarAperturasPendientes($pdo);
-        throw new RuntimeException('Se oculto el error al modificar el segundo dispositivo.');
+        $pdo->exec($indice);
+        throw new RuntimeException('La migracion acepto dispositivos duplicados.');
     } catch (PDOException $e) {
-        comprobarApertura(!$pdo->inTransaction() && $estado($idFallida) === 'pendiente'
-            && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 1')->fetchColumn() === 1
-            && $contadores() === $despuesExito,
-            'Un error parcial no revierte solicitud, bandera y contadores de todos los dispositivos.');
+        comprobarApertura((int) $pdo->query('SELECT COUNT(*) FROM microcontroladores WHERE idLocal = 1')->fetchColumn() === 2,
+            'La migracion no debe eliminar dispositivos duplicados.');
     }
-    $pdo->exec('DROP TRIGGER fallo_contador');
-    comprobarApertura(procesarAperturasPendientes($pdo) === 1 && $estado($idFallida) === 'fallida',
-        'La solicitud no falla al alcanzar exactamente su vencimiento.');
-    comprobarApertura(procesarAperturasPendientes($pdo) === 0,
-        'El reintento de procesamiento vuelve a contabilizar el fallo.');
-    $despuesFallo = $contadores();
-    comprobarApertura((int) $despuesFallo[0]['cantidadAperturasFallidas'] === 1
-        && (int) $despuesFallo[1]['cantidadAperturasFallidas'] === 1
-        && $despuesFallo[2] === $despuesExito[2]
-        && $despuesFallo[0]['ultimaApertura'] === $despuesExito[0]['ultimaApertura']
-        && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 1')->fetchColumn() === 0,
-        'El fallo altera la ultima apertura, cuenta otra empresa o deja una orden activa.');
-    comprobarApertura((int) $pdo->query("SELECT COUNT(*) FROM logs_locales WHERE descripcionLogLocal LIKE '%Accionar%'")->fetchColumn() > 0
-        && (int) $pdo->query("SELECT COUNT(*) FROM logs_microcontroladores WHERE descripcionLogMicrocontrolador LIKE '%cantidadAperturasExitosas%'")->fetchColumn() > 0
-        && (int) $pdo->query("SELECT COUNT(*) FROM logs_microcontroladores WHERE descripcionLogMicrocontrolador LIKE '%cantidadAperturasFallidas%'")->fetchColumn() > 0,
-        'La migracion no conserva la auditoria de cambios de aperturas.');
-
-    $idSinNavegador = $emitir();
-    $venceEn = $pdo->query("SELECT venceEn FROM solicitudes_apertura
-        WHERE idSolicitud = '$idSinNavegador'")->fetchColumn();
-    $worker = proc_open([PHP_BINARY, $script],
-        [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $workerPipes);
-    if (!is_resource($worker)) {
-        throw new RuntimeException('No se pudo iniciar el procesador continuo.');
+    $pdo->exec('DELETE FROM microcontroladores WHERE idMicrocontrolador = 2');
+    $pdo->exec($indice);
+    try {
+        $pdo->exec('INSERT INTO microcontroladores (idMicrocontrolador, idLocal, idEmpresa) VALUES (4,1,1)');
+        throw new RuntimeException('La base acepto un segundo dispositivo para el mismo local.');
+    } catch (PDOException $e) {
+        comprobarApertura($e->getCode() === '23000', 'El indice no rechazo el dispositivo duplicado.');
     }
-    fclose($workerPipes[0]);
-    $inicio = microtime(true);
-    $limite = $inicio + 35;
-    $prematura = false;
-    do {
-        usleep(100000);
-        $resultado = $estado($idSinNavegador);
-        if ($resultado !== 'pendiente' && ahoraAperturas($pdo) < $venceEn) {
-            $prematura = true;
-        }
-    } while ($resultado === 'pendiente' && microtime(true) < $limite);
-    comprobarApertura(proc_get_status($worker)['running'] && $estado($idSinNavegador) === 'fallida'
-        && !$prematura && microtime(true) - $inicio >= 29
-        && (int) $contadores()[0]['cantidadAperturasFallidas'] === 2,
-        'El procesador continuo no detecta vencimientos sin peticiones HTTP.');
-    echo "OK: $checks comprobaciones de aperturas con MySQL, concurrencia y proceso independiente.\n";
+    $pdo->exec('UPDATE microcontroladores SET ultimaConsulta = UTC_TIMESTAMP() WHERE idMicrocontrolador = 1');
+    $pdo->beginTransaction();
+    $local = bloquearLocalApertura($pdo, 1, 1);
+    comprobarApertura(estadoDispositivoLocal($pdo, 1, 1, true) === 'activo',
+        'La consulta de actividad con bloqueo no reconoce el dispositivo activo.');
+    $pdo->commit();
+    $pdo->exec('UPDATE microcontroladores SET ultimaConsulta = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 16 SECOND) WHERE idMicrocontrolador = 1');
+    comprobarApertura(estadoDispositivoLocal($pdo, 1, 1) === 'inactivo'
+        && estadoDispositivoLocal($pdo, 1, 2) === 'sin_dispositivo',
+        'No se respeta el limite de actividad o el aislamiento por empresa.');
+    $pdo->exec('UPDATE microcontroladores SET ultimaConsulta = UTC_TIMESTAMP(), habilitado = 0 WHERE idMicrocontrolador = 1');
+    comprobarApertura(estadoDispositivoLocal($pdo, 1, 1) === 'deshabilitado',
+        'El dispositivo deshabilitado se considero disponible.');
+    echo "OK: $checks comprobaciones de migracion y aperturas con MySQL.\n";
 } finally {
-    foreach ($procesos as [$proceso, $pipes]) {
-        if (is_resource($proceso)) {
-            proc_terminate($proceso);
-            proc_close($proceso);
-        }
-    }
-    if (is_resource($worker)) {
-        proc_terminate($worker);
-        fclose($workerPipes[1]);
-        fclose($workerPipes[2]);
-        proc_close($worker);
-    }
     if ($creada) {
         $admin->exec("DROP DATABASE `$base`");
     }

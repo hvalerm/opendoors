@@ -1,3 +1,5 @@
+-- HISTORICO: este script crea la tabla anterior. Ver seguimiento_aperturas.txt
+-- antes de usarlo con la implementacion actual.
 -- Para una base creada con el opendoors.sql anterior a esta adaptacion.
 -- Ejecutar una sola vez, con respaldo y la aplicacion detenida. El DDL no es
 -- transaccional: ante un error, detenerse y revisar el estado antes de seguir.

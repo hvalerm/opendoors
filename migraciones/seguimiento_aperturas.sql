@@ -1,3 +1,5 @@
+-- HISTORICO: este script crea la tabla anterior y no debe usarse con la
+-- implementacion actual. Consultar seguimiento_aperturas.txt.
 -- Ejecutar en la base opendoors antes de desplegar PHP, con respaldo y
 -- la aplicacion en mantenimiento. Los campos cantidadAperturasExitosas y
 -- cantidadAperturasFallidas deben existir (INT NOT NULL DEFAULT 0).

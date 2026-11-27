@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 require_once __DIR__ . '/../util/db.php';
+require_once __DIR__ . '/../util/estado_dispositivo.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 $soloDispositivos = ($_GET['datos'] ?? '') === 'dispositivos';
 if ($soloDispositivos) {
@@ -32,7 +33,7 @@ function cargarDispositivosDashboard(PDO $pdo, int $idEmpresa): array
     $q->execute([$idEmpresa]);
     $dispositivos = $q->fetchAll();
     foreach ($dispositivos as &$dispositivo) {
-        $dispositivo['activo'] = $dispositivo['seg'] !== null && (int) $dispositivo['seg'] >= 0 && (int) $dispositivo['seg'] <= 15;
+        $dispositivo['activo'] = dispositivoActivo($dispositivo['seg']);
     }
     return $dispositivos;
 }

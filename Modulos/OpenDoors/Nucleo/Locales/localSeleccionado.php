@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/aperturas.php';
+require_once __DIR__ . '/../util/estado_dispositivo.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
 requerirModulo('OpenDoors');
@@ -13,6 +14,13 @@ $embed = isset($_GET['embed']);
 $mensaje = '';
 $esError = false;
 $local = null;
+$estadoDispositivo = null;
+$mensajesDispositivo = [
+    'sin_dispositivo' => 'Este lugar no tiene un dispositivo de apertura asociado.',
+    'multiples' => 'Este lugar tiene más de un dispositivo asociado. Contacta a soporte para corregirlo.',
+    'deshabilitado' => 'El dispositivo de apertura está deshabilitado.',
+    'inactivo' => 'El dispositivo de apertura está inactivo. Verifica que esté conectado.',
+];
 if (empty($_SESSION['csrf'])) {
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
 }
@@ -33,6 +41,9 @@ function cargarLocal(int $idLocal, int $idEmpresa): ?array
 try {
     if ($idLocal) {
         $local = cargarLocal($idLocal, $idEmpresa);
+        if ($local) {
+            $estadoDispositivo = estadoDispositivoLocal(getOpenDoorsPDO(), (int) $local['id_local'], $idEmpresa);
+        }
     }
 
     if ($local && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -47,6 +58,14 @@ try {
             } else {
                 $pdo = getOpenDoorsPDO();
                 $pdo->beginTransaction();
+                $bloqueado = bloquearLocalApertura($pdo, (int) $local['id_local'], $idEmpresa);
+                if (!$bloqueado || $bloqueado['eliminado'] || !$bloqueado['habilitado']) {
+                    throw new DomainException('El lugar ya no está disponible o está deshabilitado.');
+                }
+                $estadoDispositivo = estadoDispositivoLocal($pdo, (int) $local['id_local'], $idEmpresa, true);
+                if ($estadoDispositivo !== 'activo') {
+                    throw new DomainException($mensajesDispositivo[$estadoDispositivo]);
+                }
                 $idSolicitud = emitirSolicitudApertura($pdo, (int) $local['id_local'], $idEmpresa);
                 $pdo->commit();
                 header('Location: ../puertaAccionada?id=' . $local['id_local'] . '&solicitud=' . $idSolicitud . ($embed ? '&embed=1' : ''));
@@ -130,6 +149,13 @@ try {
             <h1><?= $h($local['nombre_local']) ?></h1>
             <?php if ($mensaje): ?>
                 <p class="aviso<?= $esError ? ' error' : '' ?>"><?= $h($mensaje) ?></p>
+            <?php elseif (!$local['habilitado']): ?>
+                <p class="aviso error">El lugar está deshabilitado.</p>
+            <?php elseif ($estadoDispositivo !== null && $estadoDispositivo !== 'activo'): ?>
+                <p class="aviso error"><?= $h($mensajesDispositivo[$estadoDispositivo]) ?></p>
+            <?php endif; ?>
+            <?php if ($estadoDispositivo !== null && $estadoDispositivo !== 'activo'): ?>
+                <p class="aviso error">Recarga la página para volver a comprobar el dispositivo.</p>
             <?php endif; ?>
             <dl>
                 <dt>Nombre</dt><dd><?= $h($local['nombre_local']) ?></dd>
@@ -143,7 +169,7 @@ try {
                 <form method="post" action="">
                     <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf'] ?? '') ?>">
                     <input type="hidden" name="accion" value="abrir_puerta">
-                    <button type="submit" class="btn">Abrir puerta</button>
+                    <button type="submit" class="btn" <?= $local['habilitado'] && $estadoDispositivo === 'activo' ? '' : 'disabled' ?>>Abrir puerta</button>
                 </form>
                 <form method="post" action="">
                     <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf'] ?? '') ?>">
