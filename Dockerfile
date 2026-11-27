@@ -1,6 +1,12 @@
+FROM composer:2 AS dependencias
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
 FROM php:8.2-apache
 RUN docker-php-ext-install pdo pdo_mysql
 COPY . /var/www/html/
+COPY --from=dependencias /app/vendor /var/www/html/vendor
 
 # Oculta versiones y bloquea el acceso web a código interno, repositorio y SQL
 RUN a2enmod headers rewrite \

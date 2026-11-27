@@ -1,5 +1,6 @@
 RewriteEngine On
 
+RewriteRule ^(?:vendor(?:/|$)|composer\.(?:json|lock)$) - [F,END,NC]
 RewriteRule ^ModoAnfitrion/OpenDoors/util(?:/|$) - [F,END,NC]
 RewriteRule ^Modulos/[^/]+/(?:(?:menuLateral|guia)\.php(?:/|$)|Nucleo/util(?:/|$)) - [F,END,NC]
 RewriteRule ^Modulos/README\.txt$ - [F,END,NC]

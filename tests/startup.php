@@ -747,6 +747,10 @@ PHP);
     comprobarStartup($request([], 'Modulos/OpenDoors/menuLateral.php')['status'] === 403
         && $request([], 'Modulos/OpenDoors/Nucleo/util/db.php')['status'] === 403,
         'Los archivos internos del módulo no deben publicarse por HTTP.');
+    comprobarStartup($request([], 'vendor/autoload.php')['status'] === 403
+        && $request([], 'composer.json')['status'] === 403
+        && $request([], 'composer.lock')['status'] === 403,
+        'Las dependencias y sus manifiestos no deben publicarse por HTTP.');
     $response = $request(['seccion' => 'configuracion/opendoors/locales'], $panel);
     $listaConfig = 'ModoAnfitrion/Configuracion/OpenDoors/locales.php';
     $editarConfig = 'ModoAnfitrion/Configuracion/OpenDoors/configuracionLocal.php';

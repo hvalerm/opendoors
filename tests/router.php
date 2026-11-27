@@ -1,6 +1,10 @@
 <?php
 // El servidor integrado de PHP no interpreta .htaccess.
 $ruta = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if (is_string($ruta) && preg_match('~^/(?:vendor(?:/|$)|composer\.(?:json|lock)$)~iD', $ruta)) {
+    http_response_code(403);
+    return true;
+}
 if (is_string($ruta) && preg_match('~^/(?:ModoAnfitrion/OpenDoors/util|Modulos/[^/]+/(?:(?:menuLateral|guia)\.php|Nucleo/util)|Modulos/README\.txt)(?:/|$)~iD', $ruta)) {
     http_response_code(403);
     return true;
