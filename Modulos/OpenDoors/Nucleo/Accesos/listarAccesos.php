@@ -60,6 +60,17 @@ $si = fn($v) => $v ? 'Sí' : 'No';
         .filtros label { display: block; font-size: .8rem; color: #6b7a86; margin-bottom: 4px; }
         .filtros input, .filtros select { width: 100%; padding: 9px 10px; border: 1px solid #cfd8de; border-radius: 8px; font: inherit; background: #fff; }
         .filtros input:focus, .filtros select:focus { outline: 2px solid #3a8fb7; border-color: transparent; }
+        .combo-local { position: relative; }
+        .combo-local input { padding-right: 32px; }
+        .combo-local input::placeholder { color: #1b2a35; opacity: 1; }
+        .combo-flecha { position: absolute; top: 0; right: 0; width: 32px; height: 100%; border: 0; background: transparent; cursor: pointer; color: #1b2a35; }
+        .combo-flecha span { display: inline-block; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); }
+        .combo-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 2; background: #fff; border: 1px solid #cfd8de; border-radius: 0 0 8px 8px; box-shadow: 0 4px 8px rgba(0,0,0,.12); }
+        .combo-opciones { list-style: none; max-height: 220px; overflow-y: auto; }
+        .combo-opciones li { padding: 9px 10px; cursor: pointer; overflow-wrap: anywhere; }
+        .combo-opciones li:hover, .combo-opciones li[data-activa="1"] { background: #e6f2f8; }
+        .combo-opciones li[aria-selected="true"] { font-weight: 600; }
+        .combo-sin-resultados { padding: 9px 10px; color: #6b7a86; }
         .contador { font-size: .85rem; color: #6b7a86; margin: 10px 0 14px; }
         .instruccion { color: #52616b; margin-bottom: 12px; }
         .tabla { overflow-x: auto; }
@@ -90,12 +101,20 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                 <div><label for="f-hasta">Activo hasta (hasta)</label><input type="date" id="f-hasta"></div>
                 <div>
                     <label for="f-local">Local</label>
-                    <input type="search" id="f-local" data-col="3" list="opciones-local" placeholder="Nombre o dirección" autocomplete="off">
-                    <datalist id="opciones-local">
-                        <?php foreach ($locales as $local): ?>
-                            <option value="<?= $h($local['nombreLocal'] . ' - ' . $local['direccionLocal']) ?>" data-local-id="<?= (int) $local['idLocal'] ?>"></option>
-                        <?php endforeach; ?>
-                    </datalist>
+                    <div class="combo-local" id="combo-local">
+                        <input type="text" id="f-local" data-col="3" placeholder="Todos" autocomplete="off"
+                            role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="opciones-local">
+                        <button type="button" class="combo-flecha" id="abrir-locales" aria-label="Mostrar u ocultar locales" tabindex="-1"><span aria-hidden="true"></span></button>
+                        <div class="combo-menu" id="menu-locales" hidden>
+                            <ul class="combo-opciones" id="opciones-local" role="listbox" aria-label="Locales">
+                                <li role="option" id="op-local-todos" data-local-id="" aria-selected="true">Todos</li>
+                                <?php foreach ($locales as $local): ?>
+                                    <li role="option" id="op-local-<?= (int) $local['idLocal'] ?>" data-local-id="<?= (int) $local['idLocal'] ?>" aria-selected="false"><?= $h($local['nombreLocal'] . ' - ' . $local['direccionLocal']) ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                            <div class="combo-sin-resultados" id="sin-locales" role="status" hidden>Ningún local coincide.</div>
+                        </div>
+                    </div>
                 </div>
                 <div><label for="f-empresa">Empresa</label><input type="search" id="f-empresa" data-col="4" autocomplete="off"></div>
                 <div><label for="f-ejecutado">Ejecutado</label>
@@ -139,7 +158,13 @@ $si = fn($v) => $v ? 'Sí' : 'No';
             var campos = Array.prototype.slice.call(document.querySelectorAll('.filtros [data-col]'));
             var contador = document.getElementById('contador');
             var sinResultados = document.getElementById('sinResultados');
-            var opcionesLocal = Array.prototype.slice.call(document.querySelectorAll('#opciones-local option'));
+            var comboLocal = document.getElementById('combo-local');
+            var fLocal = document.getElementById('f-local');
+            var menuLocal = document.getElementById('menu-locales');
+            var sinLocales = document.getElementById('sin-locales');
+            var opcionesLocal = Array.prototype.slice.call(document.querySelectorAll('#opciones-local [role="option"]'));
+            var localSeleccionado = null;
+            var indiceActivo = -1;
 
             var fDesde = document.getElementById('f-desde');
             filas.forEach(function (tr) {
@@ -166,9 +191,11 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                 var activos = campos.map(function (c) {
                     return { col: +c.dataset.col, v: norm(c.value), exacto: !!c.dataset.exacto };
                 }).filter(function (f) { return f.v !== ''; });
-                var textoLocal = norm(document.getElementById('f-local').value);
+                var textoLocal = norm(fLocal.value);
                 var localesElegidos = opcionesLocal.filter(function (opcion) {
-                    return textoLocal !== '' && norm(opcion.value) === textoLocal;
+                    return opcion.dataset.localId && (localSeleccionado !== null
+                        ? opcion.dataset.localId === localSeleccionado
+                        : textoLocal !== '' && norm(opcion.textContent) === textoLocal);
                 }).map(function (opcion) { return opcion.dataset.localId; });
                 var visibles = 0;
                 datos.forEach(function (x) {
@@ -185,7 +212,102 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                 contador.textContent = visibles + ' de ' + datos.length + ' accesos';
             }
 
+            function opcionesVisibles() {
+                return opcionesLocal.filter(function (opcion) { return !opcion.hidden; });
+            }
+
+            function activarOpcion(indice) {
+                opcionesLocal.forEach(function (opcion) { delete opcion.dataset.activa; });
+                var visibles = opcionesVisibles();
+                indiceActivo = indice;
+                if (indice >= 0 && indice < visibles.length) {
+                    visibles[indice].dataset.activa = '1';
+                    fLocal.setAttribute('aria-activedescendant', visibles[indice].id);
+                    visibles[indice].scrollIntoView({ block: 'nearest' });
+                } else {
+                    indiceActivo = -1;
+                    fLocal.removeAttribute('aria-activedescendant');
+                }
+            }
+
+            function abrirLocales(mostrarTodos) {
+                var texto = mostrarTodos ? '' : norm(fLocal.value);
+                opcionesLocal.forEach(function (opcion) {
+                    opcion.hidden = opcion.dataset.localId
+                        ? norm(opcion.textContent).indexOf(texto) === -1
+                        : texto !== '';
+                });
+                sinLocales.hidden = opcionesVisibles().length !== 0;
+                menuLocal.hidden = false;
+                fLocal.setAttribute('aria-expanded', 'true');
+                activarOpcion(-1);
+            }
+
+            function cerrarLocales() {
+                menuLocal.hidden = true;
+                fLocal.setAttribute('aria-expanded', 'false');
+                activarOpcion(-1);
+            }
+
+            function elegirLocal(opcion) {
+                localSeleccionado = opcion.dataset.localId || null;
+                fLocal.value = localSeleccionado === null ? '' : opcion.textContent;
+                opcionesLocal.forEach(function (item) {
+                    item.setAttribute('aria-selected', item === opcion ? 'true' : 'false');
+                });
+                cerrarLocales();
+                filtrar();
+                fLocal.focus();
+            }
+
+            fLocal.addEventListener('input', function () {
+                localSeleccionado = null;
+                opcionesLocal.forEach(function (opcion) {
+                    opcion.setAttribute('aria-selected', !opcion.dataset.localId && !fLocal.value ? 'true' : 'false');
+                });
+                abrirLocales(false);
+                filtrar();
+            });
+            fLocal.addEventListener('click', function () {
+                if (menuLocal.hidden) abrirLocales(localSeleccionado !== null);
+            });
+            fLocal.addEventListener('keydown', function (e) {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (menuLocal.hidden) abrirLocales(localSeleccionado !== null);
+                    var visibles = opcionesVisibles();
+                    if (visibles.length) {
+                        var siguiente = e.key === 'ArrowDown'
+                            ? Math.min(indiceActivo + 1, visibles.length - 1)
+                            : (indiceActivo < 0 ? visibles.length - 1 : Math.max(indiceActivo - 1, 0));
+                        activarOpcion(siguiente);
+                    }
+                } else if (e.key === 'Enter' && !menuLocal.hidden && indiceActivo >= 0) {
+                    e.preventDefault();
+                    elegirLocal(opcionesVisibles()[indiceActivo]);
+                } else if (e.key === 'Escape' || e.key === 'Tab') {
+                    cerrarLocales();
+                }
+            });
+            document.getElementById('abrir-locales').addEventListener('mousedown', function (e) { e.preventDefault(); });
+            document.getElementById('abrir-locales').addEventListener('click', function () {
+                if (menuLocal.hidden) {
+                    fLocal.focus();
+                    abrirLocales(localSeleccionado !== null);
+                } else {
+                    cerrarLocales();
+                    fLocal.focus();
+                }
+            });
+            opcionesLocal.forEach(function (opcion) {
+                opcion.addEventListener('click', function () { elegirLocal(opcion); });
+            });
+            document.addEventListener('pointerdown', function (e) {
+                if (!comboLocal.contains(e.target)) cerrarLocales();
+            });
+
             campos.forEach(function (c) {
+                if (c === fLocal) return;
                 c.addEventListener(c.tagName === 'SELECT' ? 'change' : 'input', filtrar);
             });
             fDesde.addEventListener('input', filtrar);

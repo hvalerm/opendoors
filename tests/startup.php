@@ -767,10 +767,14 @@ recFin();
             && str_contains($respuesta['body'], 'id="f-enrango" data-col="7"'),
             'El listado debe ocultar el token y conservar los índices de los demás filtros.');
         if ($vistaVigencia === 'listarAccesos') {
-            comprobarStartup(str_contains($respuesta['body'], 'id="f-local" data-col="3" list="opciones-local"')
-                && substr_count($respuesta['body'], 'value="Local del anfitrion - Direccion del anfitrion"') === 1
-                && str_contains($respuesta['body'], 'value="Casa &lt;nueva&gt; - Calle &amp; 10"')
-                && str_contains($respuesta['body'], 'value="Local anterior - Calle anterior"')
+            comprobarStartup(str_contains($respuesta['body'], 'id="f-local" data-col="3"')
+                && str_contains($respuesta['body'], 'role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="opciones-local"')
+                && str_contains($respuesta['body'], 'id="abrir-locales"')
+                && str_contains($respuesta['body'], 'role="listbox"')
+                && substr_count($respuesta['body'], '>Local del anfitrion - Direccion del anfitrion</li>') === 1
+                && str_contains($respuesta['body'], '>Casa &lt;nueva&gt; - Calle &amp; 10</li>')
+                && str_contains($respuesta['body'], '>Local anterior - Calle anterior</li>')
+                && str_contains($respuesta['body'], 'id="op-local-todos"')
                 && str_contains($respuesta['body'], 'data-busqueda="Local del anfitrion - Direccion del anfitrion"')
                 && !str_contains($respuesta['body'], 'Local eliminado sin accesos')
                 && !str_contains($respuesta['body'], 'Local otra empresa'),
