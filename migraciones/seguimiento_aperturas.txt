@@ -1,4 +1,4 @@
-APERTURAS SIN PROCESO PERMANENTE
+APERTURAS CON SEGUIMIENTO TEMPORAL
 
 En cada local se guarda el identificador, estado y vencimiento UTC de la
 ultima orden. Una nueva orden reemplaza el resultado anterior, incluso si
@@ -7,6 +7,36 @@ Los contadores de exitos y fallos se mantienen en microcontroladores.
 
 Ya no se usa la tabla solicitudes_apertura ni se inicia un proceso continuo.
 La tabla existente no se modifica ni se elimina.
+
+Cada orden inicia un proceso PHP CLI que sigue exclusivamente su identificador
+durante hasta 32 segundos y termina antes si se confirma, cancela o reemplaza.
+El proceso usa la misma conexion, horario UTC y transacciones que la aplicacion;
+no depende de la ventana ni crea una tabla. Si no puede iniciarse, la orden y
+el consumo del enlace se revierten. Los errores posteriores se registran en
+opendoors-seguimiento-aperturas.log dentro del directorio temporal de PHP.
+
+El proceso publica cada medio segundo un estado temporal privado. La pagina de
+confirmacion lo lee aproximadamente cada 1,5 segundos; si no existe, esta
+desactualizado o no se puede leer, consulta la base. Al reabrir la confirmacion
+se obtiene de la base el tiempo restante y despues se vuelve a leer el estado
+temporal mientras este disponible. La autenticacion y la licencia del anfitrion
+siguen consultando la base de empresas. El estado temporal no reemplaza el
+resultado persistente ni permite recuperar un proceso interrumpido.
+
+Apache/PHP y PHP CLI deben compartir el mismo directorio temporal. Si es
+necesario, configurar OPENDOORS_SEGUIMIENTO_DIR con una ruta privada fuera de
+la carpeta publica y accesible a ambos. En sistemas Unix debe tener permisos
+0700; en Windows debe protegerse mediante los permisos del sistema. Los
+archivos anteriores a cinco minutos se limpian al iniciar otro seguimiento;
+sin nuevas aperturas permanecen hasta una limpieza posterior del temporal.
+
+El servidor debe permitir proc_open y procesos PHP CLI independientes. Si no
+se encuentra el ejecutable, configurar PHP_CLI_BINARY con su ruta absoluta en
+el entorno de PHP/Apache. PHP CLI debe tener las extensiones y configuracion de
+conexion necesarias y acceso al mismo entorno. Cada apertura consume un
+proceso temporal. Si el servidor se reinicia, termina el proceso o la base no
+esta disponible, el vencimiento se resolvera con la siguiente peticion de la
+pantalla, del dispositivo o una nueva orden; no hay recuperacion automatica.
 
 DESPLIEGUE
 
@@ -24,12 +54,11 @@ DESPLIEGUE
 4. Desplegar el codigo nuevo. Docker inicia Apache directamente; fuera de
    Docker, desactivar cualquier servicio o tarea del antiguo procesador.
 
-El vencimiento se resuelve al recibir una consulta de la pantalla, de un
-dispositivo o una nueva orden para el lugar. Una orden vencida no se entrega
-al dispositivo; se registra como fallo y se restablece accionar. Si no llega
-ninguna peticion, el fallo, el contador y accionar no cambian puntualmente
-a los 30 segundos. Las vistas que leen contadores pueden mostrar valores
-desactualizados hasta que se procese la siguiente peticion de ese lugar.
+El proceso temporal registra el fallo al detectar el vencimiento y restablece
+accionar. Las consultas de la pantalla cuando falta el estado temporal, del
+dispositivo y las nuevas ordenes tambien resuelven vencimientos pendientes.
+Una orden vencida no se entrega al
+dispositivo. La resolucion puede retrasarse por bloqueos, carga o errores.
 
 Una confirmacion valida registra un exito y actualiza ultimaApertura; una
 cancelacion no cambia contadores. El resultado permanece disponible hasta
@@ -40,9 +69,11 @@ APERTURA MANUAL
 En el lugar seleccionado, Abrir puerta requiere un unico dispositivo
 asociado, habilitado y activo (ultima consulta entre 0 y 15 segundos en
 UTC). El estado se comprueba al cargar la pagina y de nuevo al enviar la
-orden; no se actualiza automaticamente en esa pantalla. Si hay multiples
-dispositivos, se bloquea la apertura y se informa el problema. Los enlaces
-publicos mantienen su comportamiento anterior.
+orden. Mientras la pagina este visible, se consulta cada 1,5 segundos; la
+consulta se suspende al ocultarla. Si hay multiples dispositivos, se
+bloquea la apertura y se informa el problema. Los enlaces publicos tambien
+requieren un unico dispositivo habilitado y activo; un rechazo no consume
+el enlace.
 
 Para impedir duplicados en la base, revisar primero la consulta de
 dispositivo_unico_por_local.sql, resolver manualmente los duplicados y

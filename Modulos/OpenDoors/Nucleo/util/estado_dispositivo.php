@@ -7,6 +7,18 @@ function dispositivoActivo(mixed $segundosSinConsulta): bool
         && (int) $segundosSinConsulta <= 15;
 }
 
+function mensajeEstadoDispositivo(string $estado): string
+{
+    return match ($estado) {
+        'activo' => '',
+        'sin_dispositivo' => 'Este lugar no tiene un dispositivo de apertura asociado.',
+        'multiples' => 'Este lugar tiene más de un dispositivo asociado. Contacta a soporte para corregirlo.',
+        'deshabilitado' => 'El dispositivo de apertura está deshabilitado.',
+        'inactivo' => 'El dispositivo de apertura está inactivo. Verifica que esté conectado.',
+        default => throw new LogicException('Estado de dispositivo no válido.'),
+    };
+}
+
 function estadoDispositivoLocal(PDO $pdo, int $idLocal, int $idEmpresa, bool $bloquear = false): string
 {
     $stmt = $pdo->prepare(

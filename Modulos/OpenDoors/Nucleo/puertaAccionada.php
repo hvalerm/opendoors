@@ -85,6 +85,19 @@ if (isset($_GET['estado'])) {
     if (!$esHuesped) {
         requerirModulo('OpenDoors');
     }
+    $empresaEstado = $esHuesped ? ($permiso['id_empresa'] ?? null) : ($_SESSION['empresa_id'] ?? null);
+    if ($idLocal && is_numeric($empresaEstado) && (int) $empresaEstado > 0
+        && is_string($idSolicitud) && preg_match('/^[a-f0-9]{64}$/D', $idSolicitud)) {
+        try {
+            $estadoTemporal = leerEstadoTemporal((int) $idLocal, (int) $empresaEstado, $idSolicitud);
+            if ($estadoTemporal !== null) {
+                echo json_encode($estadoTemporal);
+                exit;
+            }
+        } catch (RuntimeException | JsonException $e) {
+            error_log('No se pudo consultar el estado temporal de apertura: ' . $e->getMessage());
+        }
+    }
     try {
         $local = $idLocal ? obtenerLocal($idLocal, $esHuesped ? null : (int) $_SESSION['empresa_id']) : null;
         $estadoApertura = $local ? estadoAperturaLocal($local, $idSolicitud) : null;

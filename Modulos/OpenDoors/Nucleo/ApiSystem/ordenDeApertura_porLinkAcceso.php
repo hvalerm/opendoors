@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/aperturas.php';
+require_once __DIR__ . '/../util/iniciar_seguimiento.php';
+require_once __DIR__ . '/../util/estado_dispositivo.php';
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/vigencia_accesos.php';
 
@@ -32,33 +34,35 @@ try {
         $confirmacion = bin2hex(random_bytes(32));
     }
     $pdo = getOpenDoorsPDO();
+    $pdo->beginTransaction();
     // Paso 2: comparar el token con accesos.token y obtener los datos del acceso y su local
     // (el acceso no debe estar ejecutado y el local no debe estar eliminado)
     $stmt = $pdo->prepare(
         'SELECT a.idAcceso AS id_acceso, a.idLocal AS id_local, a.idEmpresa AS id_empresa, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, a.habilitado, l.accionar
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         WHERE a.token = ? AND a.ejecutado = 0 AND l.eliminado = 0'
+         WHERE a.token = ? AND a.ejecutado = 0 AND l.eliminado = 0 FOR UPDATE'
     );
     $stmt->execute([$token]);
     $acceso = $stmt->fetch();
 
     if (!$acceso) {
+        $pdo->rollBack();
         responder(404, false, 'Acceso no encontrado.');
     }
     // Paso 3: verificar que el acceso esté habilitado
     if (!$acceso['habilitado']) {
+        $pdo->rollBack();
         responder(403, false, 'El acceso está deshabilitado.');
     }
     // Paso 4: verificar que la hora actual esté dentro del rango de vigencia
     $ahora = ahoraVigenciaAccesos();
     if ($ahora < $acceso['activo_desde'] || $ahora > $acceso['activo_hasta']) {
+        $pdo->rollBack();
         responder(403, false, 'El acceso está fuera de su horario de vigencia.');
     }
 
     // Paso 5: emitir la orden de apertura (accionar = 1 en el local) y marcar el acceso como ejecutado
-    $pdo->beginTransaction();
-
     $marca = $pdo->prepare('UPDATE accesos SET ejecutado = 1 WHERE idAcceso = ? AND ejecutado = 0');
     $marca->execute([$acceso['id_acceso']]);
     if ($marca->rowCount() !== 1) {
@@ -66,7 +70,16 @@ try {
         responder(404, false, 'Acceso no encontrado.');
     }
 
+    $local = bloquearLocalApertura($pdo, (int) $acceso['id_local'], (int) $acceso['id_empresa']);
+    if (!$local || $local['eliminado']) {
+        throw new DomainException('El local ya no está disponible.');
+    }
+    $estadoDispositivo = estadoDispositivoLocal($pdo, (int) $acceso['id_local'], (int) $acceso['id_empresa'], true);
+    if ($estadoDispositivo !== 'activo') {
+        throw new DomainException(mensajeEstadoDispositivo($estadoDispositivo));
+    }
     $idSolicitud = emitirSolicitudApertura($pdo, (int) $acceso['id_local'], (int) $acceso['id_empresa']);
+    iniciarSeguimientoApertura((int) $acceso['id_local'], (int) $acceso['id_empresa'], $idSolicitud);
 
     $pdo->commit();
 
@@ -74,6 +87,7 @@ try {
         $_SESSION['confirmacion_apertura'] = [
             'clave' => $confirmacion,
             'id_local' => (int) $acceso['id_local'],
+            'id_empresa' => (int) $acceso['id_empresa'],
             'id_solicitud' => $idSolicitud,
             'expira' => time() + 120,
         ];
@@ -89,7 +103,7 @@ try {
         $pdo->rollBack();
     }
     responder(409, false, $e->getMessage());
-} catch (PDOException | LogicException $e) {
+} catch (PDOException | LogicException | RuntimeException $e) {
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
     }

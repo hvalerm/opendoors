@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../../../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/db.php';
 require_once __DIR__ . '/../util/aperturas.php';
+require_once __DIR__ . '/../util/iniciar_seguimiento.php';
 require_once __DIR__ . '/../util/estado_dispositivo.php';
 require_once __DIR__ . '/../../../../util/Seguridad/modulos.php';
 requerirSesion();
@@ -15,12 +16,7 @@ $mensaje = '';
 $esError = false;
 $local = null;
 $estadoDispositivo = null;
-$mensajesDispositivo = [
-    'sin_dispositivo' => 'Este lugar no tiene un dispositivo de apertura asociado.',
-    'multiples' => 'Este lugar tiene más de un dispositivo asociado. Contacta a soporte para corregirlo.',
-    'deshabilitado' => 'El dispositivo de apertura está deshabilitado.',
-    'inactivo' => 'El dispositivo de apertura está inactivo. Verifica que esté conectado.',
-];
+$consultaEstado = $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'estado_dispositivo';
 if (empty($_SESSION['csrf'])) {
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
 }
@@ -46,6 +42,17 @@ try {
         }
     }
 
+    if ($consultaEstado) {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        $valido = $local && $local['habilitado'] && $estadoDispositivo === 'activo';
+        echo json_encode([
+            'valido' => (bool) $valido,
+            'mensaje' => !$local ? 'El local ya no está disponible.'
+                : (!$local['habilitado'] ? 'El local está deshabilitado.' : mensajeEstadoDispositivo($estadoDispositivo)),
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     if ($local && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $csrf = $_POST['csrf'] ?? '';
         if (!is_string($csrf) || !hash_equals($_SESSION['csrf'], $csrf)) {
@@ -64,9 +71,10 @@ try {
                 }
                 $estadoDispositivo = estadoDispositivoLocal($pdo, (int) $local['id_local'], $idEmpresa, true);
                 if ($estadoDispositivo !== 'activo') {
-                    throw new DomainException($mensajesDispositivo[$estadoDispositivo]);
+                    throw new DomainException(mensajeEstadoDispositivo($estadoDispositivo));
                 }
                 $idSolicitud = emitirSolicitudApertura($pdo, (int) $local['id_local'], $idEmpresa);
+                iniciarSeguimientoApertura((int) $local['id_local'], $idEmpresa, $idSolicitud);
                 $pdo->commit();
                 header('Location: ../puertaAccionada?id=' . $local['id_local'] . '&solicitud=' . $idSolicitud . ($embed ? '&embed=1' : ''));
                 exit;
@@ -102,11 +110,17 @@ try {
     http_response_code(409);
     $mensaje = $e->getMessage();
     $esError = true;
-} catch (PDOException | LogicException $e) {
+} catch (PDOException | LogicException | RuntimeException $e) {
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
     error_log('Error en localSeleccionado: ' . $e->getMessage());
+    if ($consultaEstado) {
+        http_response_code(503);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['valido' => false, 'mensaje' => 'No se pudo consultar el dispositivo.']);
+        exit;
+    }
     $mensaje = 'No se pudo completar la operación. Inténtalo más tarde.';
     $esError = true;
 }
@@ -151,12 +165,8 @@ try {
                 <p class="aviso<?= $esError ? ' error' : '' ?>"><?= $h($mensaje) ?></p>
             <?php elseif (!$local['habilitado']): ?>
                 <p class="aviso error">El lugar está deshabilitado.</p>
-            <?php elseif ($estadoDispositivo !== null && $estadoDispositivo !== 'activo'): ?>
-                <p class="aviso error"><?= $h($mensajesDispositivo[$estadoDispositivo]) ?></p>
             <?php endif; ?>
-            <?php if ($estadoDispositivo !== null && $estadoDispositivo !== 'activo'): ?>
-                <p class="aviso error">Recarga la página para volver a comprobar el dispositivo.</p>
-            <?php endif; ?>
+            <p class="aviso error" id="estadoError" role="status" <?= $estadoDispositivo === 'activo' ? 'hidden' : '' ?>><?= $h($estadoDispositivo === null ? 'No se pudo consultar el dispositivo.' : mensajeEstadoDispositivo($estadoDispositivo)) ?></p>
             <dl>
                 <dt>Nombre</dt><dd><?= $h($local['nombre_local']) ?></dd>
                 <dt>Dirección</dt><dd><?= $h($local['direccion_local']) ?></dd>
@@ -166,10 +176,10 @@ try {
                 <dt>Habilitado</dt><dd><?= $local['habilitado'] ? 'Sí' : 'No' ?></dd>
             </dl>
             <div class="acciones">
-                <form method="post" action="">
+                <form method="post" action="" id="formAbrir" data-accion-estado="estado_dispositivo">
                     <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf'] ?? '') ?>">
                     <input type="hidden" name="accion" value="abrir_puerta">
-                    <button type="submit" class="btn" <?= $local['habilitado'] && $estadoDispositivo === 'activo' ? '' : 'disabled' ?>>Abrir puerta</button>
+                    <button type="submit" class="btn" id="btnAbrir" <?= $local['habilitado'] && $estadoDispositivo === 'activo' ? '' : 'disabled' ?>>Abrir puerta</button>
                 </form>
                 <form method="post" action="">
                     <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf'] ?? '') ?>">
@@ -180,5 +190,6 @@ try {
             </div>
         <?php endif; ?>
     </section>
+    <?php if ($local): require __DIR__ . '/../util/monitor_apertura.php'; endif; ?>
 </body>
 </html>

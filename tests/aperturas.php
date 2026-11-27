@@ -9,6 +9,9 @@ if (!$port || $port < 1024 || $port > 65535) {
 }
 $root = dirname(__DIR__);
 $base = 'opendoors_aperturas_test_' . bin2hex(random_bytes(6));
+$directorioSeguimientoAnterior = getenv('OPENDOORS_SEGUIMIENTO_DIR');
+$directorioSeguimiento = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $base;
+putenv('OPENDOORS_SEGUIMIENTO_DIR=' . $directorioSeguimiento);
 $admin = new PDO("mysql:host=127.0.0.1;port=$port;charset=utf8mb4", 'root', '', [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -79,6 +82,7 @@ try {
     }
     require_once $root . '/Modulos/OpenDoors/Nucleo/util/aperturas.php';
     require_once $root . '/Modulos/OpenDoors/Nucleo/util/estado_dispositivo.php';
+    require_once $root . '/Modulos/OpenDoors/Nucleo/util/iniciar_seguimiento.php';
     $pdo = getOpenDoorsPDO();
     $contadores = fn() => $pdo->query('SELECT * FROM microcontroladores ORDER BY idMicrocontrolador')->fetchAll();
     $emitir = function () use ($pdo): string {
@@ -205,9 +209,167 @@ try {
     $pdo->exec('UPDATE microcontroladores SET ultimaConsulta = UTC_TIMESTAMP(), habilitado = 0 WHERE idMicrocontrolador = 1');
     comprobarApertura(estadoDispositivoLocal($pdo, 1, 1) === 'deshabilitado',
         'El dispositivo deshabilitado se considero disponible.');
+    $emitirConSeguimiento = function () use ($pdo): string {
+        $pdo->beginTransaction();
+        try {
+            $id = emitirSolicitudApertura($pdo, 1, 1);
+            iniciarSeguimientoApertura(1, 1, $id);
+            $pdo->commit();
+            return $id;
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    };
+    putenv('PHP_CLI_BINARY=' . $root . DIRECTORY_SEPARATOR . 'php-inexistente');
+    try {
+        $emitirConSeguimiento();
+        throw new RuntimeException('Se emitio una orden sin iniciar el seguimiento.');
+    } catch (RuntimeException $e) {
+        comprobarApertura(str_contains($e->getMessage(), 'No se encontró PHP CLI')
+            && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 1')->fetchColumn() === 0,
+            'El fallo de arranque no revierte la orden.');
+    }
+    putenv('PHP_CLI_BINARY');
+
+    $antesFallos = (int) $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores WHERE idLocal = 1')->fetchColumn();
+    $inicio = microtime(true);
+    $idTemporal = $emitirConSeguimiento();
+    $limiteEstado = microtime(true) + 3;
+    do {
+        usleep(100000);
+        $estadoCompartido = leerEstadoTemporal(1, 1, $idTemporal);
+    } while ($estadoCompartido === null && microtime(true) < $limiteEstado);
+    comprobarApertura(($estadoCompartido['estado'] ?? null) === 'pendiente'
+        && $estadoCompartido['segundos_restantes'] > 0,
+        'El proceso no publico el estado y tiempo restante de la orden.');
+    do {
+        usleep(250000);
+        $estado = $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn();
+    } while ($estado === 'pendiente' && microtime(true) - $inicio < 32);
+    $duracion = microtime(true) - $inicio;
+    comprobarApertura($estado === 'fallida' && $duracion >= 29 && $duracion < 32
+        && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 1')->fetchColumn() === 0
+        && (int) $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores WHERE idLocal = 1')->fetchColumn() === $antesFallos + 1,
+        'El proceso temporal no registro una sola falla al vencimiento sin consultar la aplicacion.');
+    $limiteEstado = microtime(true) + 2;
+    do {
+        $estadoCompartido = leerEstadoTemporal(1, 1, $idTemporal);
+        if (($estadoCompartido['estado'] ?? null) === 'fallida') break;
+        usleep(50000);
+    } while (microtime(true) < $limiteEstado);
+    comprobarApertura(($estadoCompartido['estado'] ?? null) === 'fallida',
+        'El proceso no publico el resultado fallido.');
+
+    $idTemporal = $emitir();
+    $senal = tempnam(sys_get_temp_dir(), 'od_prueba_');
+    if ($senal === false) {
+        throw new RuntimeException('No se pudo crear el archivo temporal de prueba.');
+    }
+    $nulo = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
+    $proceso = proc_open([PHP_BINARY, $root . '/Modulos/OpenDoors/Nucleo/util/seguimiento_temporal.php',
+        '1', '1', $idTemporal, $senal], [
+        0 => ['file', $nulo, 'r'], 1 => ['file', $nulo, 'w'], 2 => ['file', $nulo, 'w'],
+    ], $pipes);
+    if (!is_resource($proceso)) {
+        unlink($senal);
+        throw new RuntimeException('No se pudo iniciar el proceso de prueba.');
+    }
+    $limite = microtime(true) + 5;
+    do {
+        usleep(50000);
+        $listo = file_get_contents($senal) === 'LISTO';
+    } while (!$listo && microtime(true) < $limite);
+    unlink($senal);
+    if (!$listo) {
+        proc_terminate($proceso);
+        proc_close($proceso);
+    }
+    comprobarApertura($listo, 'El proceso de prueba no inicio.');
+    $pdo->beginTransaction();
+    $local = bloquearLocalApertura($pdo, 1, 1);
+    $solicitud = reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
+    finalizarSolicitudApertura($pdo, $solicitud, ResultadoApertura::Exitosa, ahoraAperturas($pdo));
+    $pdo->commit();
+    $limite = microtime(true) + 5;
+    do {
+        usleep(50000);
+        $estadoProceso = proc_get_status($proceso);
+    } while ($estadoProceso['running'] && microtime(true) < $limite);
+    if ($estadoProceso['running']) {
+        proc_terminate($proceso);
+    }
+    proc_close($proceso);
+    comprobarApertura(!$estadoProceso['running'] && $estadoProceso['exitcode'] === 0
+        && $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'exitosa',
+        'El seguimiento no termino al recibir la confirmacion exitosa.');
+
+    publicarEstadoTemporal(1, 1, $idTemporal, 'exitosa', 0, 0);
+    $idTemporal = $emitir();
+    comprobarApertura(leerEstadoTemporal(1, 1, $local['aperturaId']) === null,
+        'Una orden nueva no invalido el estado temporal de la orden anterior.');
+    publicarEstadoTemporal(1, 1, $local['aperturaId'], 'exitosa', 0, 0);
+    comprobarApertura(leerEstadoTemporal(1, 1, $local['aperturaId']) === null,
+        'El proceso anterior pudo restaurar un estado temporal invalidado.');
+    $pdo->beginTransaction();
+    bloquearLocalApertura($pdo, 1, 1);
+    $senal = tempnam(sys_get_temp_dir(), 'od_prueba_');
+    if ($senal === false) {
+        throw new RuntimeException('No se pudo crear el archivo temporal de prueba.');
+    }
+    $inicioBloqueo = microtime(true);
+    $proceso = proc_open([PHP_BINARY, $root . '/Modulos/OpenDoors/Nucleo/util/seguimiento_temporal.php',
+        '1', '1', $idTemporal, $senal], [
+        0 => ['file', $nulo, 'r'], 1 => ['file', $nulo, 'w'], 2 => ['file', $nulo, 'w'],
+    ], $pipes);
+    if (!is_resource($proceso)) {
+        unlink($senal);
+        throw new RuntimeException('No se pudo iniciar el proceso de prueba.');
+    }
+    do {
+        usleep(100000);
+        $estadoProceso = proc_get_status($proceso);
+    } while ($estadoProceso['running'] && microtime(true) - $inicioBloqueo < 33);
+    $duracionBloqueo = microtime(true) - $inicioBloqueo;
+    if ($estadoProceso['running']) {
+        proc_terminate($proceso);
+    }
+    proc_close($proceso);
+    unlink($senal);
+    $pdo->rollBack();
+    comprobarApertura(!$estadoProceso['running'] && $duracionBloqueo >= 29 && $duracionBloqueo < 33,
+        'El proceso bloqueado no termino dentro del limite de 32 segundos.');
+    $consultar();
+
+    $idTemporal = $emitirConSeguimiento();
+    $pdo->beginTransaction();
+    $local = bloquearLocalApertura($pdo, 1, 1);
+    $solicitud = reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
+    finalizarSolicitudApertura($pdo, $solicitud, ResultadoApertura::Cancelada, ahoraAperturas($pdo));
+    $idNueva = emitirSolicitudApertura($pdo, 1, 1);
+    $pdo->exec('UPDATE locales SET aperturaVenceEn = UTC_TIMESTAMP() WHERE idLocal = 1');
+    $pdo->commit();
+    usleep(1500000);
+    comprobarApertura($pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'pendiente'
+        && $pdo->query('SELECT aperturaId FROM locales WHERE idLocal = 1')->fetchColumn() === $idNueva,
+        'El seguimiento de una orden anterior modifico la orden nueva.');
+    $consultar();
     echo "OK: $checks comprobaciones de migracion y aperturas con MySQL.\n";
 } finally {
     if ($creada) {
         $admin->exec("DROP DATABASE `$base`");
+    }
+    if (is_dir($directorioSeguimiento)) {
+        foreach (new DirectoryIterator($directorioSeguimiento) as $archivo) {
+            if ($archivo->isFile() && preg_match('/^estado-[a-f0-9]{64}\.json$/D', $archivo->getFilename())) {
+                unlink($archivo->getPathname());
+            }
+        }
+        rmdir($directorioSeguimiento);
+    }
+    if ($directorioSeguimientoAnterior === false) {
+        putenv('OPENDOORS_SEGUIMIENTO_DIR');
+    } else {
+        putenv('OPENDOORS_SEGUIMIENTO_DIR=' . $directorioSeguimientoAnterior);
     }
 }

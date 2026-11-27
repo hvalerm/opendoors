@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/estado_temporal.php';
 
 enum ResultadoApertura: string
 {
@@ -89,5 +90,8 @@ function emitirSolicitudApertura(PDO $pdo, int $idLocal, int $idEmpresa): string
     $pdo->prepare("UPDATE locales SET accionar = 1, aperturaId = ?, aperturaEstado = 'pendiente',
         aperturaVenceEn = ? WHERE idLocal = ? AND idEmpresa = ?")
         ->execute([$idSolicitud, $venceEn, $idLocal, $idEmpresa]);
+    if ($local['aperturaId'] !== null) {
+        invalidarEstadoTemporal($local['aperturaId']);
+    }
     return $idSolicitud;
 }

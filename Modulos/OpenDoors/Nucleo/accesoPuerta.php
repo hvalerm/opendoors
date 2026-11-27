@@ -2,6 +2,7 @@
 require_once __DIR__ . '/util/db.php';
 require_once __DIR__ . '/../../../util/Configuracion/DatosWeb.php';
 require_once __DIR__ . '/util/vigencia_accesos.php';
+require_once __DIR__ . '/util/estado_dispositivo.php';
 
 header('Cache-Control: no-store');
 // El token viaja en la URL: no debe filtrarse por Referer ni indexarse
@@ -14,11 +15,13 @@ $token = $_POST['token'] ?? $_GET['token'] ?? '';
 $esValidacion = $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'validar';
 $estado = 'invalido';
 $acceso = null;
+$estadoDispositivo = null;
 
 if (is_string($token) && preg_match('/^[A-Za-z0-9]{1,250}$/', $token)) {
     try {
         $stmt = getOpenDoorsPDO()->prepare(
             'SELECT a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, a.ejecutado, a.habilitado,
+                    a.idLocal AS id_local, a.idEmpresa AS id_empresa,
                     l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, l.zonaHoraria
              FROM accesos a
              INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
@@ -43,6 +46,12 @@ if (is_string($token) && preg_match('/^[A-Za-z0-9]{1,250}$/', $token)) {
             $estado = 'fuera_de_horario';
         } else {
             $estado = 'valido';
+            try {
+                $estadoDispositivo = estadoDispositivoLocal(getOpenDoorsPDO(), (int) $acceso['id_local'], (int) $acceso['id_empresa']);
+            } catch (PDOException $e) {
+                error_log('Error al consultar dispositivo en accesoPuerta: ' . $e->getMessage());
+                $estado = 'error';
+            }
         }
     }
 }
@@ -58,8 +67,8 @@ $mensajes = [
 if ($esValidacion) {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
-        'valido' => $estado === 'valido',
-        'mensaje' => $estado === 'valido' ? '' : $mensajes[$estado],
+        'valido' => $estado === 'valido' && $estadoDispositivo === 'activo',
+        'mensaje' => $estado === 'valido' ? mensajeEstadoDispositivo($estadoDispositivo) : $mensajes[$estado],
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -85,6 +94,7 @@ if ($esValidacion) {
         .unico { margin-bottom: 18px; padding: 12px 14px; border: 2px solid #e67e22; border-radius: 10px; background: #fff4e5; color: #8a4b08; text-align: left; font-weight: 600; line-height: 1.4; }
         .btn { display: block; width: 100%; padding: 15px; border-radius: 8px; background: #27ae60; color: #fff; font-size: 1.1rem; font-weight: 700; text-decoration: none; border: 0; cursor: pointer; font-family: inherit; }
         .btn:hover { background: #1f8f4f; }
+        .btn:disabled { background: #a3adb5; cursor: not-allowed; }
         .estado { padding: 22px 16px; border-radius: 10px; background: #fdecea; color: #8e1b10; font-size: 1.3rem; font-weight: 700; }
         [hidden] { display: none !important; }
     </style>
@@ -105,63 +115,19 @@ if ($esValidacion) {
             </div>
             <div class="unico">La apertura es de un único uso: una vez ejecutada, este enlace no podrá volver a utilizarse.</div>
 
-            <form method="post" action="<?= $h(parse_url($urlApiOrdenApertura, PHP_URL_PATH)) ?>" id="formAbrir">
+            <form method="post" action="<?= $h(parse_url($urlApiOrdenApertura, PHP_URL_PATH)) ?>" id="formAbrir" data-accion-estado="validar">
                 <input type="hidden" name="token" value="<?= $h($token) ?>">
                 <input type="hidden" name="confirmar" value="1">
-                <button type="submit" class="btn" id="btnAbrir">Abrir puerta</button>
+                <button type="submit" class="btn" id="btnAbrir" <?= $estadoDispositivo === 'activo' ? '' : 'disabled' ?>>Abrir puerta</button>
             </form>
-            <div class="estado" id="estadoError" role="alert" hidden></div>
+            <div class="estado" id="estadoError" role="status" <?= $estadoDispositivo === 'activo' ? 'hidden' : '' ?>><?= $h(mensajeEstadoDispositivo($estadoDispositivo)) ?></div>
         <?php else: ?>
             <h1>Acceso al alojamiento</h1>
             <div class="estado"><?= $h($mensajes[$estado]) ?></div>
         <?php endif; ?>
     </section>
     <?php if ($estado === 'valido'): ?>
-    <script>
-        (function () {
-            var form = document.getElementById('formAbrir');
-            var btn = document.getElementById('btnAbrir');
-            var estadoError = document.getElementById('estadoError');
-            var verificando = false;
-
-            form.addEventListener('submit', async function (e) {
-                e.preventDefault();
-                if (verificando) return;
-                verificando = true;
-                btn.disabled = true;
-                btn.textContent = 'Verificando acceso...';
-                estadoError.hidden = true;
-                try {
-                    // Re-valida el acceso justo antes de abrir: pudo ser usado, revocado o vencer
-                    // mientras la página estaba abierta
-                    var urlValidacion = new URL(window.location.href);
-                    urlValidacion.search = '';
-                    urlValidacion.hash = '';
-                    var res = await fetch(urlValidacion, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: new URLSearchParams({ accion: 'validar', token: form.token.value })
-                    });
-                    var data = await res.json();
-                    if (data.valido) {
-                        btn.textContent = 'Abriendo puerta...';
-                        form.submit();
-                        return;
-                    }
-                    // Ya no se puede usar: oculta el formulario y muestra el motivo
-                    form.hidden = true;
-                    estadoError.textContent = data.mensaje || 'Este acceso ya no se puede utilizar.';
-                    estadoError.hidden = false;
-                } catch (err) {
-                    estadoError.textContent = 'No se pudo verificar el acceso. Revisa tu conexión a internet e inténtalo nuevamente.';
-                    estadoError.hidden = false;
-                    btn.disabled = false;
-                    btn.textContent = 'Abrir puerta';
-                }
-                verificando = false;
-            });
-        })();
-    </script>
+    <?php require __DIR__ . '/util/monitor_apertura.php'; ?>
     <?php endif; ?>
 </body>
 </html>
