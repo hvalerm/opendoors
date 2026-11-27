@@ -8,7 +8,8 @@ const LOGIN_BLOQUEO_MINUTOS = 15;
 
 function claveIntentos(string $usuario): string
 {
-    return mb_substr(mb_strtolower(trim($usuario), 'UTF-8'), 0, 255, 'UTF-8');
+    $clave = mb_substr(mb_strtolower(trim($usuario), 'UTF-8'), 0, 255, 'UTF-8');
+    return str_starts_with($clave, 'startup:') ? 'login:' . hash('sha256', $clave) : $clave;
 }
 
 // Segundos de bloqueo que quedan (0 si puede intentar). Limpia los bloqueos ya vencidos.

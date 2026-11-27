@@ -10,6 +10,7 @@ if (!isset($idEmpresa) || !is_int($idEmpresa) || $idEmpresa <= 0) {
 require_once __DIR__ . '/../util/BaseDatos/db.php';
 require_once __DIR__ . '/../util/Seguridad/verificar.php';
 require_once __DIR__ . '/../util/Cuentas/recuperar_comun.php';
+require_once __DIR__ . '/../util/Soporte/contacto.php';
 iniciarSesionSegura();
 header('Referrer-Policy: no-referrer');
 header('X-Robots-Tag: noindex, nofollow');
@@ -305,6 +306,8 @@ $datos = [
 ];
 $prefijoOtro = '';
 $error = '';
+$bloqueado = false;
+$telefonoSoporte = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $entradaValida = true;
@@ -342,41 +345,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Ingresa un telefono valido sin prefijo. El numero completo admite hasta 30 caracteres.';
     } elseif (strlen($datos['correoCuenta']) > 50 || !filter_var($datos['correoCuenta'], FILTER_VALIDATE_EMAIL)) {
         $error = 'Ingresa un correo valido de hasta 50 caracteres.';
-    } elseif (mb_strlen($password, 'UTF-8') < REC_PASSWORD_MIN || strlen($password) > REC_PASSWORD_MAX) {
-        $error = 'La contrasena debe tener al menos ' . REC_PASSWORD_MIN . ' caracteres y hasta ' . REC_PASSWORD_MAX . ' bytes.';
+    } elseif ($password === '' || strlen($password) > REC_PASSWORD_MAX) {
+        $error = 'Ingresa una contrasena de hasta ' . REC_PASSWORD_MAX . ' bytes.';
     } elseif (!in_array($datos['ingreso'], ['automatico', 'manual'], true)) {
         $error = 'Elige como deseas ingresar al sistema.';
     } else {
         try {
-            $hash = password_hash($password, PASSWORD_ARGON2ID);
             $pdo->beginTransaction();
-            // Consumir el enlace y crear la cuenta deben confirmarse juntos.
-            $stmt = $pdo->prepare(
-                'UPDATE empresas SET nombreEmpresa = ?, telefonoContacto = ?, inicio = 0
-                 WHERE idEmpresa = ? AND inicio = 1'
-            );
-            $stmt->execute([$datos['nombreEmpresa'], $telefonoCompleto, $idEmpresa]);
-            if ($stmt->rowCount() !== 1) {
-                $pdo->rollBack();
-                http_response_code(404);
-                exit('Solicitud no encontrada');
-            }
-
-            $stmt = $pdo->prepare('SELECT idCuenta FROM cuentas WHERE correoCuenta = ? LIMIT 1');
+            $stmt = $pdo->prepare('SELECT idCuenta, nombreCuenta, pwd, habilitado FROM cuentas WHERE correoCuenta = ? LIMIT 1 FOR UPDATE');
             $stmt->execute([$datos['correoCuenta']]);
-            if ($stmt->fetch()) {
-                throw new DomainException('Ese correo ya tiene una cuenta. Usa un correo diferente para el nuevo anfitrion.');
+            $cuenta = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($cuenta) {
+                $idCuenta = (int) $cuenta['idCuenta'];
+                $claveIntentos = 'startup:' . $idCuenta;
+                $stmt = $pdo->prepare('SELECT intentos, bloqueadoHasta FROM intentos_login WHERE usuario = ? FOR UPDATE');
+                $stmt->execute([$claveIntentos]);
+                $intentos = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$intentos) {
+                    $pdo->prepare('INSERT INTO intentos_login (usuario, intentos) VALUES (?, 0)')->execute([$claveIntentos]);
+                    $intentos = ['intentos' => 0, 'bloqueadoHasta' => null];
+                }
+                $ahora = new DateTimeImmutable((string) $pdo->query('SELECT CURRENT_TIMESTAMP')->fetchColumn(), new DateTimeZone('UTC'));
+                $hasta = $intentos['bloqueadoHasta'] !== null
+                    ? new DateTimeImmutable($intentos['bloqueadoHasta'], new DateTimeZone('UTC')) : null;
+                if ($hasta && $hasta > $ahora) {
+                    $bloqueado = true;
+                    $error = 'Los intentos estan bloqueados por 30 minutos. Intentalo de nuevo en '
+                        . max(1, (int) ceil(($hasta->getTimestamp() - $ahora->getTimestamp()) / 60)) . ' minuto(s).';
+                    $pdo->commit();
+                } elseif (!password_verify($password, $cuenta['pwd'])) {
+                    $fallos = $hasta ? 1 : (int) $intentos['intentos'] + 1;
+                    $bloqueado = $fallos >= 30;
+                    $pdo->prepare('UPDATE intentos_login SET intentos = ?, bloqueadoHasta = ? WHERE usuario = ?')
+                        ->execute([$fallos, $bloqueado ? $ahora->modify('+30 minutes')->format('Y-m-d H:i:s') : null, $claveIntentos]);
+                    $pdo->commit();
+                    $error = $bloqueado
+                        ? 'Este correo ya esta registrado y la contrasena no coincide con la actual. Los intentos estan bloqueados por 30 minutos.'
+                        : 'Este correo ya esta registrado y la contrasena no coincide con la actual. Quedan ' . (30 - $fallos) . ' intento(s).';
+                } elseif (!$cuenta['habilitado']) {
+                    throw new DomainException('La cuenta esta deshabilitada. Contacta al administrador.');
+                } else {
+                    $pdo->prepare('DELETE FROM intentos_login WHERE usuario = ?')->execute([$claveIntentos]);
+                }
+                $nombreSesion = trim((string) $cuenta['nombreCuenta']) ?: $datos['correoCuenta'];
+            } else {
+                if (mb_strlen($password, 'UTF-8') < REC_PASSWORD_MIN) {
+                    throw new DomainException('Para una cuenta nueva, la contrasena debe tener al menos ' . REC_PASSWORD_MIN . ' caracteres.');
+                }
+                $hash = password_hash($password, PASSWORD_ARGON2ID);
+                $pdo->prepare('INSERT INTO cuentas (nombreCuenta, correoCuenta, pwd) VALUES (?, ?, ?)')
+                    ->execute([$nombreAnfitrion, $datos['correoCuenta'], $hash]);
+                $idCuenta = (int) $pdo->lastInsertId();
+                $nombreSesion = $nombreAnfitrion;
             }
-            $pdo->prepare('INSERT INTO cuentas (nombreCuenta, correoCuenta, pwd) VALUES (?, ?, ?)')
-                ->execute([$nombreAnfitrion, $datos['correoCuenta'], $hash]);
-            $idCuenta = (int) $pdo->lastInsertId();
-            $pdo->prepare('INSERT INTO empresas_cuentas (idEmpresa, idCuenta, idCargo) VALUES (?, ?, 1)')
-                ->execute([$idEmpresa, $idCuenta]);
 
-            if ($datos['ingreso'] === 'automatico') {
-                empresaUnicaCuenta($pdo, $idCuenta);
+            if ($error === '') {
+                $stmt = $pdo->prepare(
+                    'UPDATE empresas SET nombreEmpresa = ?, telefonoContacto = ?, inicio = 0
+                     WHERE idEmpresa = ? AND inicio = 1'
+                );
+                $stmt->execute([$datos['nombreEmpresa'], $telefonoCompleto, $idEmpresa]);
+                if ($stmt->rowCount() !== 1) {
+                    $pdo->rollBack();
+                    http_response_code(404);
+                    exit('Solicitud no encontrada');
+                }
+                $stmt = $pdo->prepare('SELECT idCargo FROM empresas_cuentas WHERE idEmpresa = ? AND idCuenta = ?');
+                $stmt->execute([$idEmpresa, $idCuenta]);
+                $cargo = $stmt->fetchColumn();
+                if ($cargo === false) {
+                    $pdo->prepare('INSERT INTO empresas_cuentas (idEmpresa, idCuenta, idCargo) VALUES (?, ?, 1)')
+                        ->execute([$idEmpresa, $idCuenta]);
+                } elseif ((int) $cargo !== 1) {
+                    throw new DomainException('La cuenta ya esta vinculada a esta empresa con otro cargo. Contacta al administrador.');
+                }
+                if ($datos['ingreso'] === 'automatico') {
+                    empresaVinculadaCuenta($pdo, $idCuenta, $idEmpresa);
+                }
+                $pdo->commit();
             }
-            $pdo->commit();
         } catch (DomainException $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
@@ -397,7 +444,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($datos['ingreso'] === 'automatico') {
                 $_SESSION['usuario_id'] = $idCuenta;
                 $_SESSION['empresa_id'] = $idEmpresa;
-                $_SESSION['nombre'] = $nombreAnfitrion;
+                $_SESSION['nombre'] = $nombreSesion;
                 $_SESSION['ultima_actividad'] = time();
                 $_SESSION['huella'] = hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? '');
                 header('Location: ../ModoAnfitrion/vistaAnfitrion', true, 303);
@@ -408,7 +455,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     if ($error !== '' && http_response_code() === 200) {
-        http_response_code(422);
+        http_response_code($bloqueado ? 429 : 422);
+    }
+}
+if ($bloqueado) {
+    try {
+        $telefonoSoporte = obtenerTelefonoSoporte($pdo);
+    } catch (PDOException $e) {
+        error_log('No se pudo obtener el telefono de soporte en Startup: ' . $e->getMessage());
     }
 }
 ?>
@@ -452,6 +506,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($error !== ''): ?>
             <div class="error" role="alert"><?= $h($error) ?></div>
         <?php endif; ?>
+        <?php if ($bloqueado): ?>
+            <?php if ($telefonoSoporte !== null): ?>
+                <p><a href="https://wa.me/<?= $h($telefonoSoporte) ?>?text=<?= rawurlencode('Hola, necesito ayuda con un bloqueo en la configuracion inicial.') ?>" target="_blank" rel="noopener">Contactar a soporte por WhatsApp</a></p>
+            <?php else: ?>
+                <p>El contacto de soporte no esta disponible por el momento.</p>
+            <?php endif; ?>
+        <?php endif; ?>
         <form method="post" action="startup?id=<?= $h(rawurlencode($cifrado)) ?>">
             <input type="hidden" name="csrf" value="<?= $h($_SESSION['startup_csrf']) ?>">
             <fieldset>
@@ -493,8 +554,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <div class="field">
                     <label for="pwd">Contrase&ntilde;a</label>
-                    <input type="password" id="pwd" name="pwd" minlength="<?= REC_PASSWORD_MIN ?>" maxlength="<?= REC_PASSWORD_MAX ?>" autocomplete="new-password" aria-describedby="ayudaPassword" required>
-                    <p class="ayuda" id="ayudaPassword">Usa al menos <?= REC_PASSWORD_MIN ?> caracteres. Tu contrase&ntilde;a se guardar&aacute; protegida.</p>
+                    <input type="password" id="pwd" name="pwd" maxlength="<?= REC_PASSWORD_MAX ?>" aria-describedby="ayudaPassword" required>
+                    <p class="ayuda" id="ayudaPassword">Si ya tienes una cuenta, ingresa su contrase&ntilde;a actual. Para una cuenta nueva, usa al menos <?= REC_PASSWORD_MIN ?> caracteres.</p>
                 </div>
             </fieldset>
             <fieldset>
@@ -505,7 +566,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </label>
                 <label class="opcion">
                     <input type="radio" name="ingreso" value="manual" <?= $datos['ingreso'] === 'manual' ? 'checked' : '' ?> required>
-                    <span>Ir al inicio de sesi&oacute;n e ingresar manualmente con mi nueva cuenta.</span>
+                    <span>Ir al inicio de sesi&oacute;n e ingresar manualmente con mi cuenta.</span>
                 </label>
             </fieldset>
             <button type="submit">&#128640; &iexcl;Listo, vamos a comenzar!</button>

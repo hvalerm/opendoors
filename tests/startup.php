@@ -73,6 +73,8 @@ try {
         }
         copy($root . '/' . $file, $tmp . '/' . $file);
     }
+    $startupInicial = $tmp . '/Startup/configuracionInicial.php';
+    file_put_contents($startupInicial, str_replace(' FOR UPDATE', '', file_get_contents($startupInicial)));
     $datosWeb = preg_replace('/^\$urlBase\s*=\s*[^;]+;/m',
         "\$urlBase = 'https://puertas.example.test/instalacion/';",
         file_get_contents($tmp . '/util/Configuracion/DatosWeb.php'), 1);
@@ -181,6 +183,7 @@ recFin();
         correoCuenta TEXT, pwd TEXT, habilitado INTEGER DEFAULT 1)');
     $pdo->exec('CREATE TABLE cargos (idCargo INTEGER PRIMARY KEY)');
     $pdo->exec('INSERT INTO cargos VALUES (1)');
+    $pdo->exec('CREATE TABLE intentos_login (usuario TEXT PRIMARY KEY, intentos INTEGER NOT NULL DEFAULT 0, bloqueadoHasta TEXT)');
     $pdo->exec('CREATE TABLE empresas_cuentas (idEmpresa INTEGER REFERENCES empresas(idEmpresa),
         idCuenta INTEGER REFERENCES cuentas(idCuenta), idCargo INTEGER REFERENCES cargos(idCargo),
         PRIMARY KEY (idEmpresa, idCuenta))');
@@ -687,12 +690,12 @@ recFin();
 
     $getAuto = ['id' => cifrarStartup('3')];
     $post['csrf'] = $csrf($request($getAuto));
-    $response = $request($getAuto, post: $post);
+    $response = $request($getAuto, post: array_replace($post, ['pwd' => 'ClaveIncorrecta']));
     comprobarStartup($response['status'] === 422
-        && str_contains($response['body'], 'Ese correo ya tiene una cuenta'),
-        'Permite crear un correo duplicado.');
+        && str_contains($response['body'], 'la contrasena no coincide con la actual'),
+        'Debe rechazar la contraseña incorrecta de una cuenta existente.');
     comprobarStartup((int) $pdo->query('SELECT inicio FROM empresas WHERE idEmpresa = 3')->fetchColumn() === 1,
-        'Un correo duplicado deja la empresa configurada.');
+        'Una contraseña incorrecta no debe configurar la empresa.');
     $post['correoCuenta'] = 'automatico@example.test';
     $post['ingreso'] = 'automatico';
     $post['paisTelefono'] = 'otro';
@@ -1617,6 +1620,109 @@ PHP);
     $pdo->exec('UPDATE empresas_modulos SET habilitado = 0 WHERE idEmpresa = 1 AND idModulo = 1');
     comprobarStartup($request(['empresa' => '1'], $selector)['status'] === 403,
         'La revocación del módulo debe aplicarse a las solicitudes posteriores.');
+
+    $pdo->exec("INSERT INTO empresas (idEmpresa, nombreEmpresa, duenoEmpresa, telefonoContacto, inicio, habilitado) VALUES
+        (7, 'Empresa siete', 'Otro propietario', '+51000000000', 1, 1),
+        (8, 'Empresa ocho', 'Otro propietario', '+51000000000', 1, 1),
+        (9, 'Empresa nueve', 'Otro propietario', '+51000000000', 1, 1),
+        (10, 'Empresa diez', 'Otro propietario', '+51000000000', 1, 1),
+        (11, 'Empresa once', 'Otro propietario', '+51000000000', 1, 1),
+        (12, 'Empresa doce', 'Otro propietario', '+51000000000', 1, 1)");
+    $pdo->exec("INSERT OR REPLACE INTO soporte (idSoporte, telefonoContacto) VALUES (1, '+51987654321')");
+    $idCuentaExistente = (int) $cuenta['idCuenta'];
+    $hashOriginal = $cuenta['pwd'];
+    $claveStartup = 'startup:' . $idCuentaExistente;
+    require_once $root . '/util/Seguridad/intentos_login.php';
+    comprobarStartup(claveIntentos($claveStartup) !== $claveStartup,
+        'Los intentos de login no deben modificar el bloqueo de Startup.');
+    $pdo->prepare('DELETE FROM intentos_login WHERE usuario = ?')->execute([$claveStartup]);
+    $cuentasAntes = (int) $pdo->query('SELECT COUNT(*) FROM cuentas')->fetchColumn();
+    $getExistente = ['id' => cifrarStartup('7')];
+    $postExistente = [
+        'nombreEmpresa' => 'Empresa vinculada', 'paisTelefono' => 'PE', 'telefonoContacto' => '999888777',
+        'correoCuenta' => 'anfitrion@example.test', 'pwd' => 'ClaveIncorrecta', 'ingreso' => 'automatico',
+        'csrf' => $csrf($request($getExistente)),
+    ];
+    for ($intento = 1; $intento <= 30; $intento++) {
+        $fallo = $request($getExistente, post: $postExistente);
+        comprobarStartup($fallo['status'] === ($intento === 30 ? 429 : 422)
+            && str_contains($fallo['body'], 'la contrasena no coincide con la actual'),
+            "El intento incorrecto $intento no fue registrado correctamente.");
+    }
+    $stmt = $pdo->prepare('SELECT intentos, bloqueadoHasta FROM intentos_login WHERE usuario = ?');
+    $stmt->execute([$claveStartup]);
+    $estadoIntentos = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->closeCursor();
+    $segundosBloqueo = strtotime($estadoIntentos['bloqueadoHasta'] . ' UTC') - time();
+    comprobarStartup((int) $estadoIntentos['intentos'] === 30 && $segundosBloqueo >= 1795 && $segundosBloqueo <= 1800
+        && str_contains($fallo['body'], 'bloqueados por 30 minutos')
+        && str_contains($fallo['body'], 'https://wa.me/51987654321'),
+        'El bloqueo debe durar 30 minutos y ofrecer contacto con soporte.');
+    $cookies = [];
+    $getOtraEmpresa = ['id' => cifrarStartup('8')];
+    $postExistente['csrf'] = $csrf($request($getOtraEmpresa));
+    $postExistente['pwd'] = 'ClaveSegura123!';
+    $bloqueadoOtraSesion = $request($getOtraEmpresa, post: $postExistente);
+    comprobarStartup($bloqueadoOtraSesion['status'] === 429
+        && (int) $pdo->query('SELECT inicio FROM empresas WHERE idEmpresa = 8')->fetchColumn() === 1
+        && (int) $pdo->query("SELECT COUNT(*) FROM empresas_cuentas WHERE idCuenta = $idCuentaExistente AND idEmpresa IN (7, 8)")->fetchColumn() === 0,
+        'El bloqueo debe persistir entre sesiones y empresas incluso con la contraseña correcta.');
+    $pdo->exec("UPDATE soporte SET telefonoContacto = '+51000000000' WHERE idSoporte = 1");
+    comprobarStartup(str_contains($request($getOtraEmpresa, post: $postExistente)['body'], 'contacto de soporte no esta disponible'),
+        'Debe informar cuando no hay un contacto de soporte configurado.');
+    $pdo->exec("UPDATE soporte SET telefonoContacto = '+51987654321' WHERE idSoporte = 1");
+    $pdo->prepare("UPDATE intentos_login SET bloqueadoHasta = '2000-01-01 00:00:00' WHERE usuario = ?")->execute([$claveStartup]);
+    $postExistente['csrf'] = $csrf($request($getExistente));
+    $vinculacion = $request($getExistente, post: $postExistente);
+    $sesionExistente = json_decode($request([], 'sesion.php')['body'], true);
+    comprobarStartup($vinculacion['status'] === 303 && $vinculacion['location'] === '../ModoAnfitrion/vistaAnfitrion'
+        && (int) $sesionExistente['usuario_id'] === $idCuentaExistente
+        && $sesionExistente['nombre'] === $cuenta['nombreCuenta']
+        && (int) $pdo->query('SELECT COUNT(*) FROM cuentas')->fetchColumn() === $cuentasAntes
+        && $pdo->query("SELECT pwd FROM cuentas WHERE idCuenta = $idCuentaExistente")->fetchColumn() === $hashOriginal
+        && (int) $pdo->query("SELECT idCargo FROM empresas_cuentas WHERE idEmpresa = 7 AND idCuenta = $idCuentaExistente")->fetchColumn() === 1,
+        'La contraseña correcta debe vincular la cuenta existente sin modificarla ni duplicarla.');
+    $stmt->execute([$claveStartup]);
+    comprobarStartup($stmt->fetch() === false, 'El éxito debe limpiar los intentos fallidos.');
+    unset($stmt);
+    $postExistente['ingreso'] = 'manual';
+    $postExistente['csrf'] = $csrf($request($getOtraEmpresa));
+    $manualExistente = $request($getOtraEmpresa, post: $postExistente);
+    comprobarStartup($manualExistente['status'] === 303 && $manualExistente['location'] === '../login'
+        && (int) $pdo->query("SELECT idCargo FROM empresas_cuentas WHERE idEmpresa = 8 AND idCuenta = $idCuentaExistente")->fetchColumn() === 1
+        && !isset(json_decode($request([], 'sesion.php')['body'], true)['usuario_id']),
+        'La vinculación manual debe conservar el cargo y no iniciar sesión.');
+    $pdo->exec('INSERT INTO cargos VALUES (2)');
+    $pdo->exec("INSERT INTO empresas_cuentas (idEmpresa, idCuenta, idCargo) VALUES (9, $idCuentaExistente, 2)");
+    $getCargo = ['id' => cifrarStartup('9')];
+    $postExistente['csrf'] = $csrf($request($getCargo));
+    $cargoDistinto = $request($getCargo, post: $postExistente);
+    comprobarStartup($cargoDistinto['status'] === 422
+        && (int) $pdo->query("SELECT idCargo FROM empresas_cuentas WHERE idEmpresa = 9 AND idCuenta = $idCuentaExistente")->fetchColumn() === 2
+        && (int) $pdo->query('SELECT inicio FROM empresas WHERE idEmpresa = 9')->fetchColumn() === 1,
+        'No debe sobrescribirse un cargo existente ni consumirse el enlace.');
+    $pdo->exec("INSERT INTO empresas_cuentas (idEmpresa, idCuenta, idCargo) VALUES (12, $idCuentaExistente, 1)");
+    $getMismoCargo = ['id' => cifrarStartup('12')];
+    $postExistente['csrf'] = $csrf($request($getMismoCargo));
+    comprobarStartup($request($getMismoCargo, post: $postExistente)['location'] === '../login'
+        && (int) $pdo->query("SELECT COUNT(*) FROM empresas_cuentas WHERE idEmpresa = 12 AND idCuenta = $idCuentaExistente")->fetchColumn() === 1,
+        'Debe conservar un vínculo existente con el cargo Anfitrión sin duplicarlo.');
+    $hashCorto = password_hash('corta', PASSWORD_ARGON2ID);
+    $pdo->prepare('INSERT INTO cuentas (nombreCuenta, correoCuenta, pwd) VALUES (?, ?, ?)')
+        ->execute(['Cuenta anterior', 'anterior@example.test', $hashCorto]);
+    $getAnterior = ['id' => cifrarStartup('10')];
+    $postExistente['csrf'] = $csrf($request($getAnterior));
+    $postExistente['correoCuenta'] = 'anterior@example.test';
+    $postExistente['pwd'] = 'corta';
+    comprobarStartup($request($getAnterior, post: $postExistente)['location'] === '../login',
+        'Una contraseña anterior válida debe aceptarse aunque sea más corta que el mínimo actual.');
+    $pdo->exec('DROP TABLE intentos_login');
+    $getSinControl = ['id' => cifrarStartup('11')];
+    $postExistente['csrf'] = $csrf($request($getSinControl));
+    $sinControl = $request($getSinControl, post: $postExistente);
+    comprobarStartup($sinControl['status'] === 500
+        && (int) $pdo->query('SELECT inicio FROM empresas WHERE idEmpresa = 11')->fetchColumn() === 1,
+        'No debe vincular cuentas cuando el control de intentos no está disponible.');
     echo "OK: $checks comprobaciones.\n";
 } finally {
     if (is_resource($server)) {
