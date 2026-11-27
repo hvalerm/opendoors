@@ -159,6 +159,9 @@ if ($esHuesped && $autorizado) {
     $urlEstado = 'puertaAccionada?estado=1&confirmacion=' . rawurlencode($confirmacion);
 }
 $urlVolver = 'Locales/localSeleccionado?id=' . (int) $idLocal . ($embed ? '&embed=1' : '');
+$urlReintentar = $esHuesped && $autorizado && isset($permiso['token_acceso'])
+    ? $urlAccesoPuerta . '?token=' . rawurlencode($permiso['token_acceso'])
+    : null;
 $mensajeContacto = rawurlencode(
     'Hola, no se confirmó la apertura de la puerta del local "' . ($local['nombre_local'] ?? '') .
     '", ubicado en ' . ($local['direccion_local'] ?? '') .
@@ -197,6 +200,7 @@ $urlSoporte = $telefonoSoporte !== null
         .btn-anfitrion { background: #2c5364; }
         .btn-soporte { background: #25d366; }
         .volver { display: inline-block; margin-top: 26px; color: #2c5364; font-weight: 600; text-decoration: none; }
+        .volver[hidden] { display: none; }
         .volver:hover { text-decoration: underline; }
         .cerrar { margin-top: 26px; padding: 13px 18px; border: 0; border-radius: 8px; background: #2c5364; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
         .cerrar[hidden] { display: none; }
@@ -229,6 +233,9 @@ $urlSoporte = $telefonoSoporte !== null
                 <?php endif; ?>
             </div>
             <?php if ($esHuesped): ?>
+                <?php if ($urlReintentar !== null): ?>
+                    <a class="volver" id="reintentar" href="<?= $h($urlReintentar) ?>" hidden>Volver al enlace para reintentar</a>
+                <?php endif; ?>
                 <button type="button" class="cerrar" id="cerrarVentana" hidden>Cerrar ventana</button>
                 <p class="aviso-cierre" id="avisoCierre" role="status" hidden>Tu navegador no permite cerrar esta ventana automáticamente. Ciérrala desde el navegador.</p>
             <?php else: ?>
@@ -256,6 +263,7 @@ $urlSoporte = $telefonoSoporte !== null
             <?php if ($esHuesped): ?>
             var cerrarVentana = document.getElementById('cerrarVentana');
             var avisoCierre = document.getElementById('avisoCierre');
+            var reintentar = document.getElementById('reintentar');
             cerrarVentana.addEventListener('click', function () {
                 window.close();
                 setTimeout(function () { avisoCierre.hidden = false; }, 300);
@@ -282,10 +290,16 @@ $urlSoporte = $telefonoSoporte !== null
                 } else if (resultado === 'fallida') {
                     mostrar('fallo', '😞', 'No se confirmó la apertura de la puerta en 30 segundos.');
                     contactosError.hidden = false;
+                    <?php if ($esHuesped): ?>
+                    if (reintentar) reintentar.hidden = false;
+                    <?php endif; ?>
                 } else {
                     mostrar('fallo', '—', resultado === 'cancelada'
                         ? 'La orden de apertura fue anulada.'
                         : 'No hay una solicitud de apertura para confirmar.');
+                    <?php if ($esHuesped): ?>
+                    if (resultado === 'cancelada' && reintentar) reintentar.hidden = false;
+                    <?php endif; ?>
                 }
             }
 

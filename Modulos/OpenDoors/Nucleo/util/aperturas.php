@@ -21,7 +21,7 @@ function bloquearLocalApertura(PDO $pdo, int $idLocal, int $idEmpresa): ?array
         throw new LogicException('El seguimiento de aperturas requiere una transaccion.');
     }
     $stmt = $pdo->prepare('SELECT idLocal, idEmpresa, accionar, eliminado, habilitado,
-        aperturaId, aperturaEstado, aperturaVenceEn FROM locales
+        aperturaId, aperturaEstado, aperturaVenceEn, aperturaIdAcceso FROM locales
         WHERE idLocal = ? AND idEmpresa = ? FOR UPDATE');
     $stmt->execute([$idLocal, $idEmpresa]);
     return $stmt->fetch() ?: null;
@@ -29,7 +29,7 @@ function bloquearLocalApertura(PDO $pdo, int $idLocal, int $idEmpresa): ?array
 
 function finalizarSolicitudApertura(PDO $pdo, array $solicitud, ResultadoApertura $resultado, string $ahora): array
 {
-    $stmt = $pdo->prepare("UPDATE locales SET aperturaEstado = ?, accionar = 0
+    $stmt = $pdo->prepare("UPDATE locales SET aperturaEstado = ?, accionar = 0, aperturaIdAcceso = NULL
         WHERE idLocal = ? AND idEmpresa = ? AND aperturaId = ? AND aperturaEstado = 'pendiente'");
     $stmt->execute([$resultado->value, $solicitud['idLocal'], $solicitud['idEmpresa'], $solicitud['idSolicitud']]);
     if ($stmt->rowCount() !== 1) {
@@ -37,6 +37,17 @@ function finalizarSolicitudApertura(PDO $pdo, array $solicitud, ResultadoApertur
     }
     $parametros = [$solicitud['idLocal'], $solicitud['idEmpresa']];
     if ($resultado === ResultadoApertura::Exitosa) {
+        if ($solicitud['idAcceso'] !== null) {
+            $acceso = $pdo->prepare('UPDATE accesos SET ejecutado = 1 WHERE idAcceso = ? AND idEmpresa = ? AND ejecutado = 0');
+            $acceso->execute([$solicitud['idAcceso'], $solicitud['idEmpresa']]);
+            if ($acceso->rowCount() !== 1) {
+                $acceso = $pdo->prepare('SELECT ejecutado FROM accesos WHERE idAcceso = ? AND idEmpresa = ? FOR UPDATE');
+                $acceso->execute([$solicitud['idAcceso'], $solicitud['idEmpresa']]);
+                if ((int) $acceso->fetchColumn() !== 1) {
+                    throw new LogicException('No se pudo marcar como usado el acceso de la apertura.');
+                }
+            }
+        }
         $pdo->prepare('UPDATE microcontroladores
             SET cantidadAperturasExitosas = cantidadAperturasExitosas + 1, ultimaApertura = ?
             WHERE idLocal = ? AND idEmpresa = ?')->execute([$ahora, ...$parametros]);
@@ -58,6 +69,7 @@ function reconciliarSolicitudApertura(PDO $pdo, array $local, string $ahora): ?a
         'idSolicitud' => $local['aperturaId'],
         'idLocal' => $local['idLocal'],
         'idEmpresa' => $local['idEmpresa'],
+        'idAcceso' => $local['aperturaIdAcceso'],
         'estado' => $local['aperturaEstado'],
         'venceEn' => $local['aperturaVenceEn'],
     ];
@@ -73,7 +85,24 @@ function reconciliarSolicitudApertura(PDO $pdo, array $local, string $ahora): ?a
     return $solicitud;
 }
 
-function emitirSolicitudApertura(PDO $pdo, int $idLocal, int $idEmpresa): string
+function reconciliarAccesoPendiente(PDO $pdo, int $idLocal, int $idEmpresa, int $idAcceso): void
+{
+    $pdo->beginTransaction();
+    try {
+        $local = bloquearLocalApertura($pdo, $idLocal, $idEmpresa);
+        if ($local && (int) $local['aperturaIdAcceso'] === $idAcceso && $local['aperturaEstado'] === 'pendiente') {
+            reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
+        }
+        $pdo->commit();
+    } catch (PDOException | LogicException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function emitirSolicitudApertura(PDO $pdo, int $idLocal, int $idEmpresa, ?int $idAcceso = null): string
 {
     $local = bloquearLocalApertura($pdo, $idLocal, $idEmpresa);
     if (!$local || $local['eliminado']) {
@@ -88,8 +117,8 @@ function emitirSolicitudApertura(PDO $pdo, int $idLocal, int $idEmpresa): string
     $venceEn = (new DateTimeImmutable($ahora, new DateTimeZone('UTC')))
         ->modify('+30 seconds')->format('Y-m-d H:i:s');
     $pdo->prepare("UPDATE locales SET accionar = 1, aperturaId = ?, aperturaEstado = 'pendiente',
-        aperturaVenceEn = ? WHERE idLocal = ? AND idEmpresa = ?")
-        ->execute([$idSolicitud, $venceEn, $idLocal, $idEmpresa]);
+        aperturaVenceEn = ?, aperturaIdAcceso = ? WHERE idLocal = ? AND idEmpresa = ?")
+        ->execute([$idSolicitud, $venceEn, $idAcceso, $idLocal, $idEmpresa]);
     if ($local['aperturaId'] !== null) {
         invalidarEstadoTemporal($local['aperturaId']);
     }

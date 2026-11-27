@@ -75,6 +75,23 @@ bloquea la apertura y se informa el problema. Los enlaces publicos tambien
 requieren un unico dispositivo habilitado y activo; un rechazo no consume
 el enlace.
 
+ACCESOS DE UNICO USO
+
+Ejecutar acceso_uso_confirmado.sql una sola vez en la base de OpenDoors,
+despues de aperturas_en_locales.sql. Respaldar la base, detener la aplicacion
+y resolver las ordenes pendientes antes de migrar. Requiere CREATE ROUTINE,
+ALTER y REFERENCES; el DDL no es atomico. La migracion agrega una referencia temporal al
+acceso en locales, con indice unico y clave foranea. No modifica los accesos
+previamente marcados como usados: no se puede deducir si tuvieron exito.
+
+El enlace queda reservado mientras la orden esta pendiente y se marca usado
+en la misma transaccion que registra la confirmacion del dispositivo. Si falla,
+se anula o no se inicia el seguimiento, no se marca usado y puede intentarse
+de nuevo siempre que el acceso siga habilitado y vigente y el dispositivo
+este disponible. Si se interrumpe el proceso temporal, volver a consultar el
+enlace tambien resuelve un vencimiento pendiente. Un administrador conserva
+las opciones existentes de editar o deshabilitar el acceso.
+
 Para impedir duplicados en la base, revisar primero la consulta de
 dispositivo_unico_por_local.sql, resolver manualmente los duplicados y
 ejecutar esa migracion una sola vez. No elimina ni modifica dispositivos.

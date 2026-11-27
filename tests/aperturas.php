@@ -33,7 +33,10 @@ try {
     $admin->exec("USE `$base`");
     $admin->exec('CREATE TABLE locales (idLocal int PRIMARY KEY, idEmpresa int NOT NULL,
         accionar boolean NOT NULL DEFAULT 0, eliminado boolean NOT NULL DEFAULT 0,
-        habilitado boolean NOT NULL DEFAULT 1) ENGINE=InnoDB');
+        habilitado boolean NOT NULL DEFAULT 1, UNIQUE KEY (idLocal, idEmpresa)) ENGINE=InnoDB');
+    $admin->exec('CREATE TABLE accesos (idAcceso int PRIMARY KEY, idEmpresa int NOT NULL,
+        idLocal int NOT NULL, ejecutado boolean NOT NULL DEFAULT 0,
+        FOREIGN KEY (idLocal, idEmpresa) REFERENCES locales (idLocal, idEmpresa)) ENGINE=InnoDB');
     $admin->exec('CREATE TABLE microcontroladores (idMicrocontrolador int PRIMARY KEY,
         idLocal int NOT NULL, idEmpresa int NOT NULL, ultimaApertura datetime NULL,
         cantidadAperturasExitosas int NOT NULL DEFAULT 0,
@@ -47,10 +50,10 @@ try {
         (1,1,1,'2020-01-01 00:00:00',5,0), (2,1,1,'2020-01-01 00:00:00',0,0),
         (3,2,2,'2020-01-01 00:00:00',7,0)");
 
-    $migrar = function () use ($admin, $root): void {
+    $migrar = function (string $archivo = 'aperturas_en_locales.sql') use ($admin, $root): void {
         $delimiter = ';';
         $sql = '';
-        foreach (file($root . '/migraciones/aperturas_en_locales.sql') as $linea) {
+        foreach (file($root . '/migraciones/' . $archivo) as $linea) {
             if (preg_match('/^\s*DELIMITER\s+(\S+)/', $linea, $m)) {
                 $delimiter = $m[1];
             } elseif (!preg_match('/^\s*(--|$)/', $linea)) {
@@ -74,6 +77,17 @@ try {
     }
     $admin->exec('UPDATE locales SET accionar = 0 WHERE idLocal = 1');
     $migrar();
+    $admin->exec("UPDATE locales SET accionar = 1, aperturaEstado = 'pendiente' WHERE idLocal = 1");
+    try {
+        $migrar('acceso_uso_confirmado.sql');
+        throw new RuntimeException('La migracion de accesos acepto una orden pendiente.');
+    } catch (PDOException $e) {
+        comprobarApertura(str_contains($e->getMessage(), 'Hay ordenes pendientes'),
+            'La migracion de accesos fallo por un motivo distinto a la orden pendiente.');
+    }
+    $admin->exec('UPDATE locales SET accionar = 0, aperturaEstado = NULL WHERE idLocal = 1');
+    $migrar('acceso_uso_confirmado.sql');
+    $admin->exec('INSERT INTO accesos (idAcceso, idEmpresa, idLocal) VALUES (1, 1, 1)');
     comprobarApertura($admin->query('SELECT idSolicitud FROM solicitudes_apertura')->fetchColumn() === 'resultado-antiguo',
         'La migracion altero la tabla anterior.');
     foreach (['DB_HOST' => '127.0.0.1', 'DB_PORT' => (string) $port, 'DB_USER' => 'root',
@@ -85,10 +99,10 @@ try {
     require_once $root . '/Modulos/OpenDoors/Nucleo/util/iniciar_seguimiento.php';
     $pdo = getOpenDoorsPDO();
     $contadores = fn() => $pdo->query('SELECT * FROM microcontroladores ORDER BY idMicrocontrolador')->fetchAll();
-    $emitir = function () use ($pdo): string {
+    $emitir = function (?int $idAcceso = null) use ($pdo): string {
         $pdo->beginTransaction();
         try {
-            $id = emitirSolicitudApertura($pdo, 1, 1);
+            $id = emitirSolicitudApertura($pdo, 1, 1, $idAcceso);
             $pdo->commit();
             return $id;
         } catch (Throwable $e) {
@@ -209,10 +223,10 @@ try {
     $pdo->exec('UPDATE microcontroladores SET ultimaConsulta = UTC_TIMESTAMP(), habilitado = 0 WHERE idMicrocontrolador = 1');
     comprobarApertura(estadoDispositivoLocal($pdo, 1, 1) === 'deshabilitado',
         'El dispositivo deshabilitado se considero disponible.');
-    $emitirConSeguimiento = function () use ($pdo): string {
+    $emitirConSeguimiento = function (?int $idAcceso = null) use ($pdo): string {
         $pdo->beginTransaction();
         try {
-            $id = emitirSolicitudApertura($pdo, 1, 1);
+            $id = emitirSolicitudApertura($pdo, 1, 1, $idAcceso);
             iniciarSeguimientoApertura(1, 1, $id);
             $pdo->commit();
             return $id;
@@ -234,7 +248,7 @@ try {
 
     $antesFallos = (int) $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores WHERE idLocal = 1')->fetchColumn();
     $inicio = microtime(true);
-    $idTemporal = $emitirConSeguimiento();
+    $idTemporal = $emitirConSeguimiento(1);
     $limiteEstado = microtime(true) + 3;
     do {
         usleep(100000);
@@ -250,6 +264,8 @@ try {
     $duracion = microtime(true) - $inicio;
     comprobarApertura($estado === 'fallida' && $duracion >= 29 && $duracion < 32
         && (int) $pdo->query('SELECT accionar FROM locales WHERE idLocal = 1')->fetchColumn() === 0
+        && (int) $pdo->query('SELECT ejecutado FROM accesos WHERE idAcceso = 1')->fetchColumn() === 0
+        && $pdo->query('SELECT aperturaIdAcceso FROM locales WHERE idLocal = 1')->fetchColumn() === null
         && (int) $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores WHERE idLocal = 1')->fetchColumn() === $antesFallos + 1,
         'El proceso temporal no registro una sola falla al vencimiento sin consultar la aplicacion.');
     $limiteEstado = microtime(true) + 2;
@@ -261,7 +277,7 @@ try {
     comprobarApertura(($estadoCompartido['estado'] ?? null) === 'fallida',
         'El proceso no publico el resultado fallido.');
 
-    $idTemporal = $emitir();
+    $idTemporal = $emitir(1);
     $senal = tempnam(sys_get_temp_dir(), 'od_prueba_');
     if ($senal === false) {
         throw new RuntimeException('No se pudo crear el archivo temporal de prueba.');
@@ -301,8 +317,10 @@ try {
     }
     proc_close($proceso);
     comprobarApertura(!$estadoProceso['running'] && $estadoProceso['exitcode'] === 0
-        && $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'exitosa',
+        && $pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'exitosa'
+        && (int) $pdo->query('SELECT ejecutado FROM accesos WHERE idAcceso = 1')->fetchColumn() === 1,
         'El seguimiento no termino al recibir la confirmacion exitosa.');
+    $pdo->exec('UPDATE accesos SET ejecutado = 0 WHERE idAcceso = 1');
 
     publicarEstadoTemporal(1, 1, $idTemporal, 'exitosa', 0, 0);
     $idTemporal = $emitir();
@@ -354,6 +372,90 @@ try {
         && $pdo->query('SELECT aperturaId FROM locales WHERE idLocal = 1')->fetchColumn() === $idNueva,
         'El seguimiento de una orden anterior modifico la orden nueva.');
     $consultar();
+
+    $emitirAcceso = function () use ($pdo): void {
+        $pdo->beginTransaction();
+        emitirSolicitudApertura($pdo, 1, 1, 1);
+        $pdo->commit();
+    };
+    $emitirAcceso();
+    comprobarApertura((int) $pdo->query('SELECT ejecutado FROM accesos WHERE idAcceso = 1')->fetchColumn() === 0,
+        'Una orden pendiente consumio el acceso.');
+    try {
+        $pdo->exec('DELETE FROM accesos WHERE idAcceso = 1');
+        throw new RuntimeException('Se pudo eliminar un acceso con una orden pendiente.');
+    } catch (PDOException $e) {
+        comprobarApertura($e->getCode() === '23000', 'La referencia no protege el acceso pendiente.');
+    }
+    $pdo->exec('UPDATE locales SET aperturaVenceEn = UTC_TIMESTAMP() WHERE idLocal = 1');
+    reconciliarAccesoPendiente($pdo, 1, 1, 1);
+    comprobarApertura($pdo->query('SELECT aperturaEstado FROM locales WHERE idLocal = 1')->fetchColumn() === 'fallida'
+        && (int) $pdo->query('SELECT ejecutado FROM accesos WHERE idAcceso = 1')->fetchColumn() === 0,
+        'No se recupero el acceso despues de un fallo sin proceso temporal.');
+    $emitirAcceso();
+    $pdo->beginTransaction();
+    $local = bloquearLocalApertura($pdo, 1, 1);
+    $solicitud = reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
+    finalizarSolicitudApertura($pdo, $solicitud, ResultadoApertura::Cancelada, ahoraAperturas($pdo));
+    $pdo->commit();
+    comprobarApertura((int) $pdo->query('SELECT ejecutado FROM accesos WHERE idAcceso = 1')->fetchColumn() === 0
+        && $pdo->query('SELECT aperturaIdAcceso FROM locales WHERE idLocal = 1')->fetchColumn() === null,
+        'La cancelacion consumio o no libero el acceso.');
+    $emitirAcceso();
+    $pdo->exec("CREATE TRIGGER fallo_exito BEFORE UPDATE ON microcontroladores
+        FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Fallo de prueba'");
+    try {
+        $pdo->beginTransaction();
+        $local = bloquearLocalApertura($pdo, 1, 1);
+        $solicitud = reconciliarSolicitudApertura($pdo, $local, ahoraAperturas($pdo));
+        finalizarSolicitudApertura($pdo, $solicitud, ResultadoApertura::Exitosa, ahoraAperturas($pdo));
+        $pdo->commit();
+        throw new RuntimeException('Se oculto el fallo al confirmar el acceso.');
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        comprobarApertura((int) $pdo->query('SELECT ejecutado FROM accesos WHERE idAcceso = 1')->fetchColumn() === 0
+            && (int) $pdo->query('SELECT aperturaIdAcceso FROM locales WHERE idLocal = 1')->fetchColumn() === 1,
+            'El fallo de confirmacion no revirtio el consumo y la reserva.');
+    }
+    $pdo->exec('DROP TRIGGER fallo_exito');
+    $pdo->exec('INSERT INTO locales (idLocal, idEmpresa) VALUES (3, 1)');
+    $pdo->exec('UPDATE accesos SET idLocal = 3 WHERE idAcceso = 1');
+    $pdo->exec('UPDATE locales SET accionar = 0 WHERE idLocal = 1');
+    reconciliarAccesoPendiente($pdo, 1, 1, 1);
+    comprobarApertura((int) $pdo->query('SELECT ejecutado FROM accesos WHERE idAcceso = 1')->fetchColumn() === 1
+        && $pdo->query('SELECT aperturaIdAcceso FROM locales WHERE idLocal = 1')->fetchColumn() === null,
+        'La confirmacion no consumio el acceso original despues de cambiar su local.');
+
+    $pdo->exec('UPDATE accesos SET ejecutado = 0 WHERE idAcceso = 1');
+    $codigoCompetencia = 'require ' . var_export($root . '/Modulos/OpenDoors/Nucleo/util/aperturas.php', true)
+        . '; $pdo = getOpenDoorsPDO(); $id = (int) $argv[1]; $pdo->beginTransaction();'
+        . ' bloquearLocalApertura($pdo, $id, 1);'
+        . ' $pdo->query("SELECT idAcceso FROM accesos WHERE idAcceso = 1 FOR UPDATE")->fetchColumn();'
+        . ' $pendiente = $pdo->query("SELECT idLocal FROM locales WHERE aperturaIdAcceso = 1 AND aperturaEstado = \'pendiente\'")->fetchColumn();'
+        . ' if ($pendiente === false) { emitirSolicitudApertura($pdo, $id, 1, 1); usleep(300000); echo "emitida"; }'
+        . ' else { echo "pendiente"; } $pdo->commit();';
+    $procesos = [];
+    foreach ([1, 3] as $idLocal) {
+        $proceso = proc_open([PHP_BINARY, '-r', $codigoCompetencia, (string) $idLocal],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($proceso)) {
+            throw new RuntimeException('No se pudo iniciar una orden concurrente.');
+        }
+        fclose($pipes[0]);
+        $procesos[] = [$proceso, $pipes];
+    }
+    $resultados = [];
+    foreach ($procesos as [$proceso, $pipes]) {
+        $resultados[] = stream_get_contents($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        comprobarApertura(proc_close($proceso) === 0, "Fallo de orden concurrente: $error");
+    }
+    sort($resultados);
+    comprobarApertura($resultados === ['emitida', 'pendiente']
+        && (int) $pdo->query('SELECT COUNT(*) FROM locales WHERE aperturaIdAcceso = 1')->fetchColumn() === 1,
+        'Dos locales reservaron el mismo acceso simultaneamente.');
     echo "OK: $checks comprobaciones de migracion y aperturas con MySQL.\n";
 } finally {
     if ($creada) {

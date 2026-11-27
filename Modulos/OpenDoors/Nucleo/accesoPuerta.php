@@ -3,6 +3,7 @@ require_once __DIR__ . '/util/db.php';
 require_once __DIR__ . '/../../../util/Configuracion/DatosWeb.php';
 require_once __DIR__ . '/util/vigencia_accesos.php';
 require_once __DIR__ . '/util/estado_dispositivo.php';
+require_once __DIR__ . '/util/aperturas.php';
 
 header('Cache-Control: no-store');
 // El token viaja en la URL: no debe filtrarse por Referer ni indexarse
@@ -19,17 +20,27 @@ $estadoDispositivo = null;
 
 if (is_string($token) && preg_match('/^[A-Za-z0-9]{1,250}$/', $token)) {
     try {
-        $stmt = getOpenDoorsPDO()->prepare(
-            'SELECT a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, a.ejecutado, a.habilitado,
+        $pdo = getOpenDoorsPDO();
+        $stmt = $pdo->prepare(
+            'SELECT a.idAcceso AS id_acceso, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, a.ejecutado, a.habilitado,
                     a.idLocal AS id_local, a.idEmpresa AS id_empresa,
-                    l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, l.zonaHoraria
+                    l.nombreLocal AS nombre_local, l.direccionLocal AS direccion_local, l.zonaHoraria,
+                    pendiente.idLocal AS local_pendiente,
+                    (pendiente.accionar = 0 OR pendiente.aperturaVenceEn <= UTC_TIMESTAMP()) AS resolver_pendiente
              FROM accesos a
              INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
+             LEFT JOIN locales pendiente ON pendiente.aperturaIdAcceso = a.idAcceso
+                 AND pendiente.idEmpresa = a.idEmpresa AND pendiente.aperturaEstado = \'pendiente\'
              WHERE a.token = ? AND l.eliminado = 0'
         );
         $stmt->execute([$token]);
         $acceso = $stmt->fetch();
-    } catch (PDOException $e) {
+        if ($acceso && $acceso['local_pendiente'] !== null && $acceso['resolver_pendiente']) {
+            reconciliarAccesoPendiente($pdo, (int) $acceso['local_pendiente'], (int) $acceso['id_empresa'], (int) $acceso['id_acceso']);
+            $stmt->execute([$token]);
+            $acceso = $stmt->fetch();
+        }
+    } catch (PDOException | LogicException $e) {
         error_log('Error en accesoPuerta: ' . $e->getMessage());
         $estado = 'error';
     }
@@ -67,8 +78,10 @@ $mensajes = [
 if ($esValidacion) {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
-        'valido' => $estado === 'valido' && $estadoDispositivo === 'activo',
-        'mensaje' => $estado === 'valido' ? mensajeEstadoDispositivo($estadoDispositivo) : $mensajes[$estado],
+        'valido' => $estado === 'valido' && $acceso['local_pendiente'] === null && $estadoDispositivo === 'activo',
+        'mensaje' => $estado === 'valido'
+            ? ($acceso['local_pendiente'] !== null ? 'Ya hay una apertura pendiente para este acceso.' : mensajeEstadoDispositivo($estadoDispositivo))
+            : $mensajes[$estado],
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -113,14 +126,14 @@ if ($esValidacion) {
                 <span class="titulo">⚠ Advertencia de seguridad</span>
                 Debes estar físicamente frente a la puerta del hospedaje antes de continuar. Al presionar el botón la puerta se abrirá y sólo deben ingresar los huéspedes.
             </div>
-            <div class="unico">La apertura es de un único uso: una vez ejecutada, este enlace no podrá volver a utilizarse.</div>
+            <div class="unico">Este enlace es de un único uso: se podrá volver a intentar si la apertura falla, pero no después de una apertura confirmada.</div>
 
             <form method="post" action="<?= $h(parse_url($urlApiOrdenApertura, PHP_URL_PATH)) ?>" id="formAbrir" data-accion-estado="validar">
                 <input type="hidden" name="token" value="<?= $h($token) ?>">
                 <input type="hidden" name="confirmar" value="1">
-                <button type="submit" class="btn" id="btnAbrir" <?= $estadoDispositivo === 'activo' ? '' : 'disabled' ?>>Abrir puerta</button>
+                <button type="submit" class="btn" id="btnAbrir" <?= $estadoDispositivo === 'activo' && $acceso['local_pendiente'] === null ? '' : 'disabled' ?>>Abrir puerta</button>
             </form>
-            <div class="estado" id="estadoError" role="status" <?= $estadoDispositivo === 'activo' ? 'hidden' : '' ?>><?= $h(mensajeEstadoDispositivo($estadoDispositivo)) ?></div>
+            <div class="estado" id="estadoError" role="status" <?= $estadoDispositivo === 'activo' && $acceso['local_pendiente'] === null ? 'hidden' : '' ?>><?= $h($acceso['local_pendiente'] !== null ? 'Ya hay una apertura pendiente para este acceso.' : mensajeEstadoDispositivo($estadoDispositivo)) ?></div>
         <?php else: ?>
             <h1>Acceso al alojamiento</h1>
             <div class="estado"><?= $h($mensajes[$estado]) ?></div>
