@@ -21,7 +21,7 @@ try {
                 (? BETWEEN a.activoDesde AND a.activoHasta AND a.habilitado = 1 AND a.ejecutado = 0) AS en_rango
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         WHERE a.idEmpresa = ?
+         WHERE a.idEmpresa = ? AND a.visible = 1
          ORDER BY a.idAcceso DESC'
     );
     $stmt->execute([$empresaOpenDoors['nombre_empresa'], ahoraVigenciaAccesos(), (int) $empresaOpenDoors['id_empresa']]);
@@ -30,7 +30,7 @@ try {
         'SELECT l.idLocal, l.nombreLocal, l.direccionLocal
          FROM locales l
          WHERE l.idEmpresa = ? AND (l.eliminado = 0 OR EXISTS (
-             SELECT 1 FROM accesos a WHERE a.idLocal = l.idLocal AND a.idEmpresa = l.idEmpresa
+             SELECT 1 FROM accesos a WHERE a.idLocal = l.idLocal AND a.idEmpresa = l.idEmpresa AND a.visible = 1
          ))
          ORDER BY l.nombreLocal, l.direccionLocal, l.idLocal'
     );

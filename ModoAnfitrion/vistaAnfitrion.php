@@ -195,7 +195,8 @@ function renderItems(array $items, string $prefix, array $labels, int $depth, ar
 }
 
 $navHtml = '';
-foreach ($menu as $entrada) {
+$abrirModuloInicial = count($empresas) === 1 && count($definicionesModulos) === 1 && $actual === '';
+foreach ($menu as $indice => $entrada) {
     [$titulo, $icono, $hijos] = $entrada;
     $pagina = $entrada[3] ?? null;
     $clave = $entrada[4] ?? slug($titulo);
@@ -210,8 +211,8 @@ foreach ($menu as $entrada) {
             . '<span class="label">' . $h($titulo) . '</span></a></div>';
         continue;
     }
-    $abierto = str_starts_with($actual, $clave . '/');
-    $independiente = $clave === 'configuracion' ? ' data-acordeon-independiente' : '';
+    $abierto = str_starts_with($actual, $clave . '/') || ($abrirModuloInicial && $indice === 0);
+    $independiente = in_array($clave, ['configuracion', 'soporte'], true) ? ' data-acordeon-independiente' : '';
     $navHtml .= '<div class="group' . ($abierto ? ' open' : '') . '"' . $independiente . '><button type="button" class="item-btn" aria-expanded="' . ($abierto ? 'true' : 'false') . '">'
         . '<svg class="ico" viewBox="0 0 24 24" fill-rule="evenodd"><path d="' . $h($icono) . '"/></svg>'
         . '<span class="label">' . $h($titulo) . '</span>'

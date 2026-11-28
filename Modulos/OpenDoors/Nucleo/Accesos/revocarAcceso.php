@@ -25,7 +25,7 @@ function cargarAcceso(PDO $pdo, int $idAcceso, int $idEmpresa): ?array
                 a.token, a.ejecutado, a.habilitado, l.zonaHoraria
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         WHERE a.idAcceso = ? AND a.idEmpresa = ?'
+         WHERE a.idAcceso = ? AND a.idEmpresa = ? AND a.visible = 1'
     );
     $stmt->execute([empresaOpenDoors()['nombre_empresa'], $idAcceso, $idEmpresa]);
     return $stmt->fetch() ?: null;
@@ -45,10 +45,13 @@ try {
             $error = 'Solicitud no válida. Recarga la página e inténtalo de nuevo.';
         } else {
             $nuevo = $acceso['habilitado'] ? 0 : 1;
-            $upd = $pdo->prepare('UPDATE accesos SET habilitado = ? WHERE idAcceso = ? AND idEmpresa = ?');
+            $upd = $pdo->prepare('UPDATE accesos SET habilitado = ? WHERE idAcceso = ? AND idEmpresa = ? AND visible = 1');
             $upd->execute([$nuevo, $acceso['id_acceso'], $acceso['id_empresa']]);
-            header('Location: ' . $urlLista);
-            exit;
+            $acceso = cargarAcceso($pdo, $idAcceso, (int) $empresaOpenDoors['id_empresa']);
+            if ($acceso) {
+                header('Location: ' . $urlLista);
+                exit;
+            }
         }
     }
 } catch (PDOException $e) {

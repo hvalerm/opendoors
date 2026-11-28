@@ -40,7 +40,7 @@ function cargarAcceso(PDO $pdo, int $idAcceso, int $idEmpresa): ?array
                 a.token, a.ejecutado, a.habilitado, l.zonaHoraria, l.idLocal AS id_local
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         WHERE a.idAcceso = ? AND a.idEmpresa = ?'
+         WHERE a.idAcceso = ? AND a.idEmpresa = ? AND a.visible = 1'
     );
     $stmt->execute([empresaOpenDoors()['nombre_empresa'], $idAcceso, $idEmpresa]);
     return $stmt->fetch() ?: null;
@@ -62,7 +62,7 @@ try {
             $error = 'Solicitud no válida. Recarga la página e inténtalo de nuevo.';
         } elseif ($accion === 'toggle') {
             $nuevo = $acceso['habilitado'] ? 0 : 1;
-            $pdo->prepare('UPDATE accesos SET habilitado = ? WHERE idAcceso = ? AND idEmpresa = ?')
+            $pdo->prepare('UPDATE accesos SET habilitado = ? WHERE idAcceso = ? AND idEmpresa = ? AND visible = 1')
                 ->execute([$nuevo, $acceso['id_acceso'], $acceso['id_empresa']]);
             $mensaje = $nuevo ? 'El acceso fue habilitado.' : 'El acceso fue deshabilitado.';
         } elseif ($accion === 'actualizar') {
@@ -99,13 +99,16 @@ try {
             } else {
                 $pdo->prepare(
                     'UPDATE accesos SET activoDesde = ?, activoHasta = ?, idLocal = ?, ejecutado = ?, habilitado = ?
-                     WHERE idAcceso = ? AND idEmpresa = ?'
+                     WHERE idAcceso = ? AND idEmpresa = ? AND visible = 1'
                 )->execute([
                     $d1, $d2, $idLocalNuevo,
                     $ejecutadoNuevo, $habilitadoNuevo, $acceso['id_acceso'], $acceso['id_empresa'],
                 ]);
-                header('Location: ' . $urlLista, true, 303);
-                exit;
+                $acceso = cargarAcceso($pdo, $idAcceso, $idEmpresa);
+                if ($acceso) {
+                    header('Location: ' . $urlLista, true, 303);
+                    exit;
+                }
             }
         } else {
             $error = 'Acción no válida.';

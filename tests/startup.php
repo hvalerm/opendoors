@@ -757,6 +757,9 @@ recFin();
         (704, 1, 'Local otra empresa', 'Calle privada', 0)");
     $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
         VALUES ('FiltroHistorico', 702, 3, '2000-01-01 00:00:00', '2099-12-31 23:59:59')");
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta, visible)
+        VALUES ('FiltroOculto', 703, 3, '2000-01-01 00:00:00', '2099-12-31 23:59:59', 0)");
+    $idOculto = (int) $pdo->query("SELECT idAcceso FROM accesos WHERE token = 'FiltroOculto'")->fetchColumn();
     foreach (['listarAccesos', 'busquedaAccesoRevocar'] as $vistaVigencia) {
         $respuesta = $request([], 'ModoAnfitrion/OpenDoors/Accesos/' . $vistaVigencia);
         $idActual = (int) $idsVigencia['VigenciaActual'];
@@ -771,6 +774,8 @@ recFin();
             && str_contains($respuesta['body'], 'id="f-habilitado" data-col="6"')
             && str_contains($respuesta['body'], 'id="f-enrango" data-col="7"'),
             'El listado debe ocultar el token y conservar los índices de los demás filtros.');
+        comprobarStartup(preg_match('~<tr\b[^>]*>\s*<td>(?:<a\b[^>]*>)?' . $idOculto . '(?:</a>)?</td>~s', $respuesta['body']) === 0,
+            'Un acceso con visible = 0 aparece en ' . $vistaVigencia . '.');
         if ($vistaVigencia === 'listarAccesos') {
             comprobarStartup(str_contains($respuesta['body'], 'id="f-local" data-col="3"')
                 && str_contains($respuesta['body'], 'role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="opciones-local"')
@@ -786,7 +791,28 @@ recFin();
                 'El combo debe cargar locales de la empresa con direccion, sin duplicados y escapados.');
         }
     }
-    $pdo->exec("DELETE FROM accesos WHERE token = 'FiltroHistorico'");
+    $edicionVisible = $request(['id' => (string) $idsVigencia['VigenciaActual']], 'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso');
+    $csrfAcceso = $csrf($edicionVisible);
+    foreach (['vetanaDelAcceso', 'revocarAcceso'] as $vistaAcceso) {
+        $rutaAcceso = 'ModoAnfitrion/OpenDoors/Accesos/' . $vistaAcceso;
+        $oculto = $request(['id' => (string) $idOculto], $rutaAcceso);
+        $postOculto = $request(['id' => (string) $idOculto], $rutaAcceso, post: [
+            'csrf' => $csrfAcceso, 'accion' => 'actualizar', 'id_local' => '3',
+            'activo_desde' => '2025-01-01T00:00', 'activo_hasta' => '2026-01-01T00:00',
+        ]);
+        comprobarStartup(str_contains($oculto['body'], 'Acceso no encontrado')
+            && str_contains($postOculto['body'], 'Acceso no encontrado')
+            && !str_contains($oculto['body'], 'FiltroOculto')
+            && (int) $pdo->query("SELECT habilitado FROM accesos WHERE token = 'FiltroOculto'")->fetchColumn() === 1
+            && $pdo->query("SELECT activoHasta FROM accesos WHERE token = 'FiltroOculto'")->fetchColumn() === '2099-12-31 23:59:59',
+            'Una ficha directa no debe mostrar ni modificar un acceso oculto: ' . $vistaAcceso);
+    }
+    $toggleOculto = $request(['id' => (string) $idOculto], 'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso',
+        post: ['csrf' => $csrfAcceso, 'accion' => 'toggle']);
+    comprobarStartup(str_contains($toggleOculto['body'], 'Acceso no encontrado')
+        && (int) $pdo->query("SELECT habilitado FROM accesos WHERE token = 'FiltroOculto'")->fetchColumn() === 1,
+        'No debe permitirse cambiar el estado de un acceso oculto desde edición.');
+    $pdo->exec("DELETE FROM accesos WHERE token IN ('FiltroHistorico', 'FiltroOculto')");
     $pdo->exec('DELETE FROM locales WHERE idLocal IN (701, 702, 703, 704)');
     $respuesta = $request([], 'ModoAnfitrion/OpenDoors/Dashboard/resumen');
     foreach (['Accesos vigentes', 'Próximos accesos', 'Accesos sin usar'] as $etiqueta) {
@@ -844,6 +870,14 @@ recFin();
         ('DashboardUsado', 3, 3, datetime('now', '-1 hour'), datetime('now', '+1 hour'), 1, 1),
         ('DashboardRevocado', 3, 3, datetime('now', '-1 hour'), datetime('now', '+1 hour'), 0, 0),
         ('DashboardAjeno', 1, 1, datetime('now', '-1 hour'), datetime('now', '+1 hour'), 0, 1)");
+    $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal, eliminado)
+        VALUES (301, 3, 'Local oculto dashboard', 'Direccion', 1)");
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta, ejecutado, habilitado, visible) VALUES
+        ('DashboardOcultoVigente', 301, 3, datetime('now', '-1 hour'), datetime('now', '+1 hour'), 0, 1, 0),
+        ('DashboardOcultoFuturo', 301, 3, datetime('now', '+2 hours'), datetime('now', '+3 hours'), 0, 1, 0),
+        ('DashboardOcultoUsado', 301, 3, datetime('now', '-1 hour'), datetime('now', '+1 hour'), 1, 1, 0),
+        ('DashboardOcultoRevocado', 301, 3, datetime('now', '-1 hour'), datetime('now', '+1 hour'), 0, 0, 0),
+        ('DashboardOcultoVencido', 301, 3, datetime('now', '-2 hours'), datetime('now', '-1 hour'), 0, 1, 0)");
     $insertarNoUsado = $pdo->prepare("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
         VALUES (?, 3, 3, datetime('now', '-2 hours'), datetime('now', '-1 hour'))");
     foreach (range(1, 6) as $i) {
@@ -852,6 +886,12 @@ recFin();
     $ultimaActividad = json_decode($request([], 'sesion.php')['body'], true)['ultima_actividad'];
     $datosResumen = $request(['datos' => 'resumen'], $dashboard);
     $fragmentoResumen = json_decode($datosResumen['body'], true)['resumen'] ?? '';
+    $resumenCompleto = $request([], $dashboard);
+    comprobarStartup($resumenCompleto['status'] === 200
+        && str_contains($resumenCompleto['body'], '<div class="n">1</div><div class="t">Accesos usados</div>')
+        && str_contains($resumenCompleto['body'], 'Accesos que no se usaron (últimos 5 de 6)')
+        && !str_contains($resumenCompleto['body'], 'Local oculto dashboard'),
+        'El resumen inicial incluye accesos ocultos.');
     foreach ([
         '2/3' => 'Lugares habilitados',
         '1/2' => 'Dispositivos activos',
@@ -875,6 +915,7 @@ recFin();
         && str_contains($fragmentoResumen, 'Hay 1 orden(es) de apertura')
         && str_contains($fragmentoResumen, 'Local sin dispositivo')
         && str_contains($fragmentoResumen, '1 acceso(s) revocado(s) sin usar.')
+        && !str_contains($fragmentoResumen, 'Local oculto dashboard')
         && str_contains($fragmentoResumen, '<td class="a">Activo</td>')
         && !str_contains($fragmentoResumen, 'Local de prueba')
         && !str_contains($fragmentoResumen, '<!DOCTYPE')
@@ -894,6 +935,7 @@ recFin();
         && !str_contains($datosActualizados, 'Local sin dispositivo'),
         'La segunda actualización no refleja cambios ni elimina alertas obsoletas.');
     $pdo->exec("DELETE FROM accesos WHERE token LIKE 'Dashboard%'");
+    $pdo->exec('DELETE FROM locales WHERE idLocal = 301');
     $restaurarLocal = $pdo->prepare('UPDATE locales SET habilitado = ?, accionar = ? WHERE idLocal = 3');
     $restaurarLocal->execute([$localAnterior['habilitado'], $localAnterior['accionar']]);
     $restaurarMicro = $pdo->prepare('UPDATE microcontroladores SET ultimaConsulta = ?,
@@ -985,6 +1027,11 @@ recFin();
     $soporte = strpos($response['body'], '<span class="label">Soporte</span>');
     comprobarStartup($configuracion !== false && $soporte !== false && $configuracion < $soporte,
         'Configuración no aparece en el menú lateral antes de Soporte.');
+    foreach (['Configuración', 'Soporte'] as $tituloIndependiente) {
+        comprobarStartup(preg_match('~<div class="group(?: open)?" data-acordeon-independiente>'
+            . '<button[^>]*>(?:(?!</button>).)*<span class="label">' . $tituloIndependiente . '</span>~s', $response['body']) === 1,
+            $tituloIndependiente . ' debe ser independiente de los demás menús.');
+    }
     $config = strpos($response['body'], 'href="?seccion=configuracion-cuenta"');
     $logout = strpos($response['body'], 'action="../logout"');
     comprobarStartup($config !== false && $logout !== false && $config < $logout,
@@ -1001,6 +1048,16 @@ recFin();
     $response = $request(['seccion' => 'configuracion/gestalo/locales'], $panel);
     comprobarStartup(!str_contains($response['body'], '<h2>Configuración › GESTALO › Lugares</h2>'),
         'Abre la configuración de Locales sin tener GESTALO asignado.');
+    $pdo->exec('INSERT INTO empresas_modulos (idEmpresa, idModulo, habilitado) VALUES (3, 1, 1)');
+    $unModulo = $request([], $panel);
+    comprobarStartup(preg_match('~<div class="group open"><button type="button" class="item-btn" aria-expanded="true">'
+        . '(?:(?!</button>).)*<span class="label">Puertas &amp; &lt;Prueba&gt;</span>~s', $unModulo['body']) === 1,
+        'El único módulo de una cuenta con una empresa debe abrirse en la pantalla inicial.');
+    $otraSeccion = $request(['seccion' => 'configuracion-cuenta'], $panel);
+    comprobarStartup(preg_match('~<div class="group"><button type="button" class="item-btn" aria-expanded="false">'
+        . '(?:(?!</button>).)*<span class="label">Puertas &amp; &lt;Prueba&gt;</span>~s', $otraSeccion['body']) === 1,
+        'El módulo no debe abrirse automáticamente al navegar a otra sección.');
+    $pdo->exec('DELETE FROM empresas_modulos WHERE idEmpresa = 3 AND idModulo = 1');
     $pdo->exec('INSERT INTO empresas_modulos (idEmpresa, idModulo, habilitado) VALUES (3, 1, 0), (3, 2, 1), (3, 3, 1)');
     $response = $request([], $panel);
     comprobarStartup(str_contains($response['body'], '<span class="label">GESTALO</span>')
@@ -1068,6 +1125,9 @@ PHP);
         'La configuración y el menú deben respetar las mayúsculas del nombre del módulo.');
     $pdo->exec("UPDATE modulos SET nombreModulo = 'OpenDoors' WHERE idModulo = 1");
     $response = $request([], $panel);
+    comprobarStartup(preg_match('~<div class="group"><button type="button" class="item-btn" aria-expanded="false">'
+        . '(?:(?!</button>).)*<span class="label">Puertas &amp; &lt;Prueba&gt;</span>~s', $response['body']) === 1,
+        'Con varios módulos el menú no debe abrirse automáticamente.');
     comprobarStartup(str_contains($response['body'], '<path d="M3 10h18v11H3zm2-6h14v4H5zm4 9h6v8H9z"/></svg><span class="label">Lugares</span>')
         && str_contains($response['body'], '<b>Lugares</b>')
         && str_contains($response['body'], '<script src="../Modulos/OpenDoors/menuLateral.js"></script>')
@@ -1277,6 +1337,17 @@ PHP);
         'Restaurar todos no respetó la hora UTC, la vigencia de accesos o el alcance por empresa y local.');
     comprobarStartup((int) $pdo->query("SELECT COUNT(*) FROM accesos WHERE token LIKE 'Rest%' AND habilitado = 0")->fetchColumn() === 1,
         'Restaurar accesos no debe modificar su estado habilitado.');
+    $idsRestaurados = $pdo->query("SELECT token, idAcceso FROM accesos
+        WHERE token IN ('RestVencido', 'RestUsado', 'RestVigente')")->fetchAll(PDO::FETCH_KEY_PAIR);
+    foreach (['listarAccesos', 'busquedaAccesoRevocar'] as $vistaAcceso) {
+        $listadoRestaurado = $request([], 'ModoAnfitrion/OpenDoors/Accesos/' . $vistaAcceso);
+        foreach (['RestVencido', 'RestUsado', 'RestVigente'] as $tokenRestaurado) {
+            $enLista = preg_match('~<tr\b[^>]*>\s*<td>(?:<a\b[^>]*>)?' . (int) $idsRestaurados[$tokenRestaurado]
+                . '(?:</a>)?</td>~s', $listadoRestaurado['body']) === 1;
+            comprobarStartup($enLista === ($tokenRestaurado === 'RestVigente'),
+                'La restauración no refleja la visibilidad de ' . $tokenRestaurado . ' en ' . $vistaAcceso . '.');
+        }
+    }
     $pdo->exec("DELETE FROM accesos WHERE token LIKE 'Rest%'");
     $localApertura = 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado';
     $idEstadoAnfitrion = str_repeat('c', 64);
@@ -1612,6 +1683,14 @@ PHP);
     comprobarStartup((int) json_decode($request([], 'sesion.php')['body'], true)['empresa_id'] !== 1,
         'La prueba debe iniciar con otra empresa activa para comprobar el aislamiento.');
     $panelMulti = $request([], 'ModoAnfitrion/vistaAnfitrion');
+    $pdo->exec('UPDATE empresas_modulos SET habilitado = 0 WHERE idModulo IN (2, 3) AND idEmpresa IN (1, 2, 3)');
+    $unModuloMulti = $request([], 'ModoAnfitrion/vistaAnfitrion');
+    comprobarStartup(preg_match('~<div class="group"><button type="button" class="item-btn" aria-expanded="false">'
+        . '(?:(?!</button>).)*<span class="label">Puertas &amp; &lt;Prueba&gt;</span>~s', $unModuloMulti['body']) === 1
+        && !str_contains($unModuloMulti['body'], '<span class="label">GESTALO</span>')
+        && !str_contains($unModuloMulti['body'], '<span class="label">Otro &amp; &lt;modulo&gt;</span>'),
+        'Una cuenta con varias empresas no debe abrir automáticamente su único módulo.');
+    $pdo->exec('UPDATE empresas_modulos SET habilitado = 1 WHERE idModulo IN (2, 3) AND idEmpresa IN (1, 2, 3)');
     preg_match('~<span class="label">Puertas &amp; &lt;Prueba&gt;</span>(.*?)<span class="label">GESTALO</span>~s', $panelMulti['body'], $menuOpenDoors);
     $iconosEmpresa = [];
     foreach (['Configurada', 'Empresa actualizada', 'ZZ Empresa uno'] as $nombreEmpresa) {

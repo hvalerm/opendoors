@@ -106,7 +106,7 @@ try {
                 COALESCE(SUM(habilitado = 1 AND ejecutado = 0 AND activoDesde > ?), 0) AS proximos,
                 COALESCE(SUM(ejecutado = 1), 0) AS usados,
                 COALESCE(SUM(habilitado = 0 AND ejecutado = 0), 0) AS revocados
-         FROM accesos WHERE idEmpresa = ?'
+         FROM accesos WHERE idEmpresa = ? AND visible = 1'
     );
     $q->execute([$ahora, $ahora, $idEmpresa]);
     $r = $q->fetch();
@@ -119,7 +119,7 @@ try {
         'SELECT l.nombreLocal AS nombre_local, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.zonaHoraria, (a.activoDesde > ?) AS futuro
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta >= ?
+         WHERE a.idEmpresa = ? AND a.visible = 1 AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta >= ?
          ORDER BY a.activoDesde LIMIT 5'
     );
     $q->execute([$ahora, $idEmpresa, $ahora]);
@@ -129,7 +129,7 @@ try {
     $q = $pdo->prepare(
         'SELECT COUNT(*) FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta < ?'
+         WHERE a.idEmpresa = ? AND a.visible = 1 AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta < ?'
     );
     $q->execute([$idEmpresa, $ahora]);
     $k['no_usados'] = (int) $q->fetchColumn();
@@ -137,7 +137,7 @@ try {
         'SELECT l.nombreLocal AS nombre_local, a.activoDesde AS activo_desde, a.activoHasta AS activo_hasta, l.zonaHoraria
          FROM accesos a
          INNER JOIN locales l ON l.idLocal = a.idLocal AND l.idEmpresa = a.idEmpresa
-         WHERE a.idEmpresa = ? AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta < ?
+         WHERE a.idEmpresa = ? AND a.visible = 1 AND a.habilitado = 1 AND a.ejecutado = 0 AND a.activoHasta < ?
          ORDER BY a.activoHasta DESC LIMIT 5'
     );
     $q->execute([$idEmpresa, $ahora]);
