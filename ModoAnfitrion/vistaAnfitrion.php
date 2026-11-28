@@ -62,6 +62,9 @@ function paginasEmpresa(array $items, int $idEmpresa): array
 foreach ($modulos as $asignaciones) {
     $modulo = $asignaciones[0];
     $nombreModulo = $modulo['nombreModulo'];
+    $iconoEmpresa = $nombreModulo === 'OpenDoors'
+        ? 'M4 2h12v20H4zM7 5v2h2V5zm4 0v2h2V5zM7 9v2h2V9zm4 0v2h2V9zm-4 4v2h2v-2zm4 0v2h2v-2zm-2 4v5h2v-5zm9-7h2v12h-2z'
+        : null;
     $claveModulo = 'modulo-' . (int) $modulo['idModulo'];
     $archivo = __DIR__ . '/../Modulos/' . $nombreModulo . '/menuLateral.php';
     if ($nombreModulo === '.' || $nombreModulo === '..' || preg_match('~[\\\\/\x00-\x1f\x7f]~', $nombreModulo)
@@ -72,7 +75,7 @@ foreach ($modulos as $asignaciones) {
         $grupos = [];
         if ($multiempresa || !$modulo['vigente']) {
             foreach ($asignaciones as $asignacion) {
-                $grupos[] = [$asignacion['nombreEmpresa'], [], null, 'empresa-' . (int) $asignacion['idEmpresa'], null,
+                $grupos[] = [$asignacion['nombreEmpresa'], [], null, 'empresa-' . (int) $asignacion['idEmpresa'], $iconoEmpresa,
                     $asignacion['vigente'] ? 'Módulo no disponible.' : 'La licencia del módulo expiró.'];
             }
         }
@@ -94,8 +97,8 @@ foreach ($modulos as $asignaciones) {
             $idEmpresa = (int) $asignacion['idEmpresa'];
             $claveEmpresa = 'empresa-' . $idEmpresa;
             if (!$asignacion['vigente']) {
-                $grupos[] = [$asignacion['nombreEmpresa'], [], null, $claveEmpresa, null, 'La licencia del módulo expiró.'];
-                $gruposConfiguracion[] = [$asignacion['nombreEmpresa'], [], null, $claveEmpresa, null, 'La licencia del módulo expiró.'];
+                $grupos[] = [$asignacion['nombreEmpresa'], [], null, $claveEmpresa, $iconoEmpresa, 'La licencia del módulo expiró.'];
+                $gruposConfiguracion[] = [$asignacion['nombreEmpresa'], [], null, $claveEmpresa, $iconoEmpresa, 'La licencia del módulo expiró.'];
                 continue;
             }
             $asignacion['multiempresa'] = $multiempresa;
@@ -108,8 +111,8 @@ foreach ($modulos as $asignaciones) {
             $configuracion = $actualDefinicion['configuracion'];
             $opciones = $principal[2] ?: [[$principal[0], null, $principal[3] ?? null, 'principal']];
             $opcionesConfiguracion = $configuracion[1] ?: [[$configuracion[0], null, $configuracion[2] ?? null, 'principal']];
-            $grupos[] = [$asignacion['nombreEmpresa'], paginasEmpresa($opciones, $idEmpresa), null, $claveEmpresa];
-            $gruposConfiguracion[] = [$asignacion['nombreEmpresa'], paginasEmpresa($opcionesConfiguracion, $idEmpresa), null, $claveEmpresa];
+            $grupos[] = [$asignacion['nombreEmpresa'], paginasEmpresa($opciones, $idEmpresa), null, $claveEmpresa, $iconoEmpresa];
+            $gruposConfiguracion[] = [$asignacion['nombreEmpresa'], paginasEmpresa($opcionesConfiguracion, $idEmpresa), null, $claveEmpresa, $iconoEmpresa];
         }
         if ($definicion === null) {
             $definicion = [

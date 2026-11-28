@@ -1564,6 +1564,15 @@ PHP);
     comprobarStartup((int) json_decode($request([], 'sesion.php')['body'], true)['empresa_id'] !== 1,
         'La prueba debe iniciar con otra empresa activa para comprobar el aislamiento.');
     $panelMulti = $request([], 'ModoAnfitrion/vistaAnfitrion');
+    preg_match('~<span class="label">Puertas &amp; &lt;Prueba&gt;</span>(.*?)<span class="label">GESTALO</span>~s', $panelMulti['body'], $menuOpenDoors);
+    $iconosEmpresa = [];
+    foreach (['Configurada', 'Empresa actualizada', 'ZZ Empresa uno'] as $nombreEmpresa) {
+        preg_match('~<svg class="ico"[^>]*><path d="([^"]+)"/></svg><span class="label">'
+            . preg_quote($nombreEmpresa, '~') . '</span>~', $menuOpenDoors[1] ?? '', $iconoEmpresa);
+        $iconosEmpresa[] = $iconoEmpresa[1] ?? null;
+    }
+    comprobarStartup(count(array_filter($iconosEmpresa)) === 3 && count(array_unique($iconosEmpresa)) === 1,
+        'Las empresas de OpenDoors, incluida la vencida, deben mostrar el mismo icono.');
     comprobarStartup(str_contains($panelMulti['body'], 'puertas-prueba/empresa-1/locales/local-1'),
         'El menú no muestra el lugar de la primera empresa.');
     comprobarStartup(str_contains($panelMulti['body'], 'puertas-prueba/empresa-3/locales/'),
