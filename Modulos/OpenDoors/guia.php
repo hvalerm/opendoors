@@ -7,6 +7,7 @@
                 <li><b>Crear</b> — <span>Genera un enlace de acceso para un huésped.</span></li>
                 <li><b>Listar (y editar)</b> — <span>Consulta y edita los accesos y revisa si ya se usaron.</span></li>
                 <li><b>Habilitar/Deshabilitar</b> — <span>Controla si un acceso está habilitado para usarse.</span></li>
+                <li><b>Eliminar</b> — <span>Oculta un acceso sin borrar su registro ni deshabilitar su enlace.</span></li>
             </ul>
         </li>
         <li>📟 <b>Dispositivos</b> — <span>Los equipos que abren tus puertas.</span>

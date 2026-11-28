@@ -8,6 +8,13 @@ $empresaOpenDoors = empresaOpenDoors();
 
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = isset($_GET['embed']);
+$eliminar = ($_GET['modo'] ?? '') === 'eliminar';
+$titulo = $eliminar ? 'Eliminar accesos' : 'Habilitar/Deshabilitar accesos';
+$idEmpresa = (int) $empresaOpenDoors['id_empresa'];
+$eliminado = $eliminar && !empty($_SESSION['acceso_ocultado'][$idEmpresa]);
+if ($eliminado) {
+    unset($_SESSION['acceso_ocultado'][$idEmpresa]);
+}
 $accesos = [];
 $error = '';
 
@@ -36,7 +43,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Habilitar/Deshabilitar accesos | Administrar Alojamiento</title>
+    <title><?= $h($titulo) ?> | Administrar Alojamiento</title>
     <link rel="icon" type="image/png" href="../../../img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -56,6 +63,7 @@ $si = fn($v) => $v ? 'Sí' : 'No';
         .btn-fila.revocar { background: #b3261e; }
         .btn-fila.conceder { background: #25a244; }
         .vacio { text-align: center; color: #6b7a86; padding: 20px 0; }
+        .exito { background: #e6f4ea; color: #1e7e34; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; }
         .si { color: #1e8e3e; font-weight: 700; }
         .no { color: #c0392b; font-weight: 700; }
         [hidden] { display: none !important; }
@@ -63,7 +71,8 @@ $si = fn($v) => $v ? 'Sí' : 'No';
 </head>
 <body>
     <section class="panel">
-        <h1>Habilitar/Deshabilitar accesos</h1>
+        <h1><?= $h($titulo) ?></h1>
+        <?php if ($eliminado): ?><p class="exito" role="status">El acceso se eliminó de la lista.</p><?php endif; ?>
 
         <?php if ($error): ?>
             <p class="vacio"><?= $h($error) ?></p>
@@ -93,14 +102,14 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                         <?php foreach ($accesos as $a): $zona = $a['zonaHoraria']; ?>
                             <tr data-desde="<?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'Y-m-d')) ?>" data-hasta="<?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'Y-m-d')) ?>">
                                 <td><?= (int) $a['id_acceso'] ?></td>
-                                <td><?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'd/m/Y H:i T')) ?></td>
-                                <td><?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'd/m/Y H:i T')) ?></td>
+                                <td><?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'd/m/Y H:i | \U\T\C P')) ?></td>
+                                <td><?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'd/m/Y H:i | \U\T\C P')) ?></td>
                                 <td><?= $h($a['nombre_local']) ?></td>
                                 <td><?= $h($a['nombre_empresa']) ?></td>
                                 <td><?= $si($a['ejecutado']) ?></td>
                                 <td><?= $si($a['habilitado']) ?></td>
                                 <td class="<?= $a['en_rango'] ? 'si' : 'no' ?>"><?= $si($a['en_rango']) ?></td>
-                                <td><a class="btn-fila <?= $a['habilitado'] ? 'revocar' : 'conceder' ?>" href="<?= $h(urlEmpresaOpenDoors('revocarAcceso?id=' . (int) $a['id_acceso'] . '&origen=busqueda' . ($embed ? '&embed=1' : ''), (int) $empresaOpenDoors['id_empresa'])) ?>"><?= $a['habilitado'] ? 'Deshabilitar' : 'Habilitar' ?></a></td>
+                                <td><a class="btn-fila <?= $eliminar || $a['habilitado'] ? 'revocar' : 'conceder' ?>" href="<?= $h(urlEmpresaOpenDoors('revocarAcceso?id=' . (int) $a['id_acceso'] . ($eliminar ? '&modo=eliminar' : '&origen=busqueda') . ($embed ? '&embed=1' : ''), $idEmpresa)) ?>"><?= $eliminar ? 'Eliminar' : ($a['habilitado'] ? 'Deshabilitar' : 'Habilitar') ?></a></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

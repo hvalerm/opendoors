@@ -886,6 +886,9 @@ recFin();
     $ultimaActividad = json_decode($request([], 'sesion.php')['body'], true)['ultima_actividad'];
     $datosResumen = $request(['datos' => 'resumen'], $dashboard);
     $fragmentoResumen = json_decode($datosResumen['body'], true)['resumen'] ?? '';
+    $desfaseResumen = (new DateTimeImmutable('now', new DateTimeZone('America/Los_Angeles')))->format('P');
+    comprobarStartup(str_contains($fragmentoResumen, ' | UTC ' . $desfaseResumen),
+        'El resumen debe mostrar el desfase UTC completo de los accesos.');
     $resumenCompleto = $request([], $dashboard);
     comprobarStartup($resumenCompleto['status'] === 200
         && str_contains($resumenCompleto['body'], '<div class="n">1</div><div class="t">Accesos usados</div>')
@@ -988,7 +991,7 @@ recFin();
         && str_contains($response['body'], 'data-col="5">Inactivo</dd>')
         && str_contains($response['body'], 'data-col="6">Sí</dd>')
         && str_contains($response['body'], 'data-col="6">No</dd>')
-        && str_contains($response['body'], '<time class="apertura-utc" datetime="2025-01-02T03:04:05Z">2025-01-02 03:04:05 UTC</time>')
+        && str_contains($response['body'], '<time class="apertura-utc" datetime="2025-01-02T03:04:05Z">2025-01-02 03:04:05 | UTC +00:00</time>')
         && str_contains($response['body'], '<dt>Última apertura</dt><dd>—</dd>'),
         'Las tarjetas no muestran correctamente los dispositivos de la empresa.');
     $sinSesion = $cookies;
@@ -1002,8 +1005,8 @@ recFin();
     $fragmento = json_decode($actualizacion['body'], true)['tarjetas'] ?? '';
     comprobarStartup($actualizacion['status'] === 200
         && substr_count($fragmento, 'data-col="5">Inactivo</dd>') === 2
-        && str_contains($fragmento, 'datetime="2025-01-02T12:00:00Z">2025-01-02 12:00:00 UTC</time>')
-        && str_contains($fragmento, '<time class="apertura-utc" datetime="2025-01-02T03:04:05Z">2025-01-02 03:04:05 UTC</time>')
+        && str_contains($fragmento, 'datetime="2025-01-02T12:00:00Z">2025-01-02 12:00:00 | UTC +00:00</time>')
+        && str_contains($fragmento, '<time class="apertura-utc" datetime="2025-01-02T03:04:05Z">2025-01-02 03:04:05 | UTC +00:00</time>')
         && str_contains($fragmento, '<h2>Dispositivo de Local &lt;especial&gt;</h2>')
         && !str_contains($fragmento, '<!DOCTYPE')
         && !str_contains($fragmento, 'data-col="0" hidden>103</span>'),
@@ -1482,7 +1485,7 @@ PHP);
     $fichaLocal = 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado';
     $localConZona = $request(['id' => '3'], $fichaLocal);
     comprobarStartup($localConZona['status'] === 200
-        && str_contains($localConZona['body'], '<dt>Zona horaria</dt><dd>Asia/Tokyo (+09:00)</dd>')
+        && str_contains($localConZona['body'], '<dt>Zona horaria</dt><dd>Asia/Tokyo | UTC +09:00</dd>')
         && !str_contains($localConZona['body'], 'name="zona_horaria"'),
         'La ficha debe mostrar la zona horaria sin permitir editarla.');
     $respuesta = $request(['id' => '3'], $fichaLocal, post: [
@@ -1522,6 +1525,11 @@ PHP);
         'El listado no indica como editar un acceso antes de la tabla.');
     comprobarStartup(str_contains($listado['body'], 'data-desde="2000-01-02"') &&
         str_contains($listado['body'], 'data-hasta="2099-01-02"'), 'El filtro no usa el día local.');
+    foreach (['listarAccesos', 'busquedaAccesoRevocar'] as $vistaZona) {
+        $listaZona = $request([], 'ModoAnfitrion/OpenDoors/Accesos/' . $vistaZona);
+        comprobarStartup(str_contains($listaZona['body'], '02/01/2000 03:04 | UTC +09:00'),
+            'El listado debe mostrar el desfase UTC completo de cada fecha.');
+    }
     $response = $request(['id' => (string) $nuevoAcceso['idAcceso']],
         'ModoAnfitrion/OpenDoors/Accesos/vetanaDelAcceso.php');
     comprobarStartup($response['status'] === 200
@@ -1579,14 +1587,22 @@ PHP);
         'Habilitar debe permanecer en edición.');
     $pdo->exec("UPDATE locales SET zonaHoraria = 'America/Lima' WHERE idLocal = 3 AND idEmpresa = 3");
     $localConZona = $request(['id' => '3'], $fichaLocal);
-    comprobarStartup(str_contains($localConZona['body'], '<dt>Zona horaria</dt><dd>America/Lima (-05:00)</dd>'),
+    comprobarStartup(str_contains($localConZona['body'], '<dt>Zona horaria</dt><dd>America/Lima | UTC -05:00</dd>'),
         'La ficha no muestra el desfase UTC esperado para Lima.');
+    $listaLima = $request([], 'ModoAnfitrion/OpenDoors/Accesos/listarAccesos');
+    comprobarStartup(str_contains($listaLima['body'], '01/01/2000 14:05 | UTC -05:00'),
+        'El listado no muestra el desfase UTC completo de Lima.');
     $response = $request(['id' => (string) $idAcceso], $editarAcceso);
     comprobarStartup(str_contains($response['body'], 'value="2000-01-01T14:05:06"')
         && $pdo->query("SELECT activoDesde FROM accesos WHERE idAcceso = $idAcceso")->fetchColumn() === '2000-01-01 19:05:06',
         'Cambiar la zona debe cambiar lo mostrado sin mover la vigencia.');
 
     require_once dirname(__DIR__) . '/Modulos/OpenDoors/Nucleo/util/vigencia_accesos.php';
+    $formatoZona = 'd/m/Y H:i | \U\T\C P';
+    comprobarStartup(mostrarFechaAcceso('2026-01-01 12:00:00', 'America/New_York', $formatoZona) === '01/01/2026 07:00 | UTC -05:00'
+        && mostrarFechaAcceso('2026-07-01 12:00:00', 'America/New_York', $formatoZona) === '01/07/2026 08:00 | UTC -04:00'
+        && mostrarFechaAcceso('2026-01-01 12:00:00', 'Asia/Kathmandu', $formatoZona) === '01/01/2026 17:45 | UTC +05:45',
+        'El desfase debe corresponder al instante y admitir cambios de horario y fracciones de hora.');
     comprobarStartup(fechaAccesoEnUtc('2026-03-08T02:30', 'America/New_York') === null
         && fechaAccesoEnUtc('2026-11-01T01:30', 'America/New_York') === null
         && fechaAccesoEnUtc('2026-11-01T02:30', 'America/New_York') === '2026-11-01 07:30:00',
@@ -1612,6 +1628,60 @@ PHP);
             && (int) $pdo->query("SELECT habilitado FROM accesos WHERE idAcceso = $id")->fetchColumn() === $esperado,
             'La accion no actualiza el estado o no vuelve a la lista.');
     }
+
+    $seccionEliminar = $request(['seccion' => 'puertas-prueba/accesos/eliminar'], $panel);
+    comprobarStartup(str_contains($seccionEliminar['body'], '<strong>Puertas &amp; &lt;Prueba&gt; › Accesos › Eliminar</strong>')
+        && str_contains($seccionEliminar['body'], 'OpenDoors/Accesos/busquedaAccesoRevocar?modo=eliminar&amp;embed=1'),
+        'El menú no abre la vista de eliminación de accesos.');
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
+        VALUES ('EliminarPrueba', 3, 3, '2000-01-01 00:00:00', '2099-12-31 23:59:59')");
+    $idEliminar = (int) $pdo->lastInsertId();
+    $listaEliminar = $request(['modo' => 'eliminar', 'empresa' => '3', 'embed' => '1'], $lista);
+    comprobarStartup(str_contains($listaEliminar['body'], '<h1>Eliminar accesos</h1>')
+        && str_contains($listaEliminar['body'], "revocarAcceso?id=$idEliminar&amp;modo=eliminar&amp;embed=1&amp;empresa=3\">Eliminar</a>")
+        && str_contains($listaEliminar['body'], 'id="f-local"') && str_contains($listaEliminar['body'], 'id="f-enrango"')
+        && !str_contains($listaEliminar['body'], '>Habilitar</a>') && !str_contains($listaEliminar['body'], '>Deshabilitar</a>'),
+        'La vista Eliminar debe conservar los filtros y mostrar solo la acción Eliminar.');
+    $cookiesEliminar = $cookies;
+    $cookies = [];
+    comprobarStartup($request(['modo' => 'eliminar'], $lista)['status'] === 302
+        && $request(['modo' => 'eliminar', 'id' => (string) $idEliminar], $confirmar)['status'] === 302,
+        'La lista y confirmación de eliminación deben requerir sesión.');
+    $cookies = $cookiesEliminar;
+    $confirmarEliminar = $request(['id' => (string) $idEliminar, 'modo' => 'eliminar', 'empresa' => '3', 'embed' => '1'], $confirmar);
+    comprobarStartup(str_contains($confirmarEliminar['body'], '¿Deseas eliminar este acceso de la lista?')
+        && str_contains($confirmarEliminar['body'], 'Su enlace seguirá funcionando')
+        && str_contains($confirmarEliminar['body'], 'name="modo" value="eliminar"')
+        && str_contains($confirmarEliminar['body'], '>Eliminar acceso</button>')
+        && str_contains($confirmarEliminar['body'], 'busquedaAccesoRevocar?modo=eliminar&amp;embed=1&amp;empresa=3')
+        && (int) $pdo->query("SELECT visible FROM accesos WHERE idAcceso = $idEliminar")->fetchColumn() === 1,
+        'La confirmación debe explicar el efecto y no cambiar datos al abrirse.');
+    $postEliminar = ['id' => (string) $idEliminar, 'modo' => 'eliminar', 'empresa' => '3', 'embed' => '1',
+        'csrf' => $csrf($confirmarEliminar)];
+    $sinCsrf = $request([], $confirmar, post: array_replace($postEliminar, ['csrf' => '']));
+    comprobarStartup(str_contains($sinCsrf['body'], 'Solicitud no válida.')
+        && (int) $pdo->query("SELECT visible FROM accesos WHERE idAcceso = $idEliminar")->fetchColumn() === 1,
+        'Eliminar sin CSRF válido no debe modificar el acceso.');
+    $idAjeno = (int) $pdo->query("SELECT idAcceso FROM accesos WHERE token = 'TokenPrueba'")->fetchColumn();
+    $ajeno = $request([], $confirmar, post: array_replace($postEliminar, ['id' => (string) $idAjeno]));
+    comprobarStartup(str_contains($ajeno['body'], 'Acceso no encontrado')
+        && (int) $pdo->query("SELECT visible FROM accesos WHERE idAcceso = $idAjeno")->fetchColumn() === 1
+        && $request([], $confirmar, post: array_replace($postEliminar, ['empresa' => '1']))['status'] === 403,
+        'No debe permitir eliminar accesos de una empresa distinta o no vinculada.');
+    $borrado = $request([], $confirmar, post: $postEliminar);
+    $registro = $pdo->query("SELECT visible, habilitado, ejecutado, token FROM accesos WHERE idAcceso = $idEliminar")->fetch(PDO::FETCH_ASSOC);
+    comprobarStartup($borrado['status'] === 303 && $borrado['location'] === 'busquedaAccesoRevocar?modo=eliminar&embed=1&empresa=3'
+        && $registro !== false && (int) $registro['visible'] === 0 && (int) $registro['habilitado'] === 1
+        && (int) $registro['ejecutado'] === 0 && $registro['token'] === 'EliminarPrueba'
+        && str_contains($request(['token' => 'EliminarPrueba'], 'accesoPuerta')['body'], 'Vigente desde'),
+        'Eliminar debe ocultar el registro sin modificar la validez del enlace.');
+    $despuesEliminar = $request(['modo' => 'eliminar', 'empresa' => '3', 'embed' => '1'], $lista);
+    comprobarStartup(str_contains($despuesEliminar['body'], 'El acceso se eliminó de la lista.')
+        && !str_contains($despuesEliminar['body'], "revocarAcceso?id=$idEliminar&amp;modo=eliminar")
+        && !str_contains($request(['modo' => 'eliminar', 'empresa' => '3'], $lista)['body'], 'El acceso se eliminó de la lista.')
+        && str_contains($request([], $confirmar, post: $postEliminar)['body'], 'Acceso no encontrado'),
+        'La lista debe confirmar una sola vez la eliminación y no mostrar accesos ocultos.');
+    $pdo->exec("DELETE FROM accesos WHERE idAcceso = $idEliminar");
 
     foreach ([6] as $idEmpresa) {
         $getInhabilitada = ['id' => cifrarStartup((string) $idEmpresa)];
@@ -1719,6 +1789,25 @@ PHP);
     $seccionEmpresa = $request(['seccion' => 'puertas-prueba/empresa-1/dashboard'], 'ModoAnfitrion/vistaAnfitrion');
     comprobarStartup(str_contains($seccionEmpresa['body'], 'OpenDoors/Dashboard/resumen?empresa=1&amp;embed=1'),
         'El submenu debe abrir la página con el contexto de la empresa seleccionada.');
+    $seccionEliminarMulti = $request(['seccion' => 'puertas-prueba/empresa-1/accesos/eliminar'], 'ModoAnfitrion/vistaAnfitrion');
+    comprobarStartup(str_contains($seccionEliminarMulti['body'], 'OpenDoors/Accesos/busquedaAccesoRevocar?modo=eliminar&amp;empresa=1&amp;embed=1'),
+        'El menú Eliminar debe conservar la empresa seleccionada.');
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
+        VALUES ('EliminarMulti', 1, 1, '2000-01-01 00:00:00', '2099-12-31 23:59:59')");
+    $idEliminarMulti = (int) $pdo->lastInsertId();
+    $confirmarMulti = $request(['id' => (string) $idEliminarMulti, 'modo' => 'eliminar', 'empresa' => '1', 'embed' => '1'], $confirmar);
+    $postEliminarMulti = ['id' => (string) $idEliminarMulti, 'modo' => 'eliminar', 'empresa' => '1', 'embed' => '1',
+        'csrf' => $csrf($confirmarMulti)];
+    $otraEmpresa = $request([], $confirmar, post: array_replace($postEliminarMulti, ['empresa' => '3']));
+    comprobarStartup(str_contains($otraEmpresa['body'], 'Acceso no encontrado')
+        && (int) $pdo->query("SELECT visible FROM accesos WHERE idAcceso = $idEliminarMulti")->fetchColumn() === 1
+        && $request([], $confirmar, post: array_replace($postEliminarMulti, ['empresa' => '2']))['status'] === 403,
+        'No debe ocultar accesos de otra empresa vinculada ni operar con licencia vencida.');
+    $borradoMulti = $request([], $confirmar, post: $postEliminarMulti);
+    comprobarStartup($borradoMulti['status'] === 303 && str_contains($borradoMulti['location'], 'empresa=1')
+        && (int) $pdo->query("SELECT visible FROM accesos WHERE idAcceso = $idEliminarMulti")->fetchColumn() === 0,
+        'Eliminar debe modificar el acceso de la empresa elegida y conservar su contexto.');
+    $pdo->exec("DELETE FROM accesos WHERE idAcceso = $idEliminarMulti");
     $selector = 'ModoAnfitrion/OpenDoors/Accesos/SeleccionarLocalAcceso';
     $listaUno = $request(['empresa' => '1'], $selector);
     $listaTres = $request(['empresa' => '3'], $selector);

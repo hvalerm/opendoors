@@ -60,10 +60,10 @@ foreach ($unidades as $u):
             <div><dt>Local</dt><dd data-col="1"><?= $h($u['nombre_local']) ?></dd></div>
             <div><dt>Empresa</dt><dd data-col="2"><?= $h($u['nombre_empresa']) ?></dd></div>
             <div><dt>Última consulta</dt><dd><?php if ($ultimaConsultaUtc): ?>
-                <time class="consulta-utc" datetime="<?= $h(str_replace(' ', 'T', $ultimaConsultaUtc) . 'Z') ?>"><?= $h($ultimaConsultaUtc) ?> UTC</time>
+                <time class="consulta-utc" datetime="<?= $h(str_replace(' ', 'T', $ultimaConsultaUtc) . 'Z') ?>"><?= $h($ultimaConsultaUtc) ?> | UTC +00:00</time>
             <?php else: ?>—<?php endif; ?></dd></div>
             <div><dt>Última apertura</dt><dd><?php if ($ultimaAperturaUtc): ?>
-                <time class="apertura-utc" datetime="<?= $h(str_replace(' ', 'T', $ultimaAperturaUtc) . 'Z') ?>"><?= $h($ultimaAperturaUtc) ?> UTC</time>
+                <time class="apertura-utc" datetime="<?= $h(str_replace(' ', 'T', $ultimaAperturaUtc) . 'Z') ?>"><?= $h($ultimaAperturaUtc) ?> | UTC +00:00</time>
             <?php else: ?>—<?php endif; ?></dd></div>
         </dl>
     </article>
@@ -142,14 +142,20 @@ if ($soloDatos) {
             var ultimoHtml = tarjetas.innerHTML;
             var formatoConsulta = new Intl.DateTimeFormat('es', {
                 year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
-                timeZoneName: 'shortOffset'
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
             });
 
             function mostrarFechasEnHoraLocal() {
                 tarjetas.querySelectorAll('time.consulta-utc, time.apertura-utc').forEach(function (elemento) {
                     var fecha = new Date(elemento.dateTime);
-                    if (!Number.isNaN(fecha.getTime())) elemento.textContent = formatoConsulta.format(fecha);
+                    if (!Number.isNaN(fecha.getTime())) {
+                        var minutos = fecha.getTimezoneOffset();
+                        var absoluto = Math.abs(minutos);
+                        var desfase = (minutos > 0 ? '-' : '+')
+                            + String(Math.floor(absoluto / 60)).padStart(2, '0')
+                            + ':' + String(absoluto % 60).padStart(2, '0');
+                        elemento.textContent = formatoConsulta.format(fecha) + ' | UTC ' + desfase;
+                    }
                 });
             }
 

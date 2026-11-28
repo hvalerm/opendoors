@@ -22,6 +22,7 @@ return static function (array $modulo, string $nombreWeb): array {
                 !empty($modulo['multiempresa']) ? 'opendoors-lugares-' . $idEmpresa : 'opendoors-lugares'],
             ['Accesos', [
                 ['Crear', null, 'OpenDoors/Accesos/SeleccionarLocalAcceso'], ['Listar (y editar)', null, 'OpenDoors/Accesos/listarAccesos', 'listar'], ['Habilitar/Deshabilitar', null, 'OpenDoors/Accesos/busquedaAccesoRevocar', 'revocar'],
+                ['Eliminar', null, 'OpenDoors/Accesos/busquedaAccesoRevocar?modo=eliminar', 'eliminar'],
             ], null, 'accesos', 'M12.65 10A6 6 0 1 0 12.65 14H17v4h4v-4h2v-4zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'],
             ['Dispositivos', [
                 ['Ver estado', null, 'OpenDoors/Microcontroladores/verEstado'], ['Ver actividad', null, 'OpenDoors/Microcontroladores/verActividad'],

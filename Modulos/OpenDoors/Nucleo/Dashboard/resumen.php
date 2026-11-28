@@ -255,8 +255,8 @@ if (!$soloResumen):
                             <?php foreach ($proximos as $p): ?>
                                 <tr>
                                     <td><?= $h($p['nombre_local']) ?></td>
-                                    <td><?= $h(mostrarFechaAcceso($p['activo_desde'], $p['zonaHoraria'], 'd/m/Y H:i T')) ?></td>
-                                    <td><?= $h(mostrarFechaAcceso($p['activo_hasta'], $p['zonaHoraria'], 'd/m/Y H:i T')) ?></td>
+                                    <td><?= $h(mostrarFechaAcceso($p['activo_desde'], $p['zonaHoraria'], 'd/m/Y H:i | \U\T\C P')) ?></td>
+                                    <td><?= $h(mostrarFechaAcceso($p['activo_hasta'], $p['zonaHoraria'], 'd/m/Y H:i | \U\T\C P')) ?></td>
                                     <td><?= $p['futuro'] ? '<span class="chip luego">Próximo</span>' : '<span class="chip ahora">Vigente</span>' ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -282,8 +282,8 @@ if (!$soloResumen):
                         <?php foreach ($noUsados as $n): ?>
                             <tr>
                                 <td><?= $h($n['nombre_local']) ?></td>
-                                <td><?= $h(mostrarFechaAcceso($n['activo_desde'], $n['zonaHoraria'], 'd/m/Y H:i T')) ?></td>
-                                <td><?= $h(mostrarFechaAcceso($n['activo_hasta'], $n['zonaHoraria'], 'd/m/Y H:i T')) ?></td>
+                                <td><?= $h(mostrarFechaAcceso($n['activo_desde'], $n['zonaHoraria'], 'd/m/Y H:i | \U\T\C P')) ?></td>
+                                <td><?= $h(mostrarFechaAcceso($n['activo_hasta'], $n['zonaHoraria'], 'd/m/Y H:i | \U\T\C P')) ?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

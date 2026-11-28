@@ -171,7 +171,7 @@ try {
                 <dt>Nombre</dt><dd><?= $h($local['nombre_local']) ?></dd>
                 <dt>Dirección</dt><dd><?= $h($local['direccion_local']) ?></dd>
                 <dt>Empresa</dt><dd><?= $h($local['nombre_empresa']) ?></dd>
-                <dt>Zona horaria</dt><dd><?= $h($zonaHoraria . ' (' . $desfaseUtc . ')') ?></dd>
+                <dt>Zona horaria</dt><dd><?= $h($zonaHoraria . ' | UTC ' . $desfaseUtc) ?></dd>
                 <dt>Accionar</dt><dd><?= $local['accionar'] ? 'Activado (puerta solicitada)' : 'Inactivo' ?></dd>
                 <dt>Habilitado</dt><dd><?= $local['habilitado'] ? 'Sí' : 'No' ?></dd>
             </dl>

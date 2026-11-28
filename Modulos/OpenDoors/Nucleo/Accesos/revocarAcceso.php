@@ -9,6 +9,7 @@ $empresaOpenDoors = empresaOpenDoors();
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $idAcceso = filter_var($_GET['id'] ?? $_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $embed = isset($_GET['embed']) || isset($_POST['embed']);
+$eliminar = ($_POST['modo'] ?? $_GET['modo'] ?? '') === 'eliminar';
 $acceso = null;
 $error = '';
 $mensaje = '';
@@ -32,7 +33,8 @@ function cargarAcceso(PDO $pdo, int $idAcceso, int $idEmpresa): ?array
 }
 
 $origen = ($_GET['origen'] ?? $_POST['origen'] ?? '') === 'busqueda' ? 'busqueda' : '';
-$urlLista = urlEmpresaOpenDoors(($origen ? 'busquedaAccesoRevocar' : 'listarAccesos') . ($embed ? '?embed=1' : ''), (int) $empresaOpenDoors['id_empresa']);
+$rutaLista = $eliminar ? 'busquedaAccesoRevocar?modo=eliminar' : ($origen ? 'busquedaAccesoRevocar' : 'listarAccesos');
+$urlLista = urlEmpresaOpenDoors($rutaLista . ($embed ? (str_contains($rutaLista, '?') ? '&' : '?') . 'embed=1' : ''), (int) $empresaOpenDoors['id_empresa']);
 
 try {
     $pdo = getOpenDoorsPDO();
@@ -43,6 +45,15 @@ try {
     if ($acceso && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!hash_equals($_SESSION['csrf'], (string) ($_POST['csrf'] ?? ''))) {
             $error = 'Solicitud no válida. Recarga la página e inténtalo de nuevo.';
+        } elseif ($eliminar) {
+            $upd = $pdo->prepare('UPDATE accesos SET visible = 0 WHERE idAcceso = ? AND idEmpresa = ? AND visible = 1');
+            $upd->execute([$acceso['id_acceso'], $acceso['id_empresa']]);
+            if ($upd->rowCount() === 1) {
+                $_SESSION['acceso_ocultado'][(int) $empresaOpenDoors['id_empresa']] = true;
+                header('Location: ' . $urlLista, true, 303);
+                exit;
+            }
+            $acceso = null;
         } else {
             $nuevo = $acceso['habilitado'] ? 0 : 1;
             $upd = $pdo->prepare('UPDATE accesos SET habilitado = ? WHERE idAcceso = ? AND idEmpresa = ? AND visible = 1');
@@ -64,7 +75,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Habilitar/Deshabilitar acceso | Administrar Alojamiento</title>
+    <title><?= $eliminar ? 'Eliminar acceso' : 'Habilitar/Deshabilitar acceso' ?> | Administrar Alojamiento</title>
     <link rel="icon" type="image/png" href="../../../img/OpenDoors.png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -93,6 +104,9 @@ try {
             <h1>Acceso</h1>
             <?php if ($error): ?><div class="error"><?= $h($error) ?></div><?php endif; ?>
             <?php if ($mensaje): ?><div class="exito"><?= $h($mensaje) ?></div><?php endif; ?>
+            <?php if ($eliminar): ?>
+                <p>¿Deseas eliminar este acceso de la lista? Su enlace seguirá funcionando mientras esté vigente, habilitado y no se haya usado.</p>
+            <?php endif; ?>
             <dl>
                 <dt>ID acceso</dt><dd><?= (int) $acceso['id_acceso'] ?></dd>
                 <dt>Local</dt><dd><?= $h($acceso['nombre_local']) ?></dd>
@@ -110,7 +124,10 @@ try {
                 <input type="hidden" name="id" value="<?= (int) $acceso['id_acceso'] ?>">
                 <?php if ($embed): ?><input type="hidden" name="embed" value="1"><?php endif; ?>
                 <?php if ($origen): ?><input type="hidden" name="origen" value="busqueda"><?php endif; ?>
-                <?php if ($acceso['habilitado']): ?>
+                <?php if ($eliminar): ?>
+                    <input type="hidden" name="modo" value="eliminar">
+                    <button type="submit" class="btn peligro">Eliminar acceso</button>
+                <?php elseif ($acceso['habilitado']): ?>
                     <button type="submit" class="btn peligro">Deshabilitar acceso</button>
                 <?php else: ?>
                     <button type="submit" class="btn ok">Habilitar acceso</button>

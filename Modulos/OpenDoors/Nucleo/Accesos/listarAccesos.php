@@ -135,8 +135,8 @@ $si = fn($v) => $v ? 'Sí' : 'No';
                         <?php foreach ($accesos as $a): $zona = $a['zonaHoraria']; ?>
                             <tr class="fila" data-href="<?= $h(urlEmpresaOpenDoors('vetanaDelAcceso?id=' . (int) $a['id_acceso'] . ($embed ? '&embed=1' : ''), (int) $empresaOpenDoors['id_empresa'])) ?>" data-local-id="<?= (int) $a['id_local'] ?>" data-desde="<?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'Y-m-d')) ?>" data-hasta="<?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'Y-m-d')) ?>">
                                 <td><a class="enlace-id" href="<?= $h(urlEmpresaOpenDoors('vetanaDelAcceso?id=' . (int) $a['id_acceso'] . ($embed ? '&embed=1' : ''), (int) $empresaOpenDoors['id_empresa'])) ?>"><?= (int) $a['id_acceso'] ?></a></td>
-                                <td><?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'd/m/Y H:i T')) ?></td>
-                                <td><?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'd/m/Y H:i T')) ?></td>
+                                <td><?= $h(mostrarFechaAcceso($a['activo_desde'], $zona, 'd/m/Y H:i | \U\T\C P')) ?></td>
+                                <td><?= $h(mostrarFechaAcceso($a['activo_hasta'], $zona, 'd/m/Y H:i | \U\T\C P')) ?></td>
                                 <td data-busqueda="<?= $h($a['nombre_local'] . ' - ' . $a['direccion_local']) ?>"><?= $h($a['nombre_local']) ?></td>
                                 <td><?= $h($a['nombre_empresa']) ?></td>
                                 <td><?= $si($a['ejecutado']) ?></td>
