@@ -10,7 +10,7 @@ $opciones = [
     'ultimaApertura' => ['Hora de última apertura', 'La fecha y hora se sustituirán por las del restablecimiento.'],
     'cantidadAperturasExitosas' => ['Aperturas exitosas', 'El contador de aperturas exitosas de cada dispositivo se pondrá en cero.'],
     'cantidadAperturasFallidas' => ['Aperturas fallidas', 'El contador de aperturas fallidas de cada dispositivo se pondrá en cero.'],
-    'accesosInservibles' => ['Accesos que ya no sirven', 'Se deshabilitarán los accesos vencidos o ya usados. No se borrarán registros.'],
+    'accesosInservibles' => ['Accesos que ya no sirven', 'Se deshabilitarán los accesos vencidos o ya usados.'],
 ];
 $locales = [];
 $alcance = 'todos';
@@ -83,8 +83,8 @@ try {
                             ->execute($parametros);
                     }
                     if (isset($seleccion['accesosInservibles'])) {
-                        $pdo->prepare('UPDATE accesos SET habilitado = 0' . $filtro
-                            . ' AND habilitado = 1 AND (activoHasta < ? OR ejecutado = 1)')
+                        $pdo->prepare('UPDATE accesos SET visible = 0' . $filtro
+                            . ' AND visible = 1 AND (activoHasta < ? OR ejecutado = 1)')
                             ->execute([...$parametros, $ahora]);
                     }
                     $pdo->commit();
@@ -141,7 +141,7 @@ session_write_close();
                     <legend>Datos a restaurar</legend>
                     <div id="grupoSeleccionarTodos" hidden>
                         <input type="checkbox" id="seleccionarTodos">
-                        <label for="seleccionarTodos">Seleccionar todos los datos</label>
+                        <label for="seleccionarTodos"><strong>Seleccionar todos los datos</strong></label>
                     </div>
                     <?php foreach ($opciones as $clave => [$titulo, $detalle]): ?>
                         <div>

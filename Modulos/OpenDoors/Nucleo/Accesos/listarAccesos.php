@@ -167,10 +167,39 @@ $si = fn($v) => $v ? 'Sí' : 'No';
             var indiceActivo = -1;
 
             var fDesde = document.getElementById('f-desde');
-            filas.forEach(function (tr) {
-                tr.addEventListener('click', function () { window.location.href = tr.dataset.href; });
-            });
             var fHasta = document.getElementById('f-hasta');
+            var filtros = {
+                f_id: document.getElementById('f-id'),
+                f_desde: fDesde,
+                f_hasta: fHasta,
+                f_local: fLocal,
+                f_empresa: document.getElementById('f-empresa'),
+                f_ejecutado: document.getElementById('f-ejecutado'),
+                f_habilitado: document.getElementById('f-habilitado'),
+                f_enrango: document.getElementById('f-enrango')
+            };
+            var parametros = new URLSearchParams(window.location.search);
+            Object.keys(filtros).forEach(function (clave) {
+                filtros[clave].value = parametros.get(clave) || '';
+            });
+            var idLocalGuardado = parametros.get('f_local_id');
+            var opcionGuardada = opcionesLocal.find(function (opcion) {
+                return idLocalGuardado && opcion.dataset.localId === idLocalGuardado;
+            });
+            if (opcionGuardada) {
+                localSeleccionado = idLocalGuardado;
+                fLocal.value = opcionGuardada.textContent;
+                opcionesLocal.forEach(function (opcion) {
+                    opcion.setAttribute('aria-selected', opcion === opcionGuardada ? 'true' : 'false');
+                });
+            } else if (fLocal.value) {
+                opcionesLocal[0].setAttribute('aria-selected', 'false');
+            }
+            filas.forEach(function (tr) {
+                tr.addEventListener('click', function (e) {
+                    if (!e.target.closest('a')) window.location.href = tr.dataset.href;
+                });
+            });
 
             // Minúsculas y sin acentos para que "si" y "Sí" coincidan
             function norm(s) {
@@ -188,6 +217,18 @@ $si = fn($v) => $v ? 'Sí' : 'No';
             });
 
             function filtrar() {
+                filas.forEach(function (tr) {
+                    var enlace = tr.querySelector('a.enlace-id');
+                    var url = new URL(enlace.href);
+                    Object.keys(filtros).forEach(function (clave) {
+                        if (filtros[clave].value) url.searchParams.set(clave, filtros[clave].value);
+                        else url.searchParams.delete(clave);
+                    });
+                    if (localSeleccionado !== null) url.searchParams.set('f_local_id', localSeleccionado);
+                    else url.searchParams.delete('f_local_id');
+                    enlace.href = url.href;
+                    tr.dataset.href = url.href;
+                });
                 var activos = campos.map(function (c) {
                     return { col: +c.dataset.col, v: norm(c.value), exacto: !!c.dataset.exacto };
                 }).filter(function (f) { return f.v !== ''; });

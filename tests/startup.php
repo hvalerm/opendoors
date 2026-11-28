@@ -205,7 +205,8 @@ recFin();
         idEmpresa INTEGER, ultimaConsulta TEXT, ultimaApertura TEXT, habilitado INTEGER,
         cantidadAperturasExitosas INTEGER NOT NULL DEFAULT 0, cantidadAperturasFallidas INTEGER NOT NULL DEFAULT 0)');
     $pdo->exec('CREATE TABLE accesos (idAcceso INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT UNIQUE, idLocal INTEGER, idEmpresa INTEGER,
-        activoDesde TEXT, activoHasta TEXT, ejecutado INTEGER DEFAULT 0, habilitado INTEGER DEFAULT 1)');
+        activoDesde TEXT, activoHasta TEXT, ejecutado INTEGER DEFAULT 0, habilitado INTEGER DEFAULT 1,
+        visible INTEGER NOT NULL DEFAULT 1)');
     $pdo->exec("INSERT INTO locales (idLocal, idEmpresa, nombreLocal, direccionLocal)
         VALUES (1, 1, 'Local de prueba', 'Direccion de prueba')");
     $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta)
@@ -1217,11 +1218,15 @@ PHP);
         ('RestFuturo', 4, 3, '2099-01-01 00:00:00', '2099-12-31 00:00:00', 0),
         ('RestEliminado', 5, 3, '2000-01-01 00:00:00', '2000-02-01 00:00:00', 0),
         ('RestAjeno', 1, 1, '2000-01-01 00:00:00', '2000-02-01 00:00:00', 0)");
+    $pdo->exec("INSERT INTO accesos (token, idLocal, idEmpresa, activoDesde, activoHasta, ejecutado, habilitado)
+        VALUES ('RestDeshabilitado', 3, 3, '2000-01-01 00:00:00', '2000-02-01 00:00:00', 0, 0)");
     $formInfo = $request($embedInfo, $restaurarInfo);
     comprobarStartup($formInfo['status'] === 200
         && str_contains($formInfo['body'], '<option value="todos" selected>Todos los lugares no eliminados</option>')
         && !str_contains($formInfo['body'], 'Selecciona un local o todos')
         && str_contains($formInfo['body'], '<option value="3">Local del anfitrion</option>')
+        && str_contains($formInfo['body'], '<label for="seleccionarTodos"><strong>Seleccionar todos los datos</strong></label>')
+        && str_contains($formInfo['body'], 'Se deshabilitarán los accesos vencidos o ya usados.</p>')
         && !str_contains($formInfo['body'], 'Local eliminado de prueba') && !str_contains($formInfo['body'], 'Local de prueba'),
         'Restaurar información no selecciona todos por defecto o muestra opciones de locales incorrectas.');
     $postInfo = ['csrf' => $csrf($formInfo), 'alcance' => '3', 'campos' => ['cantidadAperturasExitosas']];
@@ -1241,8 +1246,16 @@ PHP);
         && $contadoresInfo($pdo) === [201 => 0, 202 => 8, 203 => 9, 204 => 10]
         && (int) $pdo->query('SELECT cantidadAperturasFallidas FROM microcontroladores WHERE idMicrocontrolador = 201')->fetchColumn() === 3
         && $pdo->query('SELECT ultimaApertura FROM microcontroladores WHERE idMicrocontrolador = 201')->fetchColumn() === '2020-01-01 00:00:00'
-        && (int) $pdo->query("SELECT habilitado FROM accesos WHERE token = 'RestVencido'")->fetchColumn() === 1,
+        && (int) $pdo->query("SELECT visible FROM accesos WHERE token = 'RestVencido'")->fetchColumn() === 1,
         'La restauración individual alteró un local o campo no seleccionado.');
+    $response = $request($embedInfo, $restaurarInfo, post: array_replace($postInfo, ['campos' => ['accesosInservibles']]));
+    comprobarStartup($response['status'] === 303
+        && (int) $pdo->query("SELECT visible FROM accesos WHERE token = 'RestVencido'")->fetchColumn() === 0
+        && (int) $pdo->query("SELECT visible FROM accesos WHERE token = 'RestDeshabilitado'")->fetchColumn() === 0
+        && (int) $pdo->query("SELECT visible FROM accesos WHERE token = 'RestUsado'")->fetchColumn() === 1
+        && (int) $pdo->query("SELECT habilitado FROM accesos WHERE token = 'RestVencido'")->fetchColumn() === 1,
+        'La restauración de accesos no respeta el local o modifica el estado habilitado.');
+    $pdo->exec("UPDATE accesos SET visible = 1 WHERE token IN ('RestVencido', 'RestDeshabilitado')");
     $desdeInfo = gmdate('Y-m-d H:i:s');
     $response = $request($embedInfo, $restaurarInfo, post: array_replace($postInfo, [
         'alcance' => 'todos', 'campos' => ['ultimaApertura', 'cantidadAperturasExitosas', 'cantidadAperturasFallidas', 'accesosInservibles'],
@@ -1250,7 +1263,7 @@ PHP);
     $hastaInfo = gmdate('Y-m-d H:i:s');
     $aperturasInfo = $pdo->query('SELECT idMicrocontrolador, ultimaApertura FROM microcontroladores
         WHERE idMicrocontrolador BETWEEN 201 AND 204')->fetchAll(PDO::FETCH_KEY_PAIR);
-    $accesosInfo = array_map('intval', $pdo->query("SELECT token, habilitado FROM accesos WHERE token LIKE 'Rest%'")->fetchAll(PDO::FETCH_KEY_PAIR));
+    $accesosInfo = array_map('intval', $pdo->query("SELECT token, visible FROM accesos WHERE token LIKE 'Rest%'")->fetchAll(PDO::FETCH_KEY_PAIR));
     comprobarStartup($response['status'] === 303
         && str_contains($request($embedInfo, $restaurarInfo)['body'], 'Información restaurada.')
         && $contadoresInfo($pdo) === [201 => 0, 202 => 0, 203 => 9, 204 => 10]
@@ -1259,9 +1272,11 @@ PHP);
         && $aperturasInfo[201] >= $desdeInfo && $aperturasInfo[201] <= $hastaInfo
         && $aperturasInfo[202] === $aperturasInfo[201]
         && $aperturasInfo[203] === '2020-01-01 00:00:00' && $aperturasInfo[204] === '2020-01-01 00:00:00'
-        && $accesosInfo == ['RestVencido' => 0, 'RestUsado' => 0, 'RestVigente' => 1,
+        && $accesosInfo == ['RestVencido' => 0, 'RestUsado' => 0, 'RestDeshabilitado' => 0, 'RestVigente' => 1,
             'RestFuturo' => 1, 'RestEliminado' => 1, 'RestAjeno' => 1],
         'Restaurar todos no respetó la hora UTC, la vigencia de accesos o el alcance por empresa y local.');
+    comprobarStartup((int) $pdo->query("SELECT COUNT(*) FROM accesos WHERE token LIKE 'Rest%' AND habilitado = 0")->fetchColumn() === 1,
+        'Restaurar accesos no debe modificar su estado habilitado.');
     $pdo->exec("DELETE FROM accesos WHERE token LIKE 'Rest%'");
     $localApertura = 'ModoAnfitrion/OpenDoors/Locales/localSeleccionado';
     $idEstadoAnfitrion = str_repeat('c', 64);
@@ -1455,9 +1470,42 @@ PHP);
         'accion' => 'actualizar', 'csrf' => $csrf($response), 'id_local' => '3', 'habilitado' => '1',
         'activo_desde' => '2000-01-02T04:05:06', 'activo_hasta' => '2099-01-02T03:04',
     ]);
-    comprobarStartup(str_contains($response['body'], 'El acceso fue actualizado.')
+    comprobarStartup($response['status'] === 303 && str_starts_with($response['location'], 'listarAccesos')
         && $pdo->query("SELECT activoDesde FROM accesos WHERE idAcceso = $idAcceso")->fetchColumn() === '2000-01-01 19:05:06',
-        'La edición no guarda la nueva hora local en UTC.');
+        'La edición no guarda la nueva hora local en UTC o no vuelve a la lista.');
+    $filtrosEdicion = [
+        'f_id' => (string) $idAcceso, 'f_desde' => '2000-01-01', 'f_hasta' => '2099-12-31',
+        'f_local' => 'Local del anfitrion - Direccion del anfitrion', 'f_local_id' => '3',
+        'f_empresa' => 'Dueno & <prueba>', 'f_ejecutado' => 'No', 'f_habilitado' => 'Sí', 'f_enrango' => 'No',
+    ];
+    $detalleFiltrado = $request(['id' => (string) $idAcceso, 'empresa' => '3', 'embed' => '1'] + $filtrosEdicion, $editarAcceso);
+    comprobarStartup(str_contains($detalleFiltrado['body'], 'name="f_empresa" value="Dueno &amp; &lt;prueba&gt;"')
+        && str_contains($detalleFiltrado['body'], 'name="f_local_id" value="3"')
+        && str_contains($detalleFiltrado['body'], 'f_local_id=3'),
+        'El detalle no conserva y escapa los filtros en el formulario y enlace de regreso.');
+    $datosEdicion = [
+        'id' => (string) $idAcceso, 'empresa' => '3', 'embed' => '1', 'accion' => 'actualizar',
+        'csrf' => $csrf($detalleFiltrado), 'id_local' => '3', 'habilitado' => '1',
+        'activo_desde' => '2000-01-02T04:05:06', 'activo_hasta' => '2099-01-02T03:04',
+    ] + $filtrosEdicion;
+    $invalida = $request([], $editarAcceso, post: array_replace($datosEdicion, ['activo_hasta' => '1999-01-01T00:00']));
+    comprobarStartup($invalida['status'] === 200 && str_contains($invalida['body'], 'debe ser posterior')
+        && str_contains($invalida['body'], 'name="f_local_id" value="3"'),
+        'Un error de validación debe permanecer en edición y conservar filtros.');
+    $actualizada = $request([], $editarAcceso, post: $datosEdicion);
+    $parametrosRegreso = [];
+    parse_str((string) parse_url($actualizada['location'], PHP_URL_QUERY), $parametrosRegreso);
+    comprobarStartup($actualizada['status'] === 303 && str_starts_with($actualizada['location'], 'listarAccesos?')
+        && ($parametrosRegreso['empresa'] ?? '') === '3' && ($parametrosRegreso['embed'] ?? '') === '1'
+        && array_intersect_key($parametrosRegreso, $filtrosEdicion) === $filtrosEdicion,
+        'La actualización debe redirigir conservando empresa, modo embebido y todos los filtros.');
+    $toggle = $request([], $editarAcceso, post: array_replace($datosEdicion, ['accion' => 'toggle']));
+    comprobarStartup($toggle['status'] === 200 && str_contains($toggle['body'], 'El acceso fue deshabilitado.')
+        && str_contains($toggle['body'], 'name="f_local_id" value="3"'),
+        'Deshabilitar debe permanecer en edición y conservar los filtros.');
+    $toggle = $request([], $editarAcceso, post: array_replace($datosEdicion, ['accion' => 'toggle']));
+    comprobarStartup($toggle['status'] === 200 && str_contains($toggle['body'], 'El acceso fue habilitado.'),
+        'Habilitar debe permanecer en edición.');
     $pdo->exec("UPDATE locales SET zonaHoraria = 'America/Lima' WHERE idLocal = 3 AND idEmpresa = 3");
     $localConZona = $request(['id' => '3'], $fichaLocal);
     comprobarStartup(str_contains($localConZona['body'], '<dt>Zona horaria</dt><dd>America/Lima (-05:00)</dd>'),

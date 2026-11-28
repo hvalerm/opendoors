@@ -9,6 +9,21 @@ $empresaOpenDoors = empresaOpenDoors();
 $h = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $idAcceso = filter_var($_GET['id'] ?? $_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $embed = isset($_GET['embed']) || isset($_POST['embed']);
+$filtros = [];
+foreach (['f_id', 'f_desde', 'f_hasta', 'f_local', 'f_local_id', 'f_empresa', 'f_ejecutado', 'f_habilitado', 'f_enrango'] as $claveFiltro) {
+    $valor = $_POST[$claveFiltro] ?? $_GET[$claveFiltro] ?? null;
+    if ($valor !== null) {
+        if (!is_string($valor)) {
+            http_response_code(400);
+            exit('Filtro no válido.');
+        }
+        $filtros[$claveFiltro] = $valor;
+    }
+}
+$urlLista = urlEmpresaOpenDoors('listarAccesos' . ($embed ? '?embed=1' : ''), (int) $empresaOpenDoors['id_empresa']);
+if ($filtros) {
+    $urlLista .= (str_contains($urlLista, '?') ? '&' : '?') . http_build_query($filtros);
+}
 $acceso = null;
 $error = '';
 $mensaje = '';
@@ -89,8 +104,8 @@ try {
                     $d1, $d2, $idLocalNuevo,
                     $ejecutadoNuevo, $habilitadoNuevo, $acceso['id_acceso'], $acceso['id_empresa'],
                 ]);
-                $mensaje = 'El acceso fue actualizado.';
-                $desde = $hasta = null;
+                header('Location: ' . $urlLista, true, 303);
+                exit;
             }
         } else {
             $error = 'Acción no válida.';
@@ -104,7 +119,6 @@ try {
     $error = 'Ocurrió un error al actualizar el acceso.';
 }
 
-$urlLista = urlEmpresaOpenDoors('listarAccesos' . ($embed ? '?embed=1' : ''), (int) $empresaOpenDoors['id_empresa']);
 $locales = [];
 if ($acceso) {
     try {
@@ -167,6 +181,9 @@ $valHasta = $hasta ?? ($acceso ? mostrarFechaAcceso($acceso['activo_hasta'], $ac
                 <input type="hidden" name="csrf" value="<?= $h($_SESSION['csrf']) ?>">
                 <input type="hidden" name="id" value="<?= (int) $acceso['id_acceso'] ?>">
                 <input type="hidden" name="accion" value="actualizar">
+                <?php foreach ($filtros as $claveFiltro => $valorFiltro): ?>
+                    <input type="hidden" name="<?= $h($claveFiltro) ?>" value="<?= $h($valorFiltro) ?>">
+                <?php endforeach; ?>
                 <?php if ($embed): ?><input type="hidden" name="embed" value="1"><?php endif; ?>
                 <dl>
                     <dt>Local</dt>
