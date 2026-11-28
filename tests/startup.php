@@ -1370,7 +1370,7 @@ PHP);
     $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now', '-16 seconds') WHERE idMicrocontrolador = 201");
     $formApertura = $request(['id' => '3'], $localApertura);
     $postApertura = ['csrf' => $csrf($formApertura), 'accion' => 'abrir_puerta'];
-    comprobarStartup(str_contains($formApertura['body'], 'dispositivo de apertura está inactivo')
+    comprobarStartup(str_contains($formApertura['body'], '<p class="aviso error" id="estadoError" role="status" data-color-estado><span class="estado-icono" aria-hidden="true"></span><span data-mensaje-estado>El dispositivo de apertura está inactivo.')
         && preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $formApertura['body']) === 1,
         'Una consulta de hace 16 segundos debe deshabilitar la apertura.');
     $estadoLocal = $request(['id' => '3'], $localApertura, post: ['accion' => 'estado_dispositivo']);
@@ -1401,7 +1401,7 @@ PHP);
     unlink($marcaFallo);
     $formApertura = $request(['id' => '3'], $localApertura);
     comprobarStartup(preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $formApertura['body']) === 0
-        && str_contains($formApertura['body'], '<p class="aviso" id="estadoError" role="status" data-color-estado>El dispositivo de apertura está activo.</p>'),
+        && str_contains($formApertura['body'], '<p class="aviso" id="estadoError" role="status" data-color-estado><span class="estado-icono" aria-hidden="true"></span><span data-mensaje-estado>El dispositivo de apertura está activo.</span></p>'),
         'Un dispositivo activo debe habilitar la apertura y mostrar su estado.');
     $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now', '-16 seconds') WHERE idMicrocontrolador = 201");
     $response = $request(['id' => '3'], $localApertura, post: $postApertura);

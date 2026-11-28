@@ -151,6 +151,11 @@ try {
         .btn:disabled { background: #a3adb5; cursor: not-allowed; }
         .aviso { margin-bottom: 18px; padding: 10px 14px; border-radius: 8px; background: #e6f4ea; color: #1e6b34; }
         .aviso.error { background: #fdecea; color: #b3261e; }
+        .estado-icono { display: inline-block; margin-right: 8px; color: #1e8e3e; font-size: 1.2em; font-weight: 700; }
+        .estado-icono::before { content: "\2713"; }
+        .aviso.error .estado-icono { color: #b3261e; }
+        .aviso.error .estado-icono::before { content: "\00d7"; }
+        .aviso.comprobando .estado-icono { display: none; }
     </style>
 </head>
 <body>
@@ -168,7 +173,7 @@ try {
             <?php elseif (!$local['habilitado']): ?>
                 <p class="aviso error">El lugar está deshabilitado.</p>
             <?php endif; ?>
-            <p class="aviso<?= $estadoDispositivo === 'activo' ? '' : ' error' ?>" id="estadoError" role="status" data-color-estado><?= $h($estadoDispositivo === null ? 'No se pudo consultar el dispositivo.' : ($estadoDispositivo === 'activo' ? $mensajeDispositivoActivo : mensajeEstadoDispositivo($estadoDispositivo))) ?></p>
+            <p class="aviso<?= $estadoDispositivo === 'activo' ? '' : ' error' ?>" id="estadoError" role="status" data-color-estado><span class="estado-icono" aria-hidden="true"></span><span data-mensaje-estado><?= $h($estadoDispositivo === null ? 'No se pudo consultar el dispositivo.' : ($estadoDispositivo === 'activo' ? $mensajeDispositivoActivo : mensajeEstadoDispositivo($estadoDispositivo))) ?></span></p>
             <dl>
                 <dt>Nombre</dt><dd><?= $h($local['nombre_local']) ?></dd>
                 <dt>Dirección</dt><dd><?= $h($local['direccion_local']) ?></dd>

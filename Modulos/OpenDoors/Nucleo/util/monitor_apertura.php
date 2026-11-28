@@ -3,6 +3,7 @@
         var form = document.getElementById('formAbrir');
         var btn = document.getElementById('btnAbrir');
         var aviso = document.getElementById('estadoError');
+        var textoAviso = aviso.querySelector('[data-mensaje-estado]') || aviso;
         var timer = null;
         var controller = null;
         var enviando = false;
@@ -17,11 +18,14 @@
             return !document.hidden && ventana.document.hasFocus();
         }
 
-        function mostrar(valido, mensaje) {
+        function mostrar(valido, mensaje, comprobando) {
             btn.disabled = !valido;
-            aviso.textContent = mensaje;
+            textoAviso.textContent = mensaje;
             aviso.hidden = !mensaje;
-            if (aviso.hasAttribute('data-color-estado')) aviso.classList.toggle('error', !valido);
+            if (aviso.hasAttribute('data-color-estado')) {
+                aviso.classList.toggle('error', !valido);
+                aviso.classList.toggle('comprobando', !!comprobando);
+            }
         }
 
         function detener() {
@@ -67,7 +71,7 @@
 
         function iniciar() {
             if (!visible() || timer !== null || enviando) return;
-            mostrar(false, 'Comprobando disponibilidad...');
+            mostrar(false, 'Comprobando disponibilidad...', true);
             consultar();
             timer = setInterval(consultar, 1500);
         }
