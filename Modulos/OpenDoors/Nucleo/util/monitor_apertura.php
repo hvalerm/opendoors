@@ -21,6 +21,7 @@
             btn.disabled = !valido;
             aviso.textContent = mensaje;
             aviso.hidden = !mensaje;
+            if (aviso.hasAttribute('data-color-estado')) aviso.classList.toggle('error', !valido);
         }
 
         function detener() {

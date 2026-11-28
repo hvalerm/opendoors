@@ -883,18 +883,18 @@ recFin();
     foreach (range(1, 6) as $i) {
         $insertarNoUsado->execute(['DashboardVencido' . $i]);
     }
-    $ultimaActividad = json_decode($request([], 'sesion.php')['body'], true)['ultima_actividad'];
-    $datosResumen = $request(['datos' => 'resumen'], $dashboard);
-    $fragmentoResumen = json_decode($datosResumen['body'], true)['resumen'] ?? '';
-    $desfaseResumen = (new DateTimeImmutable('now', new DateTimeZone('America/Los_Angeles')))->format('P');
-    comprobarStartup(str_contains($fragmentoResumen, ' | UTC ' . $desfaseResumen),
-        'El resumen debe mostrar el desfase UTC completo de los accesos.');
     $resumenCompleto = $request([], $dashboard);
     comprobarStartup($resumenCompleto['status'] === 200
         && str_contains($resumenCompleto['body'], '<div class="n">1</div><div class="t">Accesos usados</div>')
         && str_contains($resumenCompleto['body'], 'Accesos que no se usaron (últimos 5 de 6)')
         && !str_contains($resumenCompleto['body'], 'Local oculto dashboard'),
         'El resumen inicial incluye accesos ocultos.');
+    $ultimaActividad = json_decode($request([], 'sesion.php')['body'], true)['ultima_actividad'];
+    $datosResumen = $request(['datos' => 'resumen'], $dashboard);
+    $fragmentoResumen = json_decode($datosResumen['body'], true)['resumen'] ?? '';
+    $desfaseResumen = (new DateTimeImmutable('now', new DateTimeZone('America/Los_Angeles')))->format('P');
+    comprobarStartup(str_contains($fragmentoResumen, ' | UTC ' . $desfaseResumen),
+        'El resumen debe mostrar el desfase UTC completo de los accesos.');
     foreach ([
         '2/3' => 'Lugares habilitados',
         '1/2' => 'Dispositivos activos',
@@ -1374,7 +1374,9 @@ PHP);
         && preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $formApertura['body']) === 1,
         'Una consulta de hace 16 segundos debe deshabilitar la apertura.');
     $estadoLocal = $request(['id' => '3'], $localApertura, post: ['accion' => 'estado_dispositivo']);
-    comprobarStartup((json_decode($estadoLocal['body'], true)['valido'] ?? true) === false,
+    $datosEstadoLocal = json_decode($estadoLocal['body'], true);
+    comprobarStartup(($datosEstadoLocal['valido'] ?? true) === false
+        && ($datosEstadoLocal['mensaje'] ?? '') === 'El dispositivo de apertura está inactivo. Verifica que esté conectado.',
         'La consulta de estado del local debe detectar el dispositivo inactivo.');
     $response = $request(['id' => '3'], $localApertura, post: $postApertura);
     comprobarStartup($response['status'] === 409
@@ -1387,7 +1389,9 @@ PHP);
         && !dispositivoActivo(null), 'El limite de actividad debe ser de 0 a 15 segundos.');
     $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now') WHERE idMicrocontrolador = 201");
     $estadoLocal = $request(['id' => '3'], $localApertura, post: ['accion' => 'estado_dispositivo']);
-    comprobarStartup((json_decode($estadoLocal['body'], true)['valido'] ?? false) === true,
+    $datosEstadoLocal = json_decode($estadoLocal['body'], true);
+    comprobarStartup(($datosEstadoLocal['valido'] ?? false) === true
+        && ($datosEstadoLocal['mensaje'] ?? '') === 'El dispositivo de apertura está activo.',
         'La consulta de estado del local debe detectar el dispositivo activo.');
     touch($marcaFallo);
     $falloSeguimiento = $request(['id' => '3'], $localApertura, post: $postApertura);
@@ -1396,8 +1400,9 @@ PHP);
         'Un fallo al iniciar el seguimiento debe revertir la apertura manual.');
     unlink($marcaFallo);
     $formApertura = $request(['id' => '3'], $localApertura);
-    comprobarStartup(preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $formApertura['body']) === 0,
-        'Un dispositivo activo debe habilitar la apertura.');
+    comprobarStartup(preg_match('~<button[^>]*disabled[^>]*>Abrir puerta</button>~', $formApertura['body']) === 0
+        && str_contains($formApertura['body'], '<p class="aviso" id="estadoError" role="status" data-color-estado>El dispositivo de apertura está activo.</p>'),
+        'Un dispositivo activo debe habilitar la apertura y mostrar su estado.');
     $pdo->exec("UPDATE microcontroladores SET ultimaConsulta = datetime('now', '-16 seconds') WHERE idMicrocontrolador = 201");
     $response = $request(['id' => '3'], $localApertura, post: $postApertura);
     comprobarStartup($response['status'] === 409 && str_contains($response['body'], 'dispositivo de apertura está inactivo')

@@ -16,6 +16,7 @@ $mensaje = '';
 $esError = false;
 $local = null;
 $estadoDispositivo = null;
+$mensajeDispositivoActivo = 'El dispositivo de apertura está activo.';
 $consultaEstado = $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'estado_dispositivo';
 if (empty($_SESSION['csrf'])) {
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
@@ -49,7 +50,8 @@ try {
         echo json_encode([
             'valido' => (bool) $valido,
             'mensaje' => !$local ? 'El local ya no está disponible.'
-                : (!$local['habilitado'] ? 'El local está deshabilitado.' : mensajeEstadoDispositivo($estadoDispositivo)),
+                : (!$local['habilitado'] ? 'El local está deshabilitado.'
+                    : ($valido ? $mensajeDispositivoActivo : mensajeEstadoDispositivo($estadoDispositivo))),
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -166,7 +168,7 @@ try {
             <?php elseif (!$local['habilitado']): ?>
                 <p class="aviso error">El lugar está deshabilitado.</p>
             <?php endif; ?>
-            <p class="aviso error" id="estadoError" role="status" <?= $estadoDispositivo === 'activo' ? 'hidden' : '' ?>><?= $h($estadoDispositivo === null ? 'No se pudo consultar el dispositivo.' : mensajeEstadoDispositivo($estadoDispositivo)) ?></p>
+            <p class="aviso<?= $estadoDispositivo === 'activo' ? '' : ' error' ?>" id="estadoError" role="status" data-color-estado><?= $h($estadoDispositivo === null ? 'No se pudo consultar el dispositivo.' : ($estadoDispositivo === 'activo' ? $mensajeDispositivoActivo : mensajeEstadoDispositivo($estadoDispositivo))) ?></p>
             <dl>
                 <dt>Nombre</dt><dd><?= $h($local['nombre_local']) ?></dd>
                 <dt>Dirección</dt><dd><?= $h($local['direccion_local']) ?></dd>
