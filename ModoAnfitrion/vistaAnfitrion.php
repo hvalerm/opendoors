@@ -37,6 +37,7 @@ $scriptsModulos = [];
 $definicionesModulos = [];
 $noDisponibles = [];
 $iconoModulo = 'M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z';
+$iconoEmpresa = 'M4 2h12v20H4zM7 5v2h2V5zm4 0v2h2V5zM7 9v2h2V9zm4 0v2h2V9zm-4 4v2h2v-2zm4 0v2h2v-2zm-2 4v5h2v-5zm9-7h2v12h-2z';
 $carpetasModulos = scandir(__DIR__ . '/../Modulos');
 if ($carpetasModulos === false) {
     error_log('No se pudo leer el directorio de módulos.');
@@ -62,9 +63,6 @@ function paginasEmpresa(array $items, int $idEmpresa): array
 foreach ($modulos as $asignaciones) {
     $modulo = $asignaciones[0];
     $nombreModulo = $modulo['nombreModulo'];
-    $iconoEmpresa = $nombreModulo === 'OpenDoors'
-        ? 'M4 2h12v20H4zM7 5v2h2V5zm4 0v2h2V5zM7 9v2h2V9zm4 0v2h2V9zm-4 4v2h2v-2zm4 0v2h2v-2zm-2 4v5h2v-5zm9-7h2v12h-2z'
-        : null;
     $claveModulo = 'modulo-' . (int) $modulo['idModulo'];
     $archivo = __DIR__ . '/../Modulos/' . $nombreModulo . '/menuLateral.php';
     if ($nombreModulo === '.' || $nombreModulo === '..' || preg_match('~[\\\\/\x00-\x1f\x7f]~', $nombreModulo)

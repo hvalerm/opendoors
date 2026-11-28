@@ -1573,6 +1573,13 @@ PHP);
     }
     comprobarStartup(count(array_filter($iconosEmpresa)) === 3 && count(array_unique($iconosEmpresa)) === 1,
         'Las empresas de OpenDoors, incluida la vencida, deben mostrar el mismo icono.');
+    preg_match('~<span class="label">GESTALO</span>(.*?)<span class="label">Configuración</span>~s', $panelMulti['body'], $menuGestalo);
+    foreach (['Configurada', 'Empresa actualizada', 'ZZ Empresa uno'] as $nombreEmpresa) {
+        preg_match('~<svg class="ico"[^>]*><path d="([^"]+)"/></svg><span class="label">'
+            . preg_quote($nombreEmpresa, '~') . '</span>~', $menuGestalo[1] ?? '', $iconoGestalo);
+        comprobarStartup(($iconoGestalo[1] ?? null) === $iconosEmpresa[0],
+            'Las empresas de otros módulos, incluidas las vencidas, deben mostrar el icono de edificio.');
+    }
     comprobarStartup(str_contains($panelMulti['body'], 'puertas-prueba/empresa-1/locales/local-1'),
         'El menú no muestra el lugar de la primera empresa.');
     comprobarStartup(str_contains($panelMulti['body'], 'puertas-prueba/empresa-3/locales/'),
